@@ -39,6 +39,8 @@ The MM-algorithm consists of repeating these steps:
 
 == Gridding trick
 
+Define a suitable grid $cal(G) subset RR^d$.
+
 Key idea:
 $
   phi_sigma (norm(bold(x)_i - bold(R) bold(y)_j - bold(t)))
@@ -123,17 +125,19 @@ entry for every $tilde(bold(x))_k$.
 === Optimized MM procedure
 First, define grid $cal(G)$ with suitable cell width ($sigma slash 4$?).
 Precompute $tilde(bold(x))$ and $tilde(q)$ as KDEs (via FFT).
-Then, in every MM-iteration:
+Then, in every MM-iteration (repeat until no $k_j$ changes):
 + Compute $k_j$ by placing every $bold(R) bold(y)_j + bold(t)$ on $cal(G)$.
 + Compute
   $macron(bold(x)) = sum_j p_j tilde(bold(x))_k_j$,
   $macron(bold(y)) = sum_j p_j tilde(q)_k_j bold(y)_j$, and
-  $Z = sum_j p_j tilde(q)_k_j$.
-+ Divide $macron(bold(x))$ and $macron(bold(y))$ by $Z$.
+  $kappa = sum_j p_j tilde(q)_k_j$.
++ Divide $macron(bold(x))$ and $macron(bold(y))$ by $kappa$.
 + Compute
   $
     bold(S) = sum_j p_j (tilde(bold(x))_k_j - tilde(q)_k_j macron(bold(x))) (bold(y)_j - macron(bold(y)))^trp
   $
++ Find new $bold(R)$ and $bold(t)$ based on $bold(S)$, $bold(macron(x))$, and
+  $bold(macron(y))$.
 
 Note that the first two steps can be performed in a single pass over all source
 points.
