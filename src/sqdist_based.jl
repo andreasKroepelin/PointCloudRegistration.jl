@@ -26,32 +26,38 @@ struct RobustProblem{TX, TY, S, TT}
     init_transformation::TT
 end
 
+function correspondences(; wpcs::WeightedPointCloud...)
+    
+end
+
 function optimize_transformation(problem::RobustProblem, buf)
     (; X, Y, scales, init_transformation) = problem
-    rotation = init_transformation.linear
-    translation = init_transformation.translation
+    transformation = init_transformation
     @no_escape buf begin
         weights = @alloc(promote_type(eltype(X), eltype(Y)), size(X, 2))
 
         for scale in scales
-            for i in eachindex(weights)
-                x = X[:, i]
-                y = Y[:, i]
+            for (i, src, trg) in
+                zip(eachindex(weights), points(source), points(target))
                 weights[i] =
-                    geman_mcclure_weight(scale, x, rotation * y + translation)
+                    geman_mcclure_weight(scale, transformation(src), trg)
             end
             weights ./= sum(weights)
 
-            mean_x = _static_mean(X, weights)
-            mean_y = _static_mean(Y, weights)
+            source_mean = _static_mean(source, weights)
+            target_mean = _static_mean(target, weights)
             covariance = zero(rotation)
-            for (x, y, weight) in zip(eachcol(X), eachcol(Y), weights)
+            for (src, trg, weight) in
+                zip(eachcol(source), eachcol(target), weights)
                 centered_x = x - mean_x
                 centered_y = y - mean_y
                 covariance += weight * centered_x * centered_y'
             end
-            rotation = static_rot_from_cov(covariance)
-            translation = mean_x - rotation * mean_y
+            transformation = transformation_from_moments(
+                covariance,
+                source_mean,
+                target_mean,
+            )
         end
     end
 
@@ -92,15 +98,15 @@ function optimize_transformation(problem::DensitiesProblem, buf)
 end
 =#
 
-function evaluate_geman_mcclure(scale, Y, X, transformation)
-    cost = zero(CommonType(X, Y))
-    for i in axes(X, 2)
-        x = X[:, i]
-        y = Y[:, i]
-        sqdist = sqeuclidean(x, transformation(y))
-        cost += sqdist / (scale + sqdist)
+function evaluate_geman_mcclure(sqscale, source, target, transformation)
+    cost = zero(common_elype(source, target))
+    for i in axes(source, 2)
+        src = source[:, i]
+        trg = target[:, i]
+        sqdist = sqeuclidean(trg, transformation(src))
+        cost += sqdist / (sqscale + sqdist)
     end
-    cost *= scale
+    cost *= sqscale
     cost
 end
 
@@ -145,37 +151,43 @@ end
 # end
 
 function register_robustly(
-    source::AbstractMatrix,
-    target::AbstractMatrix;
-    annealing::Int = 100,
-    initialization = IdentityInitialization(),
-    minscale::Real,
+    source,
+    target;
+    scale::Real,
+    annealing = nothing,
+    initialization = SimpleInitialization(),
 )
-    @assert size(X) == size(Y)
-
     _register_robustly(
-        statically_known_rows(Y),
-        statically_known_rows(X),
+        weighted(statically_known_rows(source)),
+        weighted(statically_known_rows(target)),
+        scale,
         annealing,
         initialization,
-        minscale,
     )
 end
 
-function _register_robustly(Y, X, annealing, initialization, minscale)
-    scales = logrange(guess_diameter(X, Y), minscale^2; length = annealing)
-    buf = SlabBuffer()
-    best_cost = typemax(CommonType(X, Y))
-    best_transformation = identity_transformation(X, Y)
+function _register_robustly(source, target, scale, annealing, initialization)
+    check_sizes(source, target)
+    sq_scales = if annealing isa Nothing
+        (scale^2,)
+    elseif annealing isa Int
+        logrange(guess_diameter(X, Y), scale^2; length = annealing)
+    else
+        throw(ArgumentError("annealing must either be integer or nothing"))
+    end
+
+    best = worst(transformation_type(source, target))
     for init_transformation in transformation_iterator(initialization, X, Y)
         problem = RobustProblem(X, Y, scales, init_transformation)
         transformation = optimize_transformation(problem, buf)
-        cost = evaluate_geman_mcclure(last(scales), Y, X, transformation)
-        if cost < best_cost
-            best_cost = cost
-            best_transformation = transformation
-        end
+        best = better(
+            best,
+            TransformationWithCost(
+                evaluate_geman_mcclure(scale, source, target, transformation),
+                transformation,
+            ),
+        )
     end
 
-    best_transformation
+    best
 end

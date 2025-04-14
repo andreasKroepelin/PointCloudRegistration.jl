@@ -1,28 +1,17 @@
-struct TransformationSampler{N, T, XT, YT}
-    X::XT
-    Y::YT
-    function TransformationSampler(X::AbstractMatrix, Y::AbstractMatrix)
-        N = NRows(X)
-        T = promote_type(eltype(X), eltype(Y))
-
-        new{N, T, typeof(X), typeof(Y)}(X, Y)
-    end
-end
-
-function rand_transformation(rng, Y, X)
-    N = NRows(X)
-    T = promote_type(eltype(X), eltype(Y))
+function rand_transformation(rng, source, target)
+    N = nrows(source, target)
+    T = common_elype(source, target)
     M = @SMatrix rand(rng, T, N, N)
     rotation, _ = qr(M)
     if det(rotation) < 0
         rotation = negative_last_column(rotation)
     end
 
-    x = X[:, rand(rng, axes(X, 2))]
-    y = Y[:, rand(rng, axes(Y, 2))]
-    translation = x - rotation * y
+    trg = target[:, rand(rng, axes(target, 2))]
+    src = source[:, rand(rng, axes(source, 2))]
+    translation = trg - rotation * src
 
-    AffineMap(rotation, translation)
+    AffineMap(rotation, translation)::transformation_type(source, target)
 end
 
 # function rand_transformation(dti::DynamicTransformationIter)
@@ -50,31 +39,37 @@ end
 
 RandomRestarts(number::Int) = RandomRestarts(number, Random.default_rng())
 
-struct IdentityInitialization end
+struct SimpleInitialization end
 
-struct RandomTransformationIterator{TX, TY, Rng}
+struct RandomTransformationIterator{TT, TS, Rng}
     number::Int
-    X::TX
-    Y::TY
+    source::TS
+    target::TT
     rng::Rng
 end
 
 function Base.iterate(rti::RandomTransformationIterator, i = 1)
     i > rti.number && return nothing
 
-    (rand_transformation(rti.rng, rti.Y, rti.X), i + 1)
+    (rand_transformation(rti.rng, rti.source, rti.target), i + 1)
 end
 
-function identity_transformation(X, Y)
-    N = NRows(X)
-    T = promote_type(eltype(X), eltype(Y))
-    AffineMap(one(SMatrix{N, N, T}), zero(SVector{N, T}))
+function simple_transformation(source, target)
+    N = NRows(source)
+    T = CommonType(source, target)
+    rotation = one(SMatrix{N, N, T})
+    translation = target[:, 1] - rotation * source[:, 1]
+    AffineMap(rotation, translation)::transformation_type(source, target)
 end
 
-function transformation_iterator(::IdentityInitialization, X, Y)
-    (identity_transformation(X, Y),)
+function transformation_iterator(::SimpleInitialization, source, target)
+    (simple_transformation(source, target),)
 end
 
-function transformation_iterator(rr::RandomRestarts, X, Y)
-    RandomTransformationIterator(rr.number, X, Y, rr.rng)
+function transformation_iterator(rr::RandomRestarts, source, target)
+    RandomTransformationIterator(rr.number, source, target, rr.rng)
+end
+
+function identity_transformation(::Type{<:AffineMap{R, L}}) where {R, L}
+    AffineMap(one(R), zero(L))
 end
