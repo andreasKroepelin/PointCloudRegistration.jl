@@ -10,6 +10,7 @@ using Distances
 using LinearAlgebra
 using FFTW
 using Random
+using Statistics
 using Bumper
 
 export register_robustly
@@ -17,7 +18,7 @@ export register_robustly
 include("common.jl")
 include("kabsch.jl")
 include("init.jl")
-include("sqdist_based.jl")
+include("robust.jl")
 include("kernel_correlation.jl")
 
 end # module PointCloudRegistration

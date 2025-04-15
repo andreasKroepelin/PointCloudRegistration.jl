@@ -12,8 +12,14 @@ using PointCloudRegistration
 d = 3
 n = 1_000
 X = HybridMatrix{d, StaticArrays.Dynamic()}(rand(d, n))
+rotation = rand(SMatrix{3, 3, Float64})
+translation = ones(SVector{3, Float64})
+Y = rotation' * (X .- translation)
+T = register_robustly(Y, X; scale = .01, iterations = 100, restarts = 10)
+T.linear
+T.translation
 
-shuffled_proportions = 0.9:0.001:1
+shuffled_proportions = 0.:0.1:1
 samples = 100
 errors = Float64[]
 @showprogress for shuffled_proportion in shuffled_proportions
@@ -22,23 +28,22 @@ errors = Float64[]
         permuted_idcs = collect(axes(X, 2))
         shuffle!(@view(permuted_idcs[1:floor(Int, shuffled_proportion * n)]))
 
-        Y = X[:, permuted_idcs]
+        Y = rotation' * (X[:, permuted_idcs] .- translation)
 
-        T = PointCloudRegistration.register_robustly(
+        T = register_robustly(
             Y,
             X;
-            minscale = 0.01,
-            initialization = PointCloudRegistration.RandomRestarts(
-                10,
-                Xoshiro(123),
-            ),
+            scale = 0.01,
+            iterations = 100,
+            restarts = 10,
+            rng = Xoshiro(123),
         )
-        mean_error += log10(
-            norm(vec(T.linear) - vec(one(T.linear))) +
-            norm(T.translation - zero(T.translation)),
+        mean_error += (
+            norm(vec(T.linear) - vec(rotation)) +
+            norm(T.translation - translation)
         )
     end
-    push!(errors, exp10(mean_error / samples))
+    push!(errors, (mean_error / samples))
 end
 
-scatterlines(shuffled_proportions, errors; axis = (; yscale = log10))
+scatterlines(shuffled_proportions, errors; axis = (;))

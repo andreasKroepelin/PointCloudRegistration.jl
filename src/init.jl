@@ -1,7 +1,5 @@
 function rand_transformation(rng, source, target)
-    N = nrows(source, target)
-    T = common_elype(source, target)
-    M = @SMatrix rand(rng, T, N, N)
+    M = rand(rng, rotation_type(source, target))
     rotation, _ = qr(M)
     if det(rotation) < 0
         rotation = negative_last_column(rotation)
@@ -55,9 +53,7 @@ function Base.iterate(rti::RandomTransformationIterator, i = 1)
 end
 
 function simple_transformation(source, target)
-    N = NRows(source)
-    T = CommonType(source, target)
-    rotation = one(SMatrix{N, N, T})
+    rotation = one(rotation_type(source, target))
     translation = target[:, 1] - rotation * source[:, 1]
     AffineMap(rotation, translation)::transformation_type(source, target)
 end

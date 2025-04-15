@@ -18,8 +18,7 @@ function correspondences(; source, target)
         weights(source),
         points(target),
         weights(target),
-    ) do tpl
-        src, w_src, trg, w_trg = tpl
+    ) do src, w_src, trg, w_trg
         (source = src, target = trg, weight = w_src * w_trg)
     end
 end
@@ -33,53 +32,35 @@ function evaluate_geman_mcclure(sqscale, source, target, transformation)
     TransformationWithCost(total_cost, transformation)
 end
 
-function register_robustly(
-    source,
-    target;
-    scale::Real,
-    niterations = 10,
-    annealing = nothing,
-    initialization = SimpleInitialization(),
-)
+function register_robustly(source, target; scale::Real, kwargs...)
+    config = (; default_config()..., kwargs...)
+    ws_source =  weighted(statically_known_rows(source))
+    ws_target =  weighted(statically_known_rows(target))
+    sqscales = annealing_plan(ws_target, scale, config.annealing)
     _register_robustly(
-        weighted(statically_known_rows(source)),
-        weighted(statically_known_rows(target)),
-        scale,
-        niterations,
-        annealing,
-        initialization,
+        ws_source, ws_target,
+        sqscales,
+        config.restarts,
+        config.iterations,
+        config.rng,
     )
 end
 
-function _register_robustly(
-    source,
-    target,
-    scale,
-    niterations,
-    annealing,
-    initialization,
-)
+function _register_robustly(source, target, sqscales, restarts, iterations, rng)
     check_sizes(source, target)
-    sqscales = if annealing isa Nothing
-        (scale^2,)
-    elseif annealing isa Int
-        logrange(maxvar(target), scale^2; length = annealing)
-    else
-        throw(ArgumentError("annealing must either be integer or nothing"))
-    end
 
     cs = correspondences(; source, target)
     mm_weights = zeros(common_eltype(source, target), size(source, 2))
 
     best = worst(transformation_type(source, target))
-    transformations_to_try =
-        transformation_iterator(initialization, source, target)
-    for init_transformation in transformations_to_try
+    init_transformation = simple_transformation(source, target)
+    restart = 0
+    while true
         transformation = init_transformation
 
         for sqscale in sqscales
             gm = GemanMcclure(sqscale)
-            for iter in 1:niterations
+            for iter in 1:iterations
                 @inbounds for i in eachindex(mm_weights, cs)
                     c = cs[i]
                     mm_weights[i] =
@@ -107,9 +88,15 @@ function _register_robustly(
         end
         best = better(
             best,
-            evaluate_geman_mcclure(scale^2, source, target, transformation),
+            evaluate_geman_mcclure(last(sqscales), source, target, transformation),
         )
+        if restart < restarts
+            restart += 1
+            init_transformation = rand_transformation(rng, source, target)
+        else
+            break
+        end
     end
 
-    best.transfomation
+    best.transformation
 end

@@ -3,11 +3,13 @@ function check_sizes(pointclouds...)
         throw(ArgumentError("point clouds must have same size"))
 end
 
+default_config() =
+    (; iterations = 10, annealing = 0, restarts = 0, rng = Random.default_rng())
 
 function eigen_cov(X)
     mean_X = mean(points(X))
     centered = mappedarray(Base.Fix2(-, mean_X), points(X))
-    cov_X = mean(x -> x * x', centered)
+    cov_X = mean(x -> x * x', centered) |> Symmetric
 
     eigen(cov_X)
 end
@@ -15,7 +17,7 @@ end
 maxvar(X::AbstractMatrix) = maxvar(eigen_cov(X))
 maxvar(eig::Eigen) = maximum(eig.values)
 
-nrows(Xs::AbstractMatrix...) = nrows(Size.(Xs))
+nrows(Xs::AbstractMatrix...) = nrows(Size.(Xs)...)
 nrows(::Size{Sz}) where {Sz} = first(Sz)::Int
 function nrows(::Size{Sz}, szs::Size...) where {Sz}
     N = nrows(szs...)
@@ -95,8 +97,8 @@ struct TransformationWithCost{T <: Real, A <: AffineMap}
 end
 
 function worst(
-    ::Type{A <: AffineMap{<:AbstractMatrix{T}, <:AbstractVector{T}}},
-) where {A, T}
+    A::Type{<:AffineMap{<:AbstractMatrix{T}, <:AbstractVector{T}}},
+) where {T}
     TransformationWithCost(typemax(T), identity_transformation(A))
 end
 
@@ -108,5 +110,13 @@ function better(
         t1
     else
         t2
+    end
+end
+
+function annealing_plan(target, scale, n)
+    if n < 2
+        (scale^2,)
+    else
+        logrange(maxvar(target), scale^2; length = n)
     end
 end
