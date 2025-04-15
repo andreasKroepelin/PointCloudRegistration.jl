@@ -1,25 +1,19 @@
 function check_sizes(pointclouds...)
     allequal(size, pointclouds) ||
-        throw(ArgumentError("both point clouds must have same size"))
+        throw(ArgumentError("point clouds must have same size"))
 end
 
-function bbox(X::AbstractMatrix{T}) where {T}
-    lo = SVector(ntuple(_ -> typemax(T), Val(NRows(X))))
-    hi = SVector(ntuple(_ -> typemin(T), Val(NRows(X))))
-    for i in axes(X, 2)
-        x = X[:, i]
-        lo = min.(lo, x)
-        hi = max.(hi, x)
-    end
-    (lo, hi)
+
+function eigen_cov(X)
+    mean_X = mean(points(X))
+    centered = mappedarray(Base.Fix2(-, mean_X), points(X))
+    cov_X = mean(x -> x * x', centered)
+
+    eigen(cov_X)
 end
 
-function p2p(X)
-    lo, hi = bbox(X)
-    maximum(hi .- lo)
-end
-
-guess_diameter(X, Y) = NRows(X) * max(p2p(X), p2p(Y))^2
+maxvar(X::AbstractMatrix) = maxvar(eigen_cov(X))
+maxvar(eig::Eigen) = maximum(eig.values)
 
 nrows(Xs::AbstractMatrix...) = nrows(Size.(Xs))
 nrows(::Size{Sz}) where {Sz} = first(Sz)::Int
@@ -32,14 +26,32 @@ function nrows(::Size{Sz}, szs::Size...) where {Sz}
     end
 end
 
-common_eltype(X::AbstractMatrix...) = promote_type(eltype.(X)...)
+common_eltype(Xs::AbstractArray...) = promote_type(eltype.(Xs)...)
 
-function transformation_type(source, target)
+statically_known_rows(X::AbstractMatrix) = statically_known_rows(Size(X), X)
+function statically_known_rows(::Size{Sz}, X) where {Sz}
+    N, M = Sz
+    if N isa Int
+        X
+    else
+        HybridMatrix{size(X, 1), M}(X)
+    end
+end
+
+function rotation_type(source, target)
     N = nrows(source, target)
     T = common_eltype(source, target)
-    R = SMatrix{N, N, T, N * N}
-    L = SVector{N, T}
-    AffineMap{R, L}
+    SMatrix{N, N, T, N * N}
+end
+
+function translation_type(source, target)
+    N = nrows(source, target)
+    T = common_eltype(source, target)
+    SVector{N, T}
+end
+
+function transformation_type(source, target)
+    AffineMap{rotation_type(source, target), translation_type(source, target)}
 end
 
 struct WeightedPointCloud{T, P <: AbstractMatrix{T}, W <: AbstractVector} <:
@@ -58,25 +70,21 @@ end
 WeightedPointCloud(points::AbstractMatrix) =
     WeightedPointCloud(points, Ones(eltype(points), size(points, 2)))
 
-Base.size(wpc::WeightedPointCloud) = size(wpc.points)
+Base.size(wpc::WeightedPointCloud, dims...) = size(wpc.points, dims...)
 StaticArrays.Size(wpc::WeightedPointCloud) = Size(wpc.points)
-Base.getindex(wpc::WeightedPointCloud, i...) = getindex(wpc.points, i...)
+Base.@propagate_inbounds Base.getindex(wpc::WeightedPointCloud, i...) =
+    getindex(wpc.points, i...)
 Base.axes(wpc::WeightedPointCloud, dims...) = axes(wpc.points, dims...)
-points(wpc::WeightedPointCloud) = Iterators.map(SVector, eachcol(wpc.points))
+# We use `x -> SVector(x)` instead of just `SVector` so that MappedArrays.jl
+# can infer the eltype better.
+points(wpc::WeightedPointCloud) =
+    mappedarray(x -> SVector(x), eachcol(wpc.points))
 weights(wpc::WeightedPointCloud) = wpc.weights
-
-statically_known_rows(X::AbstractMatrix) = statically_known_rows(Size(X), X)
-function statically_known_rows(::Size{Sz}, X) where {Sz}
-    N, M = Sz
-    if N isa Int
-        X
-    else
-        HybridMatrix{size(X, 1), M}(X)
-    end
-end
 
 statically_known_rows(wpc::WeightedPointCloud) =
     WeightedPointCloud(statically_known_rows(wpc.points), wpc.weights)
+nrows(wpcs::WeightedPointCloud...) =
+    nrows(map(Base.Fix2(getfield, :points), wpcs)...)
 
 weighted(wpc::WeightedPointCloud) = wpc
 weighted(points::AbstractMatrix) = WeightedPointCloud(points)

@@ -1,20 +1,3 @@
-function axis_aligning_rotation(X)
-    mean_X = zero(SVector{NRows(X), eltype(X)})
-    for i in axes(X, 2)
-        mean_X += X[:, i]
-    end
-    mean_X /= size(X, 2)
-
-    cov_X = zero(SMatrix{NRows(X), NRows(X), eltype(X)})
-    for i in axes(X, 2)
-        centered_x = X[:, i] - mean_X
-        cov_X += centered_x * centered_x'
-    end
-    # no need to normalise cov_X, does not matter for eigenvectors anyway
-
-    transpose(eigvecs(cov_X))
-end
-
 struct Grid{N, T}
     lo::SVector{N, T}
     hi::SVector{N, T}

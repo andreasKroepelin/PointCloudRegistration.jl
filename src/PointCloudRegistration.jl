@@ -3,6 +3,7 @@ module PointCloudRegistration
 using StaticArrays
 using HybridArrays
 using FillArrays
+using MappedArrays
 using Accessors
 using CoordinateTransformations
 using Distances
@@ -10,6 +11,8 @@ using LinearAlgebra
 using FFTW
 using Random
 using Bumper
+
+export register_robustly
 
 include("common.jl")
 include("kabsch.jl")
