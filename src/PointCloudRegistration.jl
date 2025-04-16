@@ -10,6 +10,7 @@ using Distances
 using LinearAlgebra
 using FFTW
 using Random
+using Logging
 using Statistics
 using Bumper
 

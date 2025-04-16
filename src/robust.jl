@@ -57,6 +57,7 @@ function _register_robustly(source, target, sqscales, restarts, iterations, rng)
     restart = 0
     while true
         transformation = init_transformation
+        @logmsg LogLevel(-2000) "mm iteration" restart iter=-1 sqscale=-one(eltype(sqscales)) mm_weights=copy(mm_weights) rotation=transformation.linear translation=transformation.translation init_transformation _id=:mm
 
         for sqscale in sqscales
             gm = GemanMcclure(sqscale)
@@ -84,6 +85,7 @@ function _register_robustly(source, target, sqscales, restarts, iterations, rng)
                     source_mean,
                     target_mean,
                 )
+                @logmsg LogLevel(-2000) "mm iteration" restart iter sqscale mm_weights=copy(mm_weights) rotation=transformation.linear translation=transformation.translation init_transformation _id=:mm
             end
         end
         best = better(

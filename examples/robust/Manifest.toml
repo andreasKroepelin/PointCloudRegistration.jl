@@ -1173,7 +1173,7 @@ uuid = "995b91a9-d308-5afd-9ec6-746e21dbc043"
 version = "1.4.3"
 
 [[deps.PointCloudRegistration]]
-deps = ["Accessors", "BangBang", "Bumper", "CoordinateTransformations", "Distances", "FFTW", "FillArrays", "HybridArrays", "LinearAlgebra", "MappedArrays", "NearestNeighbors", "Random", "StaticArrays", "Statistics"]
+deps = ["Accessors", "BangBang", "Bumper", "CoordinateTransformations", "Distances", "FFTW", "FillArrays", "HybridArrays", "LinearAlgebra", "Logging", "MappedArrays", "NearestNeighbors", "Random", "StaticArrays", "Statistics"]
 path = "../.."
 uuid = "afb9b67c-ae14-49fb-afbe-36d52467eca1"
 version = "0.1.0"

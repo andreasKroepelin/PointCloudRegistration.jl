@@ -1,9 +1,14 @@
-function rand_transformation(rng, source, target)
+function rand_rotation(rng, source, target)
     M = rand(rng, rotation_type(source, target))
     rotation, _ = qr(M)
     if det(rotation) < 0
         rotation = negative_last_column(rotation)
     end
+    rotation
+end
+
+function rand_transformation(rng, source, target)
+    rotation = rand_rotation(rng, source, target)
 
     trg = target[:, rand(rng, axes(target, 2))]
     src = source[:, rand(rng, axes(source, 2))]
@@ -54,7 +59,7 @@ end
 
 function simple_transformation(source, target)
     rotation = one(rotation_type(source, target))
-    translation = target[:, 1] - rotation * source[:, 1]
+    translation = target[:, rand(axes(target, 2))] - rotation * source[:, rand(axes(source, 2))]
     AffineMap(rotation, translation)::transformation_type(source, target)
 end
 
