@@ -20,57 +20,60 @@ idx_on_grid(x::SVector{N}, grid::Grid{N}) where {N} =
 extent(grid::Grid) = grid.hi - grid.lo
 Base.size(grid::Grid) = grid.size
 
-function kde!(convd_X, convd_weights_X, X, weights_X, grid, scale, buf)
+function kde!(convd_target, convd_weights_target, target, grid, sqscale, buf)
     @no_escape buf begin
-        fft_buffer = @alloc(Complex(eltype(X)), size(grid)..., NRows(X) + 1)
+        fft_buffer = @alloc(Complex(eltype(target)), size(grid)..., nrows(target) + 1)
         fill!(fft_buffer, zero(eltype(fft_buffer)))
-        for (x, wx) in zip(eachcol(X), weights_X)
-            idx = idx_on_grid(x, grid)
-            @view(fft_buffer[idx..., SOneTo(NRows(X))]) .+= wx * SVector(x)
-            fft_buffer[idx..., end] += wx
+        for (trg, trg_w) in zip(points(target), weights(target))
+            idx = idx_on_grid(trg, grid)
+            @view(fft_buffer[idx..., SOneTo(nrows(target))]) .+= trg_w * trg
+            fft_buffer[idx..., end] += trg_w
         end
 
-        fft!(fft_buffer; dims = 1:NRows(X))
+        fft!(fft_buffer; dims = 1:nrows(target))
         freq_steps = -2pi ./ extent(grid)
-        for idx in CartesianIndices(size(fft_buffer)[SOneTo(Nrows(X))])
+        for idx in CartesianIndices(size(fft_buffer)[SOneTo(nrows(target))])
             pos = Tuple(idx) .- 1
             pos = min.(pos, size(fft_buffer) .- pos)
-            cf = exp(-scale / 2 * sum((freq_steps .* pos) .^ 2))
+            cf = exp(-sqscale / 2 * sum((freq_steps .* pos) .^ 2))
             @view(fft_buffer[idx, :]) .*= cf
         end
-        ifft!(fft_buffer; dims = 1:NRows(X))
+        ifft!(fft_buffer; dims = 1:nrows(target))
 
-        N_colons = ntuple(_ -> :, Val(NRows(X)))
-        for l in SOneTo(NRows(X))
-            @view(convd_X[l, N_colons...]) .=
+        N_colons = ntuple(_ -> :, Val(nrows(target)))
+        for l in SOneTo(nrows(target))
+            @view(convd_target[l, N_colons...]) .=
                 real.(@view(fft_buffer[N_colons..., l]))
         end
-        convd_weights_X .= real.(@view(fft_buffer[N_colons..., end]))
+        convd_weights_target .= real.(@view(fft_buffer[N_colons..., end]))
     end
 end
 
+function convd_target_type(target)
+    N = nrows(target)
+    HybridArray{Tuple{N, ntuple(_ -> StaticArrays.Dynamic(), Val(N))...}}
+end
+
 function optimize_kernel_correlation(;
-    Y,
-    X,
-    weights_Y,
-    weights_X,
-    scales,
+    source,
+    target,
+    sqscales,
     init_transformation,
     buf,
 )
-    X_lo, X_hi = bbox(X)
-    N_Dynamics = ntuple(_ -> StaticArrays.Dynamic(), Val(NRows(X)))
+    target_lo, target_hi = bbox(target)
+    N_Dynamics = ntuple(_ -> StaticArrays.Dynamic(), Val(nrows(target)))
     @no_escape buf begin
-        y_grid_idcs = @alloc(CartesianIndex{NRows(X)}, size(Y, 2))
-        for scale in scales
-            sigma = sqrt(scale)
-            grid = Grid(X_lo - 3sigma, X_hi + 3sigma, sigma / 4)
+        source_grid_idcs = @alloc(CartesianIndex{nrows(source)}, size(source, 2))
+        for sqscale in sqscales
+            sigma = sqrt(sqscale)
+            grid = Grid(target_lo - 3sigma, target_hi + 3sigma, sigma / 4)
             @no_escape buf begin
-                convd_X = HybridArray{Tuple{NRows(X), N_Dynamics...}}(
-                    @alloc(eltype(X), NRows(X), size(grid)...)
+                convd_target = convd_target_type(target)(
+                    @alloc(eltype(target), nrows(target), size(grid)...)
                 )
-                convd_weights_X = @alloc(eltype(X), size(grid)...)
-                kde!(convd_X, convd_weights_X, X, weights_X, grid, scale)
+                convd_weights_target = @alloc(eltype(target), size(grid)...)
+                kde!(convd_target, convd_weights_target, target, grid, sqscale)
 
                 for iter in 1:niterations
                     changed = false
