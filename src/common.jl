@@ -4,7 +4,7 @@ function check_sizes(pointclouds...)
 end
 
 default_config() =
-    (; iterations = 10, annealing = 0, restarts = 0, rng = Random.default_rng())
+    (; iterations = 10, annealing = 5, restarts = 5, rng = Random.default_rng())
 
 function eigen_cov(X)
     mean_X = mean(points(X))
@@ -113,10 +113,10 @@ function better(
     end
 end
 
-function annealing_plan(target, scale, n)
+function annealing_plan(target_or_eigen, scale, n)
     if n < 2
         (scale^2,)
     else
-        logrange(maxvar(target), scale^2; length = n)
+        logrange(maxvar(target_or_eigen), scale^2; length = n)
     end
 end
