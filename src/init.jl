@@ -59,7 +59,9 @@ end
 
 function simple_transformation(source, target)
     rotation = one(rotation_type(source, target))
-    translation = target[:, rand(axes(target, 2))] - rotation * source[:, rand(axes(source, 2))]
+    translation =
+        target[:, rand(axes(target, 2))] -
+        rotation * source[:, rand(axes(source, 2))]
     AffineMap(rotation, translation)::transformation_type(source, target)
 end
 

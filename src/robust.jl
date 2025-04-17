@@ -34,11 +34,12 @@ end
 
 function register_robustly(source, target; scale::Real, kwargs...)
     config = (; default_config()..., kwargs...)
-    ws_source =  weighted(statically_known_rows(source))
-    ws_target =  weighted(statically_known_rows(target))
+    ws_source = weighted(statically_known_rows(source))
+    ws_target = weighted(statically_known_rows(target))
     sqscales = annealing_plan(ws_target, scale, config.annealing)
     _register_robustly(
-        ws_source, ws_target,
+        ws_source,
+        ws_target,
         sqscales,
         config.restarts,
         config.iterations,
@@ -57,7 +58,10 @@ function _register_robustly(source, target, sqscales, restarts, iterations, rng)
     restart = 0
     while true
         transformation = init_transformation
-        @logmsg LogLevel(-2000) "mm iteration" restart iter=-1 sqscale=-one(eltype(sqscales)) mm_weights=copy(mm_weights) rotation=transformation.linear translation=transformation.translation init_transformation _id=:mm
+        @logmsg LogLevel(-2000) "mm iteration" restart iter = -1 sqscale =
+            -one(eltype(sqscales)) mm_weights = copy(mm_weights) rotation =
+            transformation.linear translation = transformation.translation init_transformation _id =
+            :mm
 
         for sqscale in sqscales
             gm = GemanMcclure(sqscale)
@@ -85,12 +89,19 @@ function _register_robustly(source, target, sqscales, restarts, iterations, rng)
                     source_mean,
                     target_mean,
                 )
-                @logmsg LogLevel(-2000) "mm iteration" restart iter sqscale mm_weights=copy(mm_weights) rotation=transformation.linear translation=transformation.translation init_transformation _id=:mm
+                @logmsg LogLevel(-2000) "mm iteration" restart iter sqscale mm_weights =
+                    copy(mm_weights) rotation = transformation.linear translation =
+                    transformation.translation init_transformation _id = :mm
             end
         end
         best = better(
             best,
-            evaluate_geman_mcclure(last(sqscales), source, target, transformation),
+            evaluate_geman_mcclure(
+                last(sqscales),
+                source,
+                target,
+                transformation,
+            ),
         )
         if restart < restarts
             restart += 1
