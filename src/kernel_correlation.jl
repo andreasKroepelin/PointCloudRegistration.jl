@@ -9,7 +9,7 @@ struct Grid{N, T}
             lo,
             hi,
             Δ,
-            round.(Int, (hi - lo) / Δ),
+            Tuple(round.(Int, (hi - lo) / Δ)),
         )
 end
 
@@ -19,6 +19,7 @@ idx_on_grid(x::SVector{N}, grid::Grid{N}) where {N} =
 
 extent(grid::Grid) = grid.hi - grid.lo
 Base.size(grid::Grid) = grid.size
+domains(grid::Grid) = range.(grid.lo, grid.hi, grid.size)
 
 struct KdeComputation{
     N,
@@ -38,7 +39,7 @@ struct KdeComputation{
         grid::Grid{N, T},
         sqsigma::T,
     ) where {N, T}
-        grid_idcs = idx_on_grid.((grid,), points)
+        grid_idcs = idx_on_grid.(points, (grid,))
         buffer_space = Array{complex(T), N}(undef, size(grid))
         buffer_freq = Array{complex(T), N}(undef, size(grid))
         fft_plan = plan_fft(buffer_space)
@@ -117,12 +118,21 @@ function each1slice(
     ntuple(i -> view(X, i, colons...), Val(N))
 end
 
-function axisalign_target(target)
-    eig = eigen_cov(target)
+function swap_columns(A::SMatrix{N, N}) where N
+    idcs = ntuple(identity, Val(N)) |> SVector
+    @reset idcs[1] = 2
+    @reset idcs[2] = 1
+    A[:, idcs]
+end
+
+function axisalign_target(target, eig)
     axisaligner = eig.vectors'
+    if det(axisaligner) < 0
+        axisaligner = swap_columns(axisaligner)
+    end
     aligned_target_points = similar(target.points)
     mul!(aligned_target_points, axisaligner, target.points)
-    eig, WeightedPointCloud(aligned_target_points, target.weights)
+    axisaligner, WeightedPointCloud(aligned_target_points, target.weights)
 end
 
 function register_no_correspondences(
@@ -137,8 +147,10 @@ function register_no_correspondences(
     ws_target = weighted(statically_known_rows(target))
 
     if axisalign
-        eig, ws_target = axisalign_target(ws_target)
+        eig = eigen_cov(ws_target)
+        axisaligner, ws_target = axisalign_target(ws_target, eig)
         sqscales = annealing_plan(eig, scale, config.annealing)
+        @logmsg LogLevel(-2000) "align" id=:align rotation=axisaligner
     else
         sqscales = annealing_plan(ws_target, scale, config.annealing)
     end
@@ -153,7 +165,7 @@ function register_no_correspondences(
     )
 
     if axisalign
-        LinearMap(eig.vectors) ∘ transformation
+        LinearMap(axisaligner') ∘ transformation
     else
         transformation
     end
@@ -167,7 +179,7 @@ function _register_no_correspondences(
     iterations,
     rng,
 )
-    target_lo, target_hi = extrema(points(target))
+    target_lo, target_hi = bbox(target)
     source_grid_idcs = zeros(CartesianIndex{nrows(source)}, size(source, 2))
     weighted_target_points = similar(target.points)
     mul!(weighted_target_points, target.points, Diagonal(target.weights))
@@ -181,7 +193,7 @@ function _register_no_correspondences(
 
         for sqscale in sqscales
             sigma = sqrt(sqscale)
-            grid = Grid(target_lo - 3sigma, target_hi + 3sigma, sigma / 4)
+            grid = Grid(target_lo .- 3sigma, target_hi .+ 3sigma, sigma / 4)
             convd_target = convd_target_type(target)(
                 zeros(eltype(target), nrows(target), size(grid)...),
             )
@@ -199,8 +211,7 @@ function _register_no_correspondences(
                 for j in axes(source, 2)
                     src = points(source)[j]
                     transformed_src = transformation(src)
-                    grid_idx =
-                        CartesianIndex(idx_on_grid(transformed_src, grid)...)
+                    grid_idx = idx_on_grid(transformed_src, grid)
                     if source_grid_idcs[j] != grid_idx
                         changed = true
                     end
@@ -210,8 +221,8 @@ function _register_no_correspondences(
                     w_src = weights(source)[j]
                     convd_trg = convd_target[:, grid_idx]
                     convd_w_trg = convd_weights_target[grid_idx]
-                    trg_mean += w_src * convd_trg
-                    src_mean += w_src * convd_w_trg * src
+                    target_mean += w_src * convd_trg
+                    source_mean += w_src * convd_w_trg * src
                     kc += w_src * convd_w_trg
                 end
                 if !changed && iter > 1
@@ -219,7 +230,7 @@ function _register_no_correspondences(
                 end
                 target_mean /= kc
                 source_mean /= kc
-                covariance = zero(rotation)
+                covariance = zero(rotation_type(source, target))
                 for j in axes(source, 2)
                     grid_idx = source_grid_idcs[j]
                     grid_idx in valid_idcs || continue
@@ -238,6 +249,7 @@ function _register_no_correspondences(
                     source_mean,
                     target_mean,
                 )
+                @logmsg LogLevel(-2000) "mm iteration" restart iter sqscale rotation = transformation.linear translation = transformation.translation init_transformation target_kde=copy(convd_weights_target) grid id = :mm
             end
         end
         best = better(best, TransformationWithCost(-kc, transformation))

@@ -14,7 +14,7 @@ using Logging
 using Statistics
 using Bumper
 
-export register_robustly
+export register_robustly, register_no_correspondences
 
 include("common.jl")
 include("kabsch.jl")

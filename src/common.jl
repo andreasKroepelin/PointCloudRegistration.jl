@@ -6,6 +6,15 @@ end
 default_config() =
     (; iterations = 10, annealing = 5, restarts = 5, rng = Random.default_rng())
 
+function bbox(X)
+    lo = hi = first(points(X))
+    for point in points(X)
+        lo = min.(point, lo)
+        hi = max.(point, hi)
+    end
+    lo, hi
+end
+
 function eigen_cov(X)
     mean_X = mean(points(X))
     centered = mappedarray(Base.Fix2(-, mean_X), points(X))
