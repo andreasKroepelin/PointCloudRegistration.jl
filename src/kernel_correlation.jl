@@ -1,3 +1,5 @@
+using InteractiveUtils
+
 struct Grid{N, T}
     lo::SVector{N, T}
     hi::SVector{N, T}
@@ -26,6 +28,7 @@ struct KdeComputation{
     T,
     B <: AbstractArray{Complex{T}, N},
     Pl <: FFTW.AbstractFFTs.Plan{Complex{T}},
+    Pli <: FFTW.AbstractFFTs.Plan{Complex{T}},
 }
     grid::Grid{N, T}
     grid_idcs::Vector{CartesianIndex{N}}
@@ -33,6 +36,7 @@ struct KdeComputation{
     buffer_space::B
     buffer_freq::B
     fft_plan::Pl
+    ifft_plan::Pli
 
     function KdeComputation(
         points::AbstractVector{<:StaticVector{N, T}},
@@ -43,13 +47,15 @@ struct KdeComputation{
         buffer_space = Array{complex(T), N}(undef, size(grid))
         buffer_freq = Array{complex(T), N}(undef, size(grid))
         fft_plan = plan_fft(buffer_space)
-        new{N, T, typeof(buffer_space), typeof(fft_plan)}(
+        ifft_plan = plan_ifft(buffer_freq)
+        new{N, T, typeof(buffer_space), typeof(fft_plan), typeof(ifft_plan)}(
             grid,
             grid_idcs,
             sqsigma,
             buffer_space,
             buffer_freq,
             fft_plan,
+            ifft_plan,
         )
     end
 end
@@ -58,7 +64,7 @@ function (kdecomp!::KdeComputation{N, T})(
     res::AbstractArray{T, N},
     weights::AbstractVector{<:Real},
 ) where {N, T}
-    (; grid, grid_idcs, sqsigma, buffer_space, buffer_freq, fft_plan) = kdecomp!
+    (; grid, grid_idcs,  sqsigma,  buffer_space, buffer_freq, fft_plan, ifft_plan) = kdecomp!
     fill!(buffer_space, zero(eltype(buffer_space)))
     for (idx, weight) in zip(grid_idcs, weights)
         buffer_space[idx] += weight
@@ -72,39 +78,37 @@ function (kdecomp!::KdeComputation{N, T})(
         cf = exp(-sqsigma / 2 * sum((freq_steps .* pos) .^ 2))
         buffer_freq[idx] *= cf
     end
-    ldiv!(buffer_space, fft_plan, buffer_freq)
+    mul!(buffer_space, ifft_plan, buffer_freq)
 
     res .= real.(buffer_space)
 end
 
-# function kde!(convd_target, convd_weights_target, target, grid, sqscale, buf)
-#     @no_escape buf begin
-#         fft_buffer = @alloc(Complex(eltype(target)), size(grid)..., nrows(target) + 1)
-#         fill!(fft_buffer, zero(eltype(fft_buffer)))
-#         for (trg, trg_w) in zip(points(target), weights(target))
-#             idx = idx_on_grid(trg, grid)
-#             @view(fft_buffer[idx..., SOneTo(nrows(target))]) .+= trg_w * trg
-#             fft_buffer[idx..., end] += trg_w
-#         end
+struct AnnealingLevel{N, M, T, CT <: AbstractArray{T, M}, CWT <: AbstractArray{T, N}}
+    grid::Grid{N, T}
+    convd_target::CT
+    convd_weights_target::CWT
 
-#         fft!(fft_buffer; dims = 1:nrows(target))
-#         freq_steps = -2pi ./ extent(grid)
-#         for idx in CartesianIndices(size(fft_buffer)[SOneTo(nrows(target))])
-#             pos = Tuple(idx) .- 1
-#             pos = min.(pos, size(fft_buffer) .- pos)
-#             cf = exp(-sqscale / 2 * sum((freq_steps .* pos) .^ 2))
-#             @view(fft_buffer[idx, :]) .*= cf
-#         end
-#         ifft!(fft_buffer; dims = 1:nrows(target))
+    function AnnealingLevel(grid, convd_target, convd_weights_target)
+        N = ndims(convd_weights_target)
+        M = ndims(convd_target)
+        @assert M == N + 1
+        new{N, M, eltype(convd_target), typeof(convd_target), typeof(convd_weights_target)}(grid, convd_target, convd_weights_target)
+    end
+end
 
-#         N_colons = ntuple(_ -> :, Val(nrows(target)))
-#         for l in SOneTo(nrows(target))
-#             @view(convd_target[l, N_colons...]) .=
-#                 real.(@view(fft_buffer[N_colons..., l]))
-#         end
-#         convd_weights_target .= real.(@view(fft_buffer[N_colons..., end]))
-#     end
-# end
+function AnnealingLevel(target::WeightedPointCloud, target_bbox::NTuple{2}, weighted_target_points, sqscale)
+    target_lo, target_hi = target_bbox
+    sigma = sqrt(sqscale)
+    grid = Grid(target_lo .- 3sigma, target_hi .+ 3sigma, sigma / 4)
+    convd_target = convd_target_type(target)(
+        zeros(eltype(target), nrows(target), size(grid)...),
+    )
+    convd_weights_target = zeros(eltype(target), size(grid)...)
+    kde! = KdeComputation(points(target), grid, sqscale)
+    kde!(convd_weights_target, weights(target))
+    @time kde!.(each1slice(convd_target), eachrow(weighted_target_points))
+    AnnealingLevel(grid, convd_target, convd_weights_target)
+end
 
 function convd_target_type(target)
     N = nrows(target)
@@ -179,10 +183,12 @@ function _register_no_correspondences(
     iterations,
     rng,
 )
-    target_lo, target_hi = bbox(target)
+    target_bbox = bbox(target)
     source_grid_idcs = zeros(CartesianIndex{nrows(source)}, size(source, 2))
     weighted_target_points = similar(target.points)
     mul!(weighted_target_points, target.points, Diagonal(target.weights))
+
+    annealing_levels = [AnnealingLevel(target, target_bbox, weighted_target_points, sqscale) for sqscale in sqscales]
 
     best = worst(transformation_type(source, target))
     init_transformation = simple_transformation(source, target)
@@ -191,17 +197,9 @@ function _register_no_correspondences(
     while true
         transformation = init_transformation
 
-        for sqscale in sqscales
-            sigma = sqrt(sqscale)
-            grid = Grid(target_lo .- 3sigma, target_hi .+ 3sigma, sigma / 4)
-            convd_target = convd_target_type(target)(
-                zeros(eltype(target), nrows(target), size(grid)...),
-            )
-            convd_weights_target = zeros(eltype(target), size(grid)...)
+        for annealing_level in annealing_levels
+            (;grid, convd_target, convd_weights_target) = annealing_level
             valid_idcs = CartesianIndices(size(grid))
-            kde! = KdeComputation(points(target), grid, sqscale)
-            kde!(convd_weights_target, weights(target))
-            kde!.(each1slice(convd_target), eachrow(weighted_target_points))
 
             for iter in 1:iterations
                 changed = false

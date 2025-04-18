@@ -12,11 +12,11 @@ using PointCloudRegistration
 includet("logging.jl")
 
 d = 2
-n = 1_000
+n = 10_000
 X = HybridMatrix{d, StaticArrays.Dynamic()}(cumsum(randn(d, n) .+ .01; dims = 2))
 rotation = PointCloudRegistration.rand_rotation(Random.default_rng(), X, X)
 translation = ones(SVector{d, Float64})
-Y = rotation' * (X[:, shuffle(axes(X, 2))[1:n ÷ 10]] .- translation)
+Y = rotation' * (X[:, shuffle(axes(X, 2))] .- translation)
 al = AnalysisLogger([])
 Logging.disable_logging(LogLevel(-2001))
 T = with_logger(al) do
@@ -63,33 +63,3 @@ scatter!(ax, curr_trY; color = :teal)
 
 
 
-
-shuffled_proportions = 0.0:0.001:1
-samples = 2
-errors = Float64[]
-@showprogress for shuffled_proportion in shuffled_proportions
-    mean_error = 0.0
-    for _ in 1:samples
-        permuted_idcs = collect(axes(X, 2))
-        shuffle!(@view(permuted_idcs[1:floor(Int, shuffled_proportion * n)]))
-
-        Y = rotation' * (X[:, permuted_idcs] .- translation)
-
-        T = register_robustly(
-            Y,
-            X;
-            scale = 1.0,
-            iterations = 10,
-            annealing = 10,
-            restarts = 10,
-            rng = Xoshiro(123),
-        )
-        @assert T.linear' * T.linear ≈ one(T.linear)
-        mean_error += (norm(vec(T.linear) - vec(rotation)) # +
-        # norm(T.translation - translation)
-        )
-    end
-    push!(errors, (mean_error / samples))
-end
-
-scatterlines(shuffled_proportions, errors; axis = (;))
