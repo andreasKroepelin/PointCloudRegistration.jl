@@ -15,8 +15,7 @@ function bbox(X)
     lo, hi
 end
 
-function eigen_cov(X)
-    mean_X = mean(points(X))
+function eigen_cov(X, mean_X = mean(points(X)))
     centered = mappedarray(Base.Fix2(-, mean_X), points(X))
     cov_X = mean(x -> x * x', centered) |> Symmetric
 
@@ -49,20 +48,24 @@ function statically_known_rows(::Size{Sz}, X) where {Sz}
     end
 end
 
-function rotation_type(source, target)
+function rotation_type(source::AbstractMatrix, target::AbstractMatrix)
     N = nrows(source, target)
     T = common_eltype(source, target)
-    SMatrix{N, N, T, N * N}
+    rotation_type(Val(N), T)
 end
 
-function translation_type(source, target)
+rotation_type(::Val{N}, ::Type{T}) where {N, T} = SMatrix{N, N, T, N * N}
+
+function translation_type(source::AbstractMatrix, target::AbstractMatrix)
     N = nrows(source, target)
     T = common_eltype(source, target)
-    SVector{N, T}
+    translation_type(Val(N), T)
 end
 
-function transformation_type(source, target)
-    AffineMap{rotation_type(source, target), translation_type(source, target)}
+translation_type(::Val{N}, ::Type{T}) where {N, T} = SVector{N, T}
+
+function transformation_type(a, b)
+    AffineMap{rotation_type(a, b), translation_type(a, b)}
 end
 
 struct WeightedPointCloud{T, P <: AbstractMatrix{T}, W <: AbstractVector} <:

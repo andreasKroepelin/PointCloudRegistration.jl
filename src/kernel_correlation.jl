@@ -144,8 +144,9 @@ function axisalign_target(target, eig)
     axisaligner, WeightedPointCloud(aligned_target_points, target.weights)
 end
 
-struct PreparedTarget{N, T, Al <: AnnealingLevel}
-    axis_aligning_rotation::SMatrix{N, N, T, N * N}
+struct PreparedTarget{N, T, R <: SMatrix{N, N, T}, M <: SVector{N, T}, Al <: AnnealingLevel}
+    axis_aligning_rotation::R
+    mean::M
     annealing_levels::Vector{Al}
 end
 
@@ -156,15 +157,16 @@ function prepare_target(target::AbstractMatrix; scale, axisalign::Bool = true, a
     _prepare_target(ws_target, scale, axisalign, annealing)
 end
 
-prepare_target(prepared_target::PreparedTarget) = prepared_target
+prepare_target(prepared_target::PreparedTarget; _kwargs...) = prepared_target
 
 function _prepare_target(target, scale, axisalign, annealing)
+    mean_target = mean(points(target))
     if axisalign
-        eig = eigen_cov(target)
+        eig = eigen_cov(target, mean_target)
         axis_aligning_rotation, target = axisalign_target(target, eig)
         sqscales = annealing_plan(eig, scale, annealing)
     else
-        axis_aligining_rotation = one(rotation_type(target, target))
+        axis_aligning_rotation = one(rotation_type(target, target))
         sqscales = annealing_plan(target, scale, annealing)
     end
     target_bbox = bbox(target)
@@ -173,7 +175,7 @@ function _prepare_target(target, scale, axisalign, annealing)
 
     annealing_levels = [AnnealingLevel(target, target_bbox, weighted_target_points, sqscale) for sqscale in sqscales]
 
-    PreparedTarget(axis_aligning_rotation, annealing_levels)
+    PreparedTarget(axis_aligning_rotation, mean_target, annealing_levels)
 end
 
 function register_no_correspondences(
@@ -181,39 +183,42 @@ function register_no_correspondences(
     target;
     scale::Real,
     axisalign::Bool = true,
-    kwargs...,
+    annealing::Int = default_config().annealing,
+    restarts::Int = default_config().restarts,
+    iterations::Int = default_config().iterations,
+    rng = default_config().rng,
 )
-    config = (; default_config()..., kwargs...)
     ws_source = weighted(statically_known_rows(source))
-    prepared_target = prepare_target(target)
+    prepared_target = prepare_target(target; scale, axisalign, annealing)
 
 
     transformation = _register_no_correspondences(
         ws_source,
         prepared_target,
-        sqscales,
-        config.restarts,
-        config.iterations,
-        config.rng,
+        restarts,
+        iterations,
+        rng,
     )
 
     LinearMap(prepared_target.axis_aligning_rotation') ∘ transformation
 end
 
 function _register_no_correspondences(
+    NVal::Val{N},
+    T::Type,
     source,
     prepared_target,
-    sqscales,
     restarts,
     iterations,
     rng,
-)
-    source_grid_idcs = zeros(CartesianIndex{nrows(source)}, size(source, 2))
+) where {N}
+    source_grid_idcs = zeros(CartesianIndex{N}, size(source, 2))
+    unweighted_source_mean = mean(points(source))
 
-    best = worst(transformation_type(source, target))
-    init_transformation = simple_transformation(source, target)
+    best = worst(transformation_type(N, T))
+    init_transformation = simple_transformation(unweighted_source_mean, prepared_target.mean)
     restart = 0
-    kc = zero(common_eltype(source, target))
+    kc = zero(T)
     while true
         transformation = init_transformation
 
@@ -223,9 +228,9 @@ function _register_no_correspondences(
 
             for iter in 1:iterations
                 changed = false
-                target_mean = zero(SVector{nrows(target), eltype(target)})
-                source_mean = zero(SVector{nrows(source), eltype(source)})
-                kc = zero(common_eltype(source, target))
+                target_mean = zero(unweighted_source_mean)
+                source_mean = zero(unweighted_source_mean)
+                kc = zero(T)
                 for j in axes(source, 2)
                     src = points(source)[j]
                     transformed_src = transformation(src)
@@ -248,7 +253,7 @@ function _register_no_correspondences(
                 end
                 target_mean /= kc
                 source_mean /= kc
-                covariance = zero(rotation_type(source, target))
+                covariance = zero(rotation_type(NVal, T))
                 for j in axes(source, 2)
                     grid_idx = source_grid_idcs[j]
                     grid_idx in valid_idcs || continue
@@ -273,7 +278,7 @@ function _register_no_correspondences(
         best = better(best, TransformationWithCost(-kc, transformation))
         if restart < restarts
             restart += 1
-            init_transformation = rand_transformation(rng, source, target)
+            init_transformation = rand_transformation(rng, unweighted_source_mean, prepared_target.mean)
         else
             break
         end
