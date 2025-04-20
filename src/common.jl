@@ -37,7 +37,7 @@ function nrows(::Size{Sz}, szs::Size...) where {Sz}
     end
 end
 
-common_eltype(Xs::AbstractArray...) = promote_type(eltype.(Xs)...)
+common_eltype(Xs...) = promote_type(eltype.(Xs)...)
 
 statically_known_rows(X::AbstractMatrix) = statically_known_rows(Size(X), X)
 function statically_known_rows(::Size{Sz}, X) where {Sz}

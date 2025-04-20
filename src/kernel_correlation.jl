@@ -107,6 +107,11 @@ function AnnealingLevel(target::WeightedPointCloud, target_bbox::NTuple{2}, weig
     kde! = KdeComputation(points(target), grid, sqscale)
     kde!(convd_weights_target, weights(target))
     @time kde!.(each1slice(convd_target), eachrow(weighted_target_points))
+    # for (a, b) in zip(each1slice(convd_target), eachrow(weighted_target_points))
+    #     kde!(a, b)
+    # end
+    # display(@code_typed kde!.(each1slice(convd_target), eachrow(weighted_target_points)))
+    # println("\n"^5)
     AnnealingLevel(grid, convd_target, convd_weights_target)
 end
 
@@ -139,6 +144,38 @@ function axisalign_target(target, eig)
     axisaligner, WeightedPointCloud(aligned_target_points, target.weights)
 end
 
+struct PreparedTarget{N, T, Al <: AnnealingLevel}
+    axis_aligning_rotation::SMatrix{N, N, T, N * N}
+    annealing_levels::Vector{Al}
+end
+
+Base.eltype(::PreparedTarget{N, T}) where {N, T} = T
+
+function prepare_target(target::AbstractMatrix; scale, axisalign::Bool = true, annealing::Int = 5)
+    ws_target = weighted(statically_known_rows(target))
+    _prepare_target(ws_target, scale, axisalign, annealing)
+end
+
+prepare_target(prepared_target::PreparedTarget) = prepared_target
+
+function _prepare_target(target, scale, axisalign, annealing)
+    if axisalign
+        eig = eigen_cov(target)
+        axis_aligning_rotation, target = axisalign_target(target, eig)
+        sqscales = annealing_plan(eig, scale, annealing)
+    else
+        axis_aligining_rotation = one(rotation_type(target, target))
+        sqscales = annealing_plan(target, scale, annealing)
+    end
+    target_bbox = bbox(target)
+    weighted_target_points = similar(target.points)
+    mul!(weighted_target_points, target.points, Diagonal(target.weights))
+
+    annealing_levels = [AnnealingLevel(target, target_bbox, weighted_target_points, sqscale) for sqscale in sqscales]
+
+    PreparedTarget(axis_aligning_rotation, annealing_levels)
+end
+
 function register_no_correspondences(
     source,
     target;
@@ -148,47 +185,30 @@ function register_no_correspondences(
 )
     config = (; default_config()..., kwargs...)
     ws_source = weighted(statically_known_rows(source))
-    ws_target = weighted(statically_known_rows(target))
+    prepared_target = prepare_target(target)
 
-    if axisalign
-        eig = eigen_cov(ws_target)
-        axisaligner, ws_target = axisalign_target(ws_target, eig)
-        sqscales = annealing_plan(eig, scale, config.annealing)
-        @logmsg LogLevel(-2000) "align" id=:align rotation=axisaligner
-    else
-        sqscales = annealing_plan(ws_target, scale, config.annealing)
-    end
 
     transformation = _register_no_correspondences(
         ws_source,
-        ws_target,
+        prepared_target,
         sqscales,
         config.restarts,
         config.iterations,
         config.rng,
     )
 
-    if axisalign
-        LinearMap(axisaligner') ∘ transformation
-    else
-        transformation
-    end
+    LinearMap(prepared_target.axis_aligning_rotation') ∘ transformation
 end
 
 function _register_no_correspondences(
     source,
-    target,
+    prepared_target,
     sqscales,
     restarts,
     iterations,
     rng,
 )
-    target_bbox = bbox(target)
     source_grid_idcs = zeros(CartesianIndex{nrows(source)}, size(source, 2))
-    weighted_target_points = similar(target.points)
-    mul!(weighted_target_points, target.points, Diagonal(target.weights))
-
-    annealing_levels = [AnnealingLevel(target, target_bbox, weighted_target_points, sqscale) for sqscale in sqscales]
 
     best = worst(transformation_type(source, target))
     init_transformation = simple_transformation(source, target)
@@ -197,7 +217,7 @@ function _register_no_correspondences(
     while true
         transformation = init_transformation
 
-        for annealing_level in annealing_levels
+        for annealing_level in prepared_target.annealing_levels
             (;grid, convd_target, convd_weights_target) = annealing_level
             valid_idcs = CartesianIndices(size(grid))
 
