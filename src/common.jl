@@ -15,14 +15,17 @@ function bbox(X)
     lo, hi
 end
 
-function eigen_cov(X, mean_X = mean(points(X)))
-    centered = mappedarray(Base.Fix2(-, mean_X), points(X))
-    cov_X = mean(x -> x * x', centered) |> Symmetric
+function eigen_cov(pc::PointCloud)
+    cov_X = wsum(pc.points, pc.weights) do x
+        xc = x - pc.mean
+        xc * xc'
+    end
+    cov_X /= pc.sum_of_weights
 
-    eigen(cov_X)
+    eigen(Symmetric(cov_X))
 end
 
-maxvar(X::AbstractMatrix) = maxvar(eigen_cov(X))
+maxvar(X::PointCloud) = maxvar(eigen_cov(X))
 maxvar(eig::Eigen) = maximum(eig.values)
 
 nrows(Xs::AbstractMatrix...) = nrows(Size.(Xs)...)
@@ -68,40 +71,15 @@ function transformation_type(a, b)
     AffineMap{rotation_type(a, b), translation_type(a, b)}
 end
 
-struct WeightedPointCloud{T, P <: AbstractMatrix{T}, W <: AbstractVector} <:
-       AbstractMatrix{T}
-    points::P
-    weights::W
+wsum(hmatrix, weights) = wsum(identity, hmatrix, weights)
 
-    function WeightedPointCloud(points::AbstractMatrix, weights::AbstractVector)
-        size(points, 2) == length(weights) || throw(
-            ArgumentError("number of points must match number of weights"),
-        )
-        new{eltype(points), typeof(points), typeof(weights)}(points, weights)
+function wsum(f, hmatrix::HybridMatrix{N, M, T}, weights) where {N, M, T}
+    s = zero(f(zero(SVector{N, T})))
+    @inbounds for i in eachindex(eachcol(hmatrix), weights)
+        s += weights[i] * f(hmatrix[:, i]::SVector{N, T})
     end
+    s
 end
-
-WeightedPointCloud(points::AbstractMatrix) =
-    WeightedPointCloud(points, Ones(eltype(points), size(points, 2)))
-
-Base.size(wpc::WeightedPointCloud, dims...) = size(wpc.points, dims...)
-StaticArrays.Size(wpc::WeightedPointCloud) = Size(wpc.points)
-Base.@propagate_inbounds Base.getindex(wpc::WeightedPointCloud, i...) =
-    getindex(wpc.points, i...)
-Base.axes(wpc::WeightedPointCloud, dims...) = axes(wpc.points, dims...)
-# We use `x -> SVector(x)` instead of just `SVector` so that MappedArrays.jl
-# can infer the eltype better.
-points(wpc::WeightedPointCloud) =
-    mappedarray(x -> SVector(x), eachcol(wpc.points))
-weights(wpc::WeightedPointCloud) = wpc.weights
-
-statically_known_rows(wpc::WeightedPointCloud) =
-    WeightedPointCloud(statically_known_rows(wpc.points), wpc.weights)
-nrows(wpcs::WeightedPointCloud...) =
-    nrows(map(Base.Fix2(getfield, :points), wpcs)...)
-
-weighted(wpc::WeightedPointCloud) = wpc
-weighted(points::AbstractMatrix) = WeightedPointCloud(points)
 
 struct TransformationWithCost{T <: Real, A <: AffineMap}
     cost::T

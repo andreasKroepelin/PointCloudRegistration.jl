@@ -34,12 +34,12 @@ end
 
 function register_robustly(source, target; scale::Real, kwargs...)
     config = (; default_config()..., kwargs...)
-    ws_source = weighted(statically_known_rows(source))
-    ws_target = weighted(statically_known_rows(target))
-    sqscales = annealing_plan(ws_target, scale, config.annealing)
+    pc_source = PointCloud(source)
+    pc_target = PointCloud(target)
+    sqscales = annealing_plan(pc_target, scale, config.annealing)
     _register_robustly(
-        ws_source,
-        ws_target,
+        pc_source,
+        pc_target,
         sqscales,
         config.restarts,
         config.iterations,

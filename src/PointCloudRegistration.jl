@@ -14,8 +14,9 @@ using Logging
 using Statistics
 using Bumper
 
-export register_robustly, register_no_correspondences
+export PointCloud, register_robustly, register_no_correspondences
 
+include("pointcloud.jl")
 include("common.jl")
 include("kabsch.jl")
 include("init.jl")

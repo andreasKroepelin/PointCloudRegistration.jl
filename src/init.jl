@@ -1,5 +1,9 @@
-function rand_rotation(rng, src::StaticVector{N, T}, trg::StaticVector{N, T}) where {N, T}
-    M = rand(rng, rotation_type(Val(N), T))
+function rand_rotation(rng, ::PointCloud{N, T}, ::PointCloud{N, T}) where {N, T}
+    rand_rotation(rng, Val(N), T)
+end
+
+function rand_rotation(rng, ::Val{N}, ::Type{T}) where {N, T}
+    M = randn(rng, rotation_type(Val(N), T))
     orthogonal, _ = qr(M)
     if det(orthogonal) < 0
         negative_last_column(orthogonal)
@@ -8,17 +12,17 @@ function rand_rotation(rng, src::StaticVector{N, T}, trg::StaticVector{N, T}) wh
     end
 end
 
-function rand_transformation(rng, src, trg)
-    rotation = rand_rotation(rng, src, trg)
+function rand_transformation(rng, source::PointCloud{N}, target::PointCloud{N}) where N
+    rotation = rand_rotation(rng, source, target)
 
-    translation = trg - rotation * src
+    translation = target.mean - rotation * source.mean
 
     AffineMap(rotation, translation)::transformation_type(source, target)
 end
 
-function simple_transformation(src::StaticVector{N, T}, trg::StaticVector{N, T}) where {N, T}
+function simple_transformation(source::PointCloud{N, T}, target::PointCloud{N, T}) where {N, T}
     rotation = one(rotation_type(Val(N), T))
-    translation = trg - rotation * src
+    translation = target.mean - rotation * source.mean
     AffineMap(rotation, translation)::transformation_type(source, target)
 end
 
