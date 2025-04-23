@@ -26,12 +26,12 @@ Y = shape_sample_outline("apple-9", 100) .+ 10
 register_no_correspondences( Y, prepd_X; restarts = 10, )
 
 rows = 2
-cols = 4
+cols = 5
 
 al = AnalysisLogger([])
 Logging.disable_logging(LogLevel(-2001))
 T = with_logger(al) do
-    register_no_correspondences( Y, prepd_X; iterations = 200, restarts = rows * cols, )
+    register_no_correspondences( Y, prepd_X; iterations = 200, restarts = rows * cols - 1, )
 end
 Logging.disable_logging(Logging.Debug)
 

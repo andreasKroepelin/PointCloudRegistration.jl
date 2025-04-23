@@ -130,6 +130,21 @@ function compute_annealing_levels(target, sqscales)
     [AnnealingLevel(target, target_bbox, weighted_target_points, sqscale) for sqscale in sqscales]
 end
 
+function eval_kernel_correlation(al::AnnealingLevel, source::PointCloud, transformation)
+    valid_idcs = CartesianIndices(size(al.grid))
+    kc = zero(eltype(source))
+    for j in eachindex(points(source), weights(source))
+        src = points(source)[j]
+        w_src = weights(source)[j]
+        transformed_src = transformation(src)
+        grid_idx = idx_on_grid(transformed_src, al.grid)
+        grid_idx in valid_idcs || continue
+        convd_w_trg = al.convd_weights_target[grid_idx]
+        kc += w_src * convd_w_trg
+    end
+    kc
+end
+
 function convd_target_type(target)
     N = nrows(target)
     HybridArray{Tuple{N, ntuple(_ -> StaticArrays.Dynamic(), Val(N))...}}
@@ -246,7 +261,7 @@ function _register_no_correspondences(
             (;grid, convd_target, convd_weights_target) = annealing_level
             valid_idcs = CartesianIndices(size(grid))
 
-            @logmsg LogLevel(-2000) "mm iteration" restart iter = -1 rotation = transformation.linear translation = transformation.translation init_transformation target_kde=copy(convd_weights_target) grid id = :mm
+            @logmsg LogLevel(-2000) "mm iteration" restart iter = -1  kc = NaN rotation = transformation.linear translation = transformation.translation init_transformation target_kde=copy(convd_weights_target) grid id = :mm
 
             for iter in 1:iterations
                 changed = false
@@ -294,7 +309,7 @@ function _register_no_correspondences(
                     source_mean,
                     target_mean,
                 )
-                @logmsg LogLevel(-2000) "mm iteration" restart iter rotation = transformation.linear translation = transformation.translation init_transformation target_kde=copy(convd_weights_target) grid id = :mm
+                @logmsg LogLevel(-2000) "mm iteration" restart iter kc = eval_kernel_correlation(last(annealing_levels), source, transformation) rotation = transformation.linear translation = transformation.translation init_transformation target_kde=copy(convd_weights_target) grid id = :mm
             end
         end
         best = better(best, TransformationWithCost(-kc, transformation))
