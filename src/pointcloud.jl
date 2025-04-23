@@ -1,19 +1,19 @@
-struct PointCloud{N, T, P <: AbstractMatrix{T},WT,  W <: AbstractVector{WT}} <:
+struct PointCloud{N, T, P <: AbstractMatrix{T},WT,  W <: AbstractVector} <:
        AbstractMatrix{T}
     points::P
     weights::W
-    sum_of_weights::T
+    sum_of_weights::WT
     mean::SVector{N, T}
+end
 
-    function PointCloud(points::AbstractMatrix, weights::AbstractVector)
-        size(points, 2) == length(weights) || throw(
-            ArgumentError("number of points must match number of weights"),
-        )
-        spoints = statically_known_rows(points)
-        sum_of_weights = sum(weights)
-        mean = wsum(spoints, weights) / sum_of_weights
-        new{nrows(spoints), eltype(spoints), typeof(spoints), eltype(weights), typeof(weights)}(spoints, weights, sum_of_weights, mean)
-    end
+function PointCloud(points::AbstractMatrix, weights::AbstractVector)
+    size(points, 2) == length(weights) || throw(
+        ArgumentError("number of points must match number of weights"),
+    )
+    spoints = statically_known_rows(points)
+    sum_of_weights = sum(weights)
+    mean = wsum(spoints, weights) / sum_of_weights
+    PointCloud(spoints, weights, sum_of_weights, mean)
 end
 
 PointCloud(points::AbstractMatrix) =
@@ -34,4 +34,11 @@ weights(pc::PointCloud) = pc.weights
 
 nrows(pcs::PointCloud{N}) where N = N
 
+
+function (lm::LinearMap{<: StaticMatrix{N, N}})(pc::PointCloud{N}) where N
+    new_points = similar(pc.points)
+    mul!(new_points, lm.linear, pc.points)
+    new_mean = lm.linear * pc.mean
+    PointCloud(new_points, pc.weights, pc.sum_of_weights, new_mean)
+end
 

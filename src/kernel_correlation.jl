@@ -82,7 +82,12 @@ function (kdecomp!::KdeComputation{N, T})(
     end
     mul!(buffer_space, ifft_plan, buffer_freq)
 
-    res .= real.(buffer_space)
+    # broadcasting leads to enourmous allocations for some reason, so let's use
+    # a loop...
+    # res .= real.(buffer_space)
+    for i in eachindex(res, buffer_space)
+        res[i] = real(buffer_space[i])
+    end
 end
 
 struct AnnealingLevel{N, M, T, CT <: AbstractArray{T, M}, CWT <: AbstractArray{T, N}}
@@ -108,13 +113,21 @@ function AnnealingLevel(target::PointCloud, target_bbox::NTuple{2}, weighted_tar
     convd_weights_target = zeros(eltype(target), size(grid)...)
     kde! = KdeComputation(points(target), grid, sqscale)
     kde!(convd_weights_target, weights(target))
-    @time kde!.(each1slice(convd_target), eachrow(weighted_target_points))
+    kde!.(each1slice(convd_target), eachrow(weighted_target_points))
     # for (a, b) in zip(each1slice(convd_target), eachrow(weighted_target_points))
     #     kde!(a, b)
     # end
     # display(@code_typed kde!.(each1slice(convd_target), eachrow(weighted_target_points)))
     # println("\n"^5)
     AnnealingLevel(grid, convd_target, convd_weights_target)
+end
+
+function compute_annealing_levels(target, sqscales)
+    target_bbox = bbox(target)
+    weighted_target_points = similar(target.points)
+    mul!(weighted_target_points, target.points, Diagonal(target.weights))
+
+    [AnnealingLevel(target, target_bbox, weighted_target_points, sqscale) for sqscale in sqscales]
 end
 
 function convd_target_type(target)
@@ -141,9 +154,10 @@ function axisalign_target(target, eig)
     if det(axisaligner) < 0
         axisaligner = swap_columns(axisaligner)
     end
-    aligned_target_points = similar(target.points)
-    mul!(aligned_target_points, axisaligner, target.points)
-    axisaligner, PointCloud(aligned_target_points, target.weights)
+    axisaligner, LinearMap(axisaligner)(target)
+    # aligned_target_points = similar(target.points)
+    # mul!(aligned_target_points, axisaligner, target.points)
+    # axisaligner, PointCloud(aligned_target_points, target.weights)
 end
 
 struct PreparedTarget{N, T, R <: SMatrix{N, N, T}, Al <: AnnealingLevel, PC <: PointCloud{N, T}}
@@ -160,22 +174,17 @@ end
 
 prepare_target(prepared_target::PreparedTarget; _kwargs...) = prepared_target
 
-function _prepare_target(target, scale, axisalign, annealing)
-    mean_target = mean(points(target))
+function _prepare_target(target_original, scale, axisalign, annealing)
     if axisalign
-        eig = eigen_cov(target)
-        axis_aligning_rotation, target = axisalign_target(target, eig)
+        eig = eigen_cov(target_original)
+        axis_aligning_rotation, target = axisalign_target(target_original, eig)
         sqscales = annealing_plan(eig, scale, annealing)
     else
         axis_aligning_rotation = one(rotation_type(target, target))
+        target = target_original
         sqscales = annealing_plan(target, scale, annealing)
     end
-    target_bbox = bbox(target)
-    weighted_target_points = similar(target.points)
-    mul!(weighted_target_points, target.points, Diagonal(target.weights))
-
-    annealing_levels = [AnnealingLevel(target, target_bbox, weighted_target_points, sqscale) for sqscale in sqscales]
-
+    annealing_levels = compute_annealing_levels(target, sqscales)
     PreparedTarget(axis_aligning_rotation, annealing_levels, target)
 end
 

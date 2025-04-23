@@ -1,10 +1,13 @@
 function show_restarts(al, rows, cols, d)
     mm_logs = filter(log -> log.id == :mm, al.logs);
     mm_logs_per_restart = [filter(log -> log.restart == rows * (col - 1) + row - 1, mm_logs) for row in 1:rows, col in 1:cols];
+    @info "collected data"
     fig = Figure()
     slider = Slider(fig[2, 1]; range = 1:maximum(length, mm_logs_per_restart))
     my_colormap = Makie.PlotUtils.cgrad([Makie.Colors.alphacolor(colorant"tomato", 0.), colorant"tomato"])
+    @info "setup figure done"
     for row in 1:rows, col in 1:cols
+        @info "creating plot" row col
         logs = mm_logs_per_restart[row, col]
         curr_log = @lift logs[min($(slider.value), lastindex(logs))]
         curr_rotation = @lift ($curr_log).rotation
