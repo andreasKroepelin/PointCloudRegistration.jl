@@ -37,3 +37,11 @@ function (lm::LinearMap{<:StaticMatrix{N, N}})(pc::PointCloud{N}) where {N}
     new_mean = lm.linear * pc.mean
     PointCloud(new_points, pc.weights, pc.sum_of_weights, new_mean)
 end
+
+function (am::AffineMap{<:StaticMatrix{N, N}, <: StaticVector{N}})(pc::PointCloud{N}) where {N}
+    new_points = similar(pc.points)
+    mul!(new_points, am.linear, pc.points)
+    new_points .+= am.translation
+    new_mean = am(pc.mean)
+    PointCloud(new_points, pc.weights, pc.sum_of_weights, new_mean)
+end

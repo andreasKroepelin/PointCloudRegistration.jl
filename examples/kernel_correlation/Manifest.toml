@@ -2,7 +2,7 @@
 
 julia_version = "1.11.5"
 manifest_format = "2.0"
-project_hash = "3f091cb68189756365a635ba507d12f67d110144"
+project_hash = "8ce4b08910801948863de78462e0f3d50023ec86"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -171,6 +171,43 @@ version = "1.6.0"
 git-tree-sha1 = "4435559dc39793d53a9e3d278e185e920b4619ef"
 uuid = "0e736298-9ec6-45e8-9647-e4fc86a2fe38"
 version = "0.2.8"
+
+[[deps.BioGenerics]]
+deps = ["TranscodingStreams"]
+git-tree-sha1 = "017562e86afcd2a6a2a9220606a40b54604887c9"
+uuid = "47718e42-2ac5-11e9-14af-e5595289c2ea"
+version = "0.1.5"
+
+[[deps.BioStructures]]
+deps = ["BioGenerics", "BioSymbols", "CodecZlib", "Downloads", "Format", "LinearAlgebra", "PrecompileTools", "RecipesBase", "Statistics"]
+git-tree-sha1 = "ca9ebccc15ceab7608e226a59ee322439c91448d"
+uuid = "de9282ab-8554-53be-b2d6-f6c222edabfc"
+version = "4.4.2"
+
+    [deps.BioStructures.extensions]
+    BioStructuresBioAlignmentsExt = ["BioSequences", "BioAlignments"]
+    BioStructuresBioSequencesExt = "BioSequences"
+    BioStructuresDSSPExt = "DSSP_jll"
+    BioStructuresDataFramesExt = "DataFrames"
+    BioStructuresGraphsExt = ["Graphs", "MetaGraphs"]
+    BioStructuresMMTFExt = "MMTF"
+    BioStructuresSTRIDEExt = "STRIDE_jll"
+
+    [deps.BioStructures.weakdeps]
+    BioAlignments = "00701ae9-d1dc-5365-b64a-a3a3ebf5695e"
+    BioSequences = "7e6ae17a-c86d-528c-b3b9-7f778a29fe59"
+    DSSP_jll = "74334e00-59ce-546d-b517-81f3b7e1d491"
+    DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+    Graphs = "86223c79-3864-5bf0-83f7-82e725a168b6"
+    MMTF = "259c3a9c-12c3-507f-b21f-68ecc40fcda4"
+    MetaGraphs = "626554b9-1ddb-594c-aa3c-2596fe9399a5"
+    STRIDE_jll = "850473c1-9ef0-5df9-a957-757f4cde8b8b"
+
+[[deps.BioSymbols]]
+deps = ["PrecompileTools"]
+git-tree-sha1 = "e32a61f028b823a172c75e26865637249bb30dff"
+uuid = "3c28c6f8-a34d-59c4-9654-267d177fcfa9"
+version = "5.1.3"
 
 [[deps.BufferedStreams]]
 git-tree-sha1 = "6863c5b7fc997eadcabdbaf6c5f201dc30032643"
@@ -824,6 +861,7 @@ deps = ["CRlibm_jll", "LinearAlgebra", "MacroTools", "OpenBLASConsistentFPCSR_jl
 git-tree-sha1 = "5aad168b75fc3b6b25e99feb1e6e3168d41e4c08"
 uuid = "d1acc4aa-44c8-5952-acd4-ba5d80a2a253"
 version = "0.22.28"
+weakdeps = ["DiffRules", "ForwardDiff", "IntervalSets", "RecipesBase"]
 
     [deps.IntervalArithmetic.extensions]
     IntervalArithmeticDiffRulesExt = "DiffRules"
@@ -831,26 +869,16 @@ version = "0.22.28"
     IntervalArithmeticIntervalSetsExt = "IntervalSets"
     IntervalArithmeticRecipesBaseExt = "RecipesBase"
 
-    [deps.IntervalArithmetic.weakdeps]
-    DiffRules = "b552c78f-8df3-52c6-915a-8e097449b14b"
-    ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
-    IntervalSets = "8197267c-284f-5f27-9208-e0e47529a953"
-    RecipesBase = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
-
 [[deps.IntervalSets]]
 git-tree-sha1 = "dba9ddf07f77f60450fe5d2e2beb9854d9a49bd0"
 uuid = "8197267c-284f-5f27-9208-e0e47529a953"
 version = "0.7.10"
+weakdeps = ["Random", "RecipesBase", "Statistics"]
 
     [deps.IntervalSets.extensions]
     IntervalSetsRandomExt = "Random"
     IntervalSetsRecipesBaseExt = "RecipesBase"
     IntervalSetsStatisticsExt = "Statistics"
-
-    [deps.IntervalSets.weakdeps]
-    Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
-    RecipesBase = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
-    Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [[deps.InverseFunctions]]
 git-tree-sha1 = "a779299d77cd080bf77b97535acecd73e1c5e5cb"
@@ -1446,6 +1474,12 @@ git-tree-sha1 = "9f0a1b71baaf7650f4fa8a1d168c7fb6ee41f0c9"
 uuid = "c1ae055f-0cd5-4b69-90a6-9a35b1a98df9"
 version = "0.1.0"
 
+[[deps.RecipesBase]]
+deps = ["PrecompileTools"]
+git-tree-sha1 = "5c3d09cc4f31f5fc6af001c250bf1278733100ff"
+uuid = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
+version = "1.3.4"
+
 [[deps.Reexport]]
 git-tree-sha1 = "45e428421666073eab6f2da5c9d310d99bb12f9b"
 uuid = "189a3867-3050-52da-a836-e630ba90ab69"
@@ -1490,12 +1524,10 @@ deps = ["LinearAlgebra", "Quaternions", "Random", "StaticArrays"]
 git-tree-sha1 = "5680a9276685d392c87407df00d57c9924d9f11e"
 uuid = "6038ab10-8711-5258-84ad-4b1120ba62dc"
 version = "1.7.1"
+weakdeps = ["RecipesBase"]
 
     [deps.Rotations.extensions]
     RotationsRecipesBaseExt = "RecipesBase"
-
-    [deps.Rotations.weakdeps]
-    RecipesBase = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
 
 [[deps.RoundingEmulator]]
 git-tree-sha1 = "40b9edad2e5287e05bd413a38f61a8ff55b9557b"

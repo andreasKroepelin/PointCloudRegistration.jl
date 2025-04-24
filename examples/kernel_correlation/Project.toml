@@ -1,5 +1,6 @@
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+BioStructures = "de9282ab-8554-53be-b2d6-f6c222edabfc"
 Cthulhu = "f68482b8-f384-11e8-15f7-abe071a5a75f"
 GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 HybridArrays = "1baab800-613f-4b0a-84e4-9cd3431bfbb9"

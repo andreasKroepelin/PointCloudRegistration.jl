@@ -309,9 +309,7 @@ function _register_no_correspondences(
             (; grid, convd_target, convd_weights_target) = annealing_level
             valid_idcs = CartesianIndices(size(grid))
 
-            @logmsg LogLevel(-2000) "mm iteration" restart iter = -1 kc = NaN rotation =
-                transformation.linear translation = transformation.translation init_transformation target_kde =
-                copy(convd_weights_target) grid id = :mm
+            @logmsg LogLevel(-2000) "mm iteration" restart iter = -1 kc = eval_kernel_correlation(last(annealing_levels), source, transformation) rotation = transformation.linear translation = transformation.translation init_transformation target_kde = copy(convd_weights_target) grid id = :mm
 
             for iter in 1:iterations
                 changed = false
