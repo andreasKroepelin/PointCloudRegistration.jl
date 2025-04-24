@@ -1,11 +1,18 @@
 function show_restarts(al, rows, cols, d)
-    mm_logs = filter(log -> log.id == :mm, al.logs);
-    mm_logs_per_restart = [filter(log -> log.restart == rows * (col - 1) + row - 1, mm_logs) for row in 1:rows, col in 1:cols];
+    mm_logs = filter(log -> log.id == :mm, al.logs)
+    mm_logs_per_restart = [
+        filter(log -> log.restart == rows * (col - 1) + row - 1, mm_logs)
+        for row in 1:rows, col in 1:cols
+    ]
     max_kc = maximum(log -> isnan(log.kc) ? -Inf : log.kc, mm_logs)
     @info "collected data" max_kc
     fig = Figure()
-    slider = Slider(fig[2, 1][1, 1]; range = 1:maximum(length, mm_logs_per_restart))
-    my_colormap = Makie.PlotUtils.cgrad([Makie.Colors.alphacolor(colorant"tomato", 0.), colorant"tomato"])
+    slider =
+        Slider(fig[2, 1][1, 1]; range = 1:maximum(length, mm_logs_per_restart))
+    my_colormap = Makie.PlotUtils.cgrad([
+        Makie.Colors.alphacolor(colorant"tomato", 0.0),
+        colorant"tomato",
+    ])
     @info "setup figure done"
     main_axes = []
     kc_axes = []
@@ -43,11 +50,21 @@ function show_restarts(al, rows, cols, d)
         )
         if d == 2
             ax = Axis(fig[1, 1][row, col][1, 1]; autolimitaspect = 1, title)
-            heatmap!(ax, curr_domains..., curr_target_kde, colormap=my_colormap)
+            heatmap!(
+                ax,
+                curr_domains...,
+                curr_target_kde;
+                colormap = my_colormap,
+            )
             push!(main_axes, ax)
         elseif d == 3
             ax = Axis3(fig[1, 1][row, col]; aspect = :equal, title)
-            volume!(ax, curr_intervals..., curr_target_kde, colormap=my_colormap)
+            volume!(
+                ax,
+                curr_intervals...,
+                curr_target_kde;
+                colormap = my_colormap,
+            )
         end
         hidedecorations!(ax)
         scatter!(ax, curr_trY; color = :teal)
@@ -56,8 +73,8 @@ function show_restarts(al, rows, cols, d)
         push!(kc_axes, kc_ax)
         # # lines!(kc_ax, curr_kcs)
         lines!(kc_ax, [log.kc for log in logs])
-        vlines!(kc_ax, slider.value, linestyle = :dash)
-        hlines!(kc_ax, max_kc, linestyle = :dot)
+        vlines!(kc_ax, slider.value; linestyle = :dash)
+        hlines!(kc_ax, max_kc; linestyle = :dot)
     end
     ax, other_axes... = kc_axes
     for other_ax in other_axes

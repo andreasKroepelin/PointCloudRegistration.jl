@@ -66,7 +66,15 @@ function (kdecomp!::KdeComputation{N, T})(
     res::AbstractArray{T, N},
     weights::AbstractVector{<:Real},
 ) where {N, T}
-    (; grid, grid_idcs,  sqsigma,  buffer_space, buffer_freq, fft_plan, ifft_plan) = kdecomp!
+    (;
+        grid,
+        grid_idcs,
+        sqsigma,
+        buffer_space,
+        buffer_freq,
+        fft_plan,
+        ifft_plan,
+    ) = kdecomp!
     fill!(buffer_space, zero(eltype(buffer_space)))
     for (idx, weight) in zip(grid_idcs, weights)
         buffer_space[idx] += weight
@@ -90,7 +98,13 @@ function (kdecomp!::KdeComputation{N, T})(
     end
 end
 
-struct AnnealingLevel{N, M, T, CT <: AbstractArray{T, M}, CWT <: AbstractArray{T, N}}
+struct AnnealingLevel{
+    N,
+    M,
+    T,
+    CT <: AbstractArray{T, M},
+    CWT <: AbstractArray{T, N},
+}
     grid::Grid{N, T}
     convd_target::CT
     convd_weights_target::CWT
@@ -99,11 +113,26 @@ struct AnnealingLevel{N, M, T, CT <: AbstractArray{T, M}, CWT <: AbstractArray{T
         N = ndims(convd_weights_target)
         M = ndims(convd_target)
         @assert M == N + 1
-        new{N, M, eltype(convd_target), typeof(convd_target), typeof(convd_weights_target)}(grid, convd_target, convd_weights_target)
+        new{
+            N,
+            M,
+            eltype(convd_target),
+            typeof(convd_target),
+            typeof(convd_weights_target),
+        }(
+            grid,
+            convd_target,
+            convd_weights_target,
+        )
     end
 end
 
-function AnnealingLevel(target::PointCloud, target_bbox::NTuple{2}, weighted_target_points, sqscale)
+function AnnealingLevel(
+    target::PointCloud,
+    target_bbox::NTuple{2},
+    weighted_target_points,
+    sqscale,
+)
     target_lo, target_hi = target_bbox
     sigma = sqrt(sqscale)
     grid = Grid(target_lo .- 3sigma, target_hi .+ 3sigma, sigma / 4)
@@ -127,10 +156,17 @@ function compute_annealing_levels(target, sqscales)
     weighted_target_points = similar(target.points)
     mul!(weighted_target_points, target.points, Diagonal(target.weights))
 
-    [AnnealingLevel(target, target_bbox, weighted_target_points, sqscale) for sqscale in sqscales]
+    [
+        AnnealingLevel(target, target_bbox, weighted_target_points, sqscale) for
+        sqscale in sqscales
+    ]
 end
 
-function eval_kernel_correlation(al::AnnealingLevel, source::PointCloud, transformation)
+function eval_kernel_correlation(
+    al::AnnealingLevel,
+    source::PointCloud,
+    transformation,
+)
     valid_idcs = CartesianIndices(size(al.grid))
     kc = zero(eltype(source))
     for j in eachindex(points(source), weights(source))
@@ -157,7 +193,7 @@ function each1slice(
     ntuple(i -> view(X, i, colons...), Val(N))
 end
 
-function swap_columns(A::SMatrix{N, N}) where N
+function swap_columns(A::SMatrix{N, N}) where {N}
     idcs = ntuple(identity, Val(N)) |> SVector
     @reset idcs[1] = 2
     @reset idcs[2] = 1
@@ -175,7 +211,13 @@ function axisalign_target(target, eig)
     # axisaligner, PointCloud(aligned_target_points, target.weights)
 end
 
-struct PreparedTarget{N, T, R <: SMatrix{N, N, T}, Al <: AnnealingLevel, PC <: PointCloud{N, T}}
+struct PreparedTarget{
+    N,
+    T,
+    R <: SMatrix{N, N, T},
+    Al <: AnnealingLevel,
+    PC <: PointCloud{N, T},
+}
     axis_aligning_rotation::R
     annealing_levels::Vector{Al}
     target::PC
@@ -183,7 +225,12 @@ end
 
 Base.eltype(::PreparedTarget{N, T}) where {N, T} = T
 
-function prepare_target(target::AbstractMatrix; scale, axisalign::Bool = true, annealing::Int = 5)
+function prepare_target(
+    target::AbstractMatrix;
+    scale,
+    axisalign::Bool = true,
+    annealing::Int = 5,
+)
     _prepare_target(PointCloud(target), scale, axisalign, annealing)
 end
 
@@ -215,7 +262,7 @@ function register_no_correspondences(
 )
     prepared_target = prepare_target(target; scale, axisalign, annealing)
 
-     _register_no_correspondences(
+    _register_no_correspondences(
         PointCloud(source),
         prepared_target,
         restarts,
@@ -224,20 +271,21 @@ function register_no_correspondences(
     )
 end
 
-function register_no_correspondences(source, prepared_target::PreparedTarget;
+function register_no_correspondences(
+    source,
+    prepared_target::PreparedTarget;
     restarts::Int = default_config().restarts,
     iterations::Int = default_config().iterations,
     rng = default_config().rng,
 )
-
-     _register_no_correspondences(
+    _register_no_correspondences(
         PointCloud(source),
         prepared_target,
         restarts,
         iterations,
         rng,
     )
-    end
+end
 
 function _register_no_correspondences(
     source::PointCloud{N, TS},
@@ -258,10 +306,12 @@ function _register_no_correspondences(
         transformation = init_transformation
 
         for annealing_level in annealing_levels
-            (;grid, convd_target, convd_weights_target) = annealing_level
+            (; grid, convd_target, convd_weights_target) = annealing_level
             valid_idcs = CartesianIndices(size(grid))
 
-            @logmsg LogLevel(-2000) "mm iteration" restart iter = -1  kc = NaN rotation = transformation.linear translation = transformation.translation init_transformation target_kde=copy(convd_weights_target) grid id = :mm
+            @logmsg LogLevel(-2000) "mm iteration" restart iter = -1 kc = NaN rotation =
+                transformation.linear translation = transformation.translation init_transformation target_kde =
+                copy(convd_weights_target) grid id = :mm
 
             for iter in 1:iterations
                 changed = false
@@ -309,13 +359,20 @@ function _register_no_correspondences(
                     source_mean,
                     target_mean,
                 )
-                @logmsg LogLevel(-2000) "mm iteration" restart iter kc = eval_kernel_correlation(last(annealing_levels), source, transformation) rotation = transformation.linear translation = transformation.translation init_transformation target_kde=copy(convd_weights_target) grid id = :mm
+                @logmsg LogLevel(-2000) "mm iteration" restart iter kc =
+                    eval_kernel_correlation(
+                        last(annealing_levels),
+                        source,
+                        transformation,
+                    ) rotation = transformation.linear translation =
+                    transformation.translation init_transformation target_kde =
+                    copy(convd_weights_target) grid id = :mm
             end
         end
         best = better(best, TransformationWithCost(-kc, transformation))
         if restart < restarts
             restart += 1
-            init_transformation = rand_transformation(rng,source, target)
+            init_transformation = rand_transformation(rng, source, target)
         else
             break
         end
