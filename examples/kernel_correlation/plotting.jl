@@ -21,6 +21,7 @@ function show_restarts(al, rows, cols, prepd_target)
     kc_axes = []
     for row in 1:rows, col in 1:cols
         @info "creating plot" row col
+        gl = GridLayout(fig[1, 1][row, col])
         logs = mm_logs_per_restart[row, col]
         curr_log::Observable{NamedTuple} = @lift logs[min($(slider.value), lastindex(logs))]
         curr_rotation = @lift ($curr_log).rotation
@@ -49,29 +50,30 @@ function show_restarts(al, rows, cols, prepd_target)
             ($curr_log).iter,
         )
         if d == 2
-            ax = Axis(fig[1, 1][row, col][1, 1]; autolimitaspect = 1, title)
+            ax = Axis(gl[1, 1]; autolimitaspect = 1, title)
             heatmap!(
                 ax,
                 curr_domains...,
                 curr_target_kde;
                 colormap = my_colormap,
             )
+            scatter!(ax, curr_trY; color = :teal)
             push!(main_axes, ax)
         elseif d == 3
-            ax = Axis3(fig[1, 1][row, col][1, 1]; aspect = :data, protrusions = 0, title)
+            ax = Axis3(gl[1, 1]; aspect = :data, protrusions = 0, title)
             # volume!(
             #     ax,
             #     curr_intervals...,
             #     curr_target_kde;
             #     colormap = my_colormap,
             # )
+            meshscatter!(ax, curr_trY; color = :teal)
+            meshscatter!(ax, target.points; color = :tomato)
             push!(main_axes, ax)
         end
         hidedecorations!(ax)
-        meshscatter!(ax, curr_trY; color = :teal)
-        meshscatter!(ax, target.points; color = :tomato)
 
-        kc_ax = Axis(fig[1, 1][row, col][1, 2], width = 20) # width = Relative(.8), height = Relative(.2), halign = .1, valign = .1)
+        kc_ax = Axis(gl[1, 2], width = 20) # width = Relative(.8), height = Relative(.2), halign = .1, valign = .1)
         ylims!(kc_ax, (min_kc, max_kc))
         xlims!(kc_ax, (.5, 1.5))
         hidexdecorations!(kc_ax)
@@ -81,6 +83,7 @@ function show_restarts(al, rows, cols, prepd_target)
         # lines!(kc_ax, [log.kc for log in logs])
         # vlines!(kc_ax, slider.value; linestyle = :dash)
         # hlines!(kc_ax, max_kc; linestyle = :dot)
+        # colsize!(gl, 1, Aspect(1, 1))
     end
     ax, other_axes... = kc_axes
     for other_ax in other_axes
@@ -117,18 +120,31 @@ end
 
 function side_by_side(source, target, transformation)
     source = transformation(PointCloud(source))
+    target = PointCloud(target)
+    d = size(source, 1)
     fig = Figure()
-    slider = Slider(fig[2, 1:2], range = .01:.01:2)
-    ax_src = Axis3(fig[1, 1], title = "source", aspect = :data)
-    ax_trg = Axis3(fig[1, 2], title = "target", aspect = :data)
-    meshscatter!(ax_src, source.points, color = axes(source.points, 2), markersize = slider.value)
-    meshscatter!(ax_trg, target.points, color = axes(target.points, 2), markersize = slider.value)
+    display(fig)
+    if d == 2
+        ax_src = Axis(fig[1, 1], title = "source", #= autolimitaspect = 1=#)
+        ax_trg = Axis(fig[1, 2], title = "target", #= autolimitaspect = 1=#)
+        scatter!(ax_src, source.points, color = axes(source.points, 2))
+        scatter!(ax_trg, target.points, color = axes(target.points, 2))
+        colsize!(fig.layout, 1, Aspect(1, 1))
+        colsize!(fig.layout, 2, Aspect(1, 1))
+        linkaxes!(ax_src, ax_trg)
+    elseif d == 3
+        slider = Slider(fig[2, 1:2], range = .01:.01:2)
+        ax_src = Axis3(fig[1, 1], title = "source", aspect = :data)
+        ax_trg = Axis3(fig[1, 2], title = "target", aspect = :data)
+        meshscatter!(ax_src, source.points, color = axes(source.points, 2), markersize = slider.value)
+        meshscatter!(ax_trg, target.points, color = axes(target.points, 2), markersize = slider.value)
 
-    on(ax_src.azimuth) do az
-        ax_trg.azimuth = az
-    end
-    on(ax_src.elevation) do el
-        ax_trg.elevation = el
+        on(ax_src.azimuth) do az
+            ax_trg.azimuth = az
+        end
+        on(ax_src.elevation) do el
+            ax_trg.elevation = el
+        end
     end
 
     fig

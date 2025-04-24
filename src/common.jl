@@ -104,9 +104,19 @@ function better(
 end
 
 function annealing_plan(target_or_eigen, scale, n)
+    mv2sqs(mv) = mv / 100
     if n < 2
-        (scale^2,)
+        if ismissing(scale)
+            (mv2sqs(maxvar(target_or_eigen)), )
+        else
+            (scale^2,)
+        end
     else
-        logrange(maxvar(target_or_eigen), scale^2; length = n)
+        mv = maxvar(target_or_eigen)
+        if ismissing(scale)
+            logrange(mv, mv2sqs(mv); length = n)
+        else
+            logrange(mv, scale^2; length = n)
+        end
     end
 end

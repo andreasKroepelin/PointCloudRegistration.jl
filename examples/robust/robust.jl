@@ -11,10 +11,10 @@ using PointCloudRegistration
 
 includet("logging.jl")
 
-d = 2
+d = 3
 n = 100
 X = HybridMatrix{d, StaticArrays.Dynamic()}(cumsum(randn(d, n) .+ 1; dims = 2))
-rotation = PointCloudRegistration.rand_rotation(Random.default_rng(), X, X)
+rotation = PointCloudRegistration.rand_rotation(Random.default_rng(), Val(d), eltype(X))
 translation = ones(SVector{d, Float64})
 permuted_idcs = collect(axes(X, 2))
 shuffled_proportion = 0.9
@@ -23,9 +23,10 @@ Y = rotation' * (X[:, permuted_idcs] .- translation)
 al = AnalysisLogger([])
 Logging.disable_logging(LogLevel(-2001))
 T = with_logger(al) do
-    register_robustly(
+    register(
         Y,
         X;
+        correspondences = Val(:unsure),
         scale = 1.0,
         iterations = 20,
         annealing = 3,
@@ -77,13 +78,14 @@ errors = Float64[]
 
         Y = rotation' * (X[:, permuted_idcs] .- translation)
 
-        T = register_robustly(
+        T = register(
             Y,
             X;
+            correspondences = Val(:unsure),
             scale = 1.0,
             iterations = 10,
             annealing = 10,
-            restarts = 10,
+            restarts = 20,
             rng = Xoshiro(123),
         )
         @assert T.linear' * T.linear ≈ one(T.linear)

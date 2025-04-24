@@ -225,16 +225,16 @@ end
 
 Base.eltype(::PreparedTarget{N, T}) where {N, T} = T
 
-function prepare_target(
+function prepare_target_kernel_correlation(
     target::AbstractMatrix;
-    scale,
+    scale::Union{Real, Missing} = missing,
     axisalign::Bool = true,
     annealing::Int = 5,
 )
     _prepare_target(PointCloud(target), scale, axisalign, annealing)
 end
 
-prepare_target(prepared_target::PreparedTarget; _kwargs...) = prepared_target
+prepare_target_kernel_correlation(prepared_target::PreparedTarget; _kwargs...) = prepared_target
 
 function _prepare_target(target_original, scale, axisalign, annealing)
     if axisalign
@@ -253,14 +253,14 @@ end
 function register_no_correspondences(
     source,
     target::AbstractMatrix;
-    scale::Real,
+    scale::Union{Real, Missing} = missing,
     axisalign::Bool = true,
     annealing::Int = default_config().annealing,
     restarts::Int = default_config().restarts,
     iterations::Int = default_config().iterations,
     rng = default_config().rng,
 )
-    prepared_target = prepare_target(target; scale, axisalign, annealing)
+    prepared_target = prepare_target_kernel_correlation(target; scale, axisalign, annealing)
 
     _register_no_correspondences(
         PointCloud(source),
