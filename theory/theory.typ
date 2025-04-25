@@ -7,6 +7,7 @@
 #set enum(indent: 1em)
 
 #let trp = $sans(upright(T))$
+#let kernel = $phi_i (bold(y)'_j)$
 
 #text(
   2em,
@@ -19,9 +20,26 @@
 We are given target points $bold(x)_i in RR^d$ with weights $q_i in RR$ and
 source points $bold(y)_j in RR^d$ with weights $p_j in RR$.
 
+The _kernel correlation_ of the source and the target is defined as
+$
+  kappa
+  &=
+  sum_(i j) q_i p_j phi_sigma (norm(bold(x)_i - bold(y)_j)) \
+  &=
+  sum_j p_j sum_i q_i phi_i (bold(y)_j)\
+  &=
+  sum_j p_j tilde(q)(bold(y)_j)
+$
+where $phi_i (bold(z)) = phi_sigma (norm(bold(x)_i - bold(z)))$ and
+$tilde(q): RR^d -> RR$ is the KDE of the target.
+When $tilde(q)$ can be evaluated quickly, computing $kappa$ becomes fast.
+
+For the current pose $(bold(R), bold(t))$, let us use the notation
+$bold(y)'_j := bold(R) bold(y)_j + bold(t)$.
+
 The MM-algorithm consists of repeating these steps:
 + Compute
-  $ w_(i j) = phi_sigma (norm(bold(x)_i - bold(R) bold(y)_j - bold(t))) $
+  $ w_(i j) = phi_i (bold(y)'_j) $
   for all $i$, $j$.
 + Divide $w_(i j)$ by $sum_(i j) q_i p_j w_(i j)$.
 + Compute $bold(macron(x)) = sum_(i j) w_(i j) q_i p_j bold(x)_i$
@@ -67,20 +85,20 @@ $
   macron(bold(x))
   &=
   sum_(i j) w_(i j) q_i p_j bold(x)_i \
-  &approx
-  sum_(i j) phi_(i k_j) / (sum_(i' j') q_i' p_j' phi_(i' k_j')) q_i p_j bold(x)_i
-  =
-  (sum_(i j) phi_(i k_j) q_i p_j bold(x)_i) / (sum_(i j) q_i p_j phi_(i k_j)) \
+  // &approx
+  // sum_(i j) phi_(i k_j) / (sum_(i' j') q_i' p_j' phi_(i' k_j')) q_i p_j bold(x)_i
   &=
-  (sum_j p_j sum_i phi_(i k_j) q_i bold(x)_i) / (sum_j p_j sum_i phi_(i k_j) q_i)
+  (sum_(i j) kernel q_i p_j bold(x)_i) / (sum_(i j) q_i p_j kernel ) \
+  &=
+  (sum_j p_j sum_i kernel q_i bold(x)_i) / (sum_j p_j sum_i kernel q_i)
   =
-  (sum_j p_j tilde(bold(x))_k_j) / (sum_j p_j tilde(q)_k_j)
+  (sum_j p_j tilde(bold(x))(bold(y)'_j)) / (sum_j p_j tilde(q)(bold(y)'_j))
 $
 where
 $
-  tilde(bold(x))_k = sum_i phi_(i k) q_i bold(x)_i,
+  tilde(bold(x))(bold(z)) = sum_i phi_i (bold(z)) q_i bold(x)_i,
   quad quad
-  tilde(q)_k = sum_i phi_(i k) q_i.
+  tilde(q)(bold(z)) = sum_i phi_i (bold(z)) q_i.
 $
 
 Similarly, for $macron(bold(y))$, we have
