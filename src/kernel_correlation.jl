@@ -242,8 +242,8 @@ function _prepare_target(target_original, scale, axisalign, annealing)
         axis_aligning_rotation, target = axisalign_target(target_original, eig)
         sqscales = annealing_plan(eig, scale, annealing)
     else
-        axis_aligning_rotation = one(rotation_type(target, target))
         target = target_original
+        axis_aligning_rotation = one(rotation_type(target, target))
         sqscales = annealing_plan(target, scale, annealing)
     end
     annealing_levels = compute_annealing_levels(target, sqscales)
