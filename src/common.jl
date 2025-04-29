@@ -15,6 +15,73 @@ function bbox(X)
     lo, hi
 end
 
+function diameter(X, ε)
+    lo, hi = bbox(X)
+    Δ = (ε / 2sqrt(nrows(X))) * (hi - lo)
+    grid_points = Set(round.((x - lo) ./ Δ) for x in points(X)) |> collect
+    diameter_exhaustive(grid_points)
+end
+
+function diameter_exhaustive(xs)
+    max_v = zero(eltype(xs))
+    max_d = typemin(eltype(max_v))
+    for i in 1:length(xs)
+        xi = xs[i]
+        for j in (i + 1):length(xs)
+            xj = xs[j]
+            v = xj - xi
+            d = LinearAlgebra.norm_sqr(v)
+            if d > max_d
+                max_v = v
+                max_d = d
+            end
+        end
+    end
+    max_v, max_d
+end
+
+function min_volume_bbox(X, ε)
+    if nrows(X) == 1
+        return SMatrix{1, 1}(one(eltype(X)))
+    end
+    v, d = diameter(X, ε)
+    # v, d = diameter_exhaustive(eachcol(X))
+    R = invert_column_order(qr(v * ones(typeof(v))').Q)
+    if det(R) < 0
+        R = negative_last_column(R)
+    end
+    X_rot = similar(X)
+    mul!(X_rot, R', X)
+    X_projected_down = view_without_last_row(X)
+    R_lower_dim = min_volume_bbox(X_projected_down, ε)
+    add_identity_dim(R_lower_dim) * R'
+end
+
+function view_without_last_row(X)
+    N = nrows(X)
+    @view X[SOneTo(N - 1), :]
+end
+
+# makes
+#  1 2
+#  3 4
+# into
+#  1 2 0
+#  3 4 0
+#  0 0 1
+function add_identity_dim(A::StaticMatrix{N, N}) where {N}
+    z = zero(SVector{N, eltype(A)})
+    vcat(
+        hcat(A, z),
+        hcat( z', one(eltype(A)),),
+    )
+end
+
+function invert_column_order(A::StaticMatrix{M, N}) where {M, N}
+    order = ntuple(i -> N - i + 1, Val(N)) |> SVector
+    A[:, order]
+end
+
 function eigen_cov(pc::PointCloud)
     cov_X = wsum(pc.points, pc.weights) do x
         xc = x - pc.mean

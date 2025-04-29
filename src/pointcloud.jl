@@ -27,6 +27,7 @@ Base.axes(pc::PointCloud, dims...) = axes(pc.points, dims...)
 # We use `x -> SVector(x)` instead of just `SVector` so that MappedArrays.jl
 # can infer the eltype better.
 points(pc::PointCloud) = mappedarray(x -> SVector(x), eachcol(pc.points))
+points(X::HybridMatrix) = mappedarray(x -> SVector(x), eachcol(X))
 weights(pc::PointCloud) = pc.weights
 
 nrows(pcs::PointCloud{N}) where {N} = N
