@@ -160,3 +160,20 @@ Then, in every MM-iteration (repeat until no $k_j$ changes):
 Note that the first two steps can be performed in a single pass over all source
 points.
 A second pass is then needed for $bold(S)$.
+
+
+
+=== Approximation error
+What is the relative error of evaluating a Gaussian kernel
+$phi(r) = exp(- r^2 / (2 sigma^2))$ at the inflection point $r = sigma$ (maximum
+derivative) with an error in $r$ of $(sqrt(d) Delta) / 2$ (maximum distance to
+a grid cell center with grid spacing $Delta$) when we set $Delta = alpha sigma$?
+
+$
+  (phi(r) - phi(r + (sqrt(d) Delta) / 2)) / phi(r)
+  =
+  1 - phi((1 + (sqrt(d) alpha) / 2) sigma) / phi(sigma)
+  =
+  1 - exp(- 1 / 2 (1 + (sqrt(d) alpha) / 2)^2 + 1 / 2)
+$
+
