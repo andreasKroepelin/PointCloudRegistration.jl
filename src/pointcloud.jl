@@ -28,6 +28,7 @@ Base.axes(pc::PointCloud, dims...) = axes(pc.points, dims...)
 # can infer the eltype better.
 points(pc::PointCloud) = mappedarray(x -> SVector(x), eachcol(pc.points))
 points(X::HybridMatrix) = mappedarray(x -> SVector(x), eachcol(X))
+points(xs::AbstractVector{<: SVector}) = xs
 weights(pc::PointCloud) = pc.weights
 
 nrows(pcs::PointCloud{N}) where {N} = N

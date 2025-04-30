@@ -15,10 +15,10 @@ function bbox(X)
     lo, hi
 end
 
-function diameter(X, ε)
-    lo, hi = bbox(X)
-    Δ = (ε / 2sqrt(nrows(X))) * (hi - lo)
-    grid_points = Set(round.((x - lo) ./ Δ) for x in points(X)) |> collect
+function diameter(xs, ε)
+    lo, hi = bbox(xs)
+    Δ = (ε / 2sqrt(length(eltype(xs)))) * (hi - lo)
+    grid_points = Set(round.((x - lo) ./ Δ) for x in xs) |> collect
     diameter_exhaustive(grid_points)
 end
 
@@ -41,11 +41,12 @@ function diameter_exhaustive(xs)
 end
 
 function min_volume_bbox(xs, ε, ::Val{N} = Val(length(eltype(xs)))) where N
-    if N == 1
+    if N == 0
         return SMatrix{length(eltype(xs)), 0, eltype(eltype(xs))}()
     end
 
-    v, d = diameter(X, ε)
+    v, d = diameter_exhaustive(xs#=, ε=#)
+    v = normalize(v)
     P = I - v * v'
     xs_projected = mappedarray(LinearMap(P), xs)
     hcat(v, min_volume_bbox(xs_projected, ε, Val(N - 1)))
