@@ -16,6 +16,9 @@ function bbox(X)
 end
 
 function diameter(xs, ε)
+    if iszero(ε)
+        return diameter_exhaustive(xs)
+    end
     lo, hi = bbox(xs)
     Δ = (ε / 2sqrt(length(eltype(xs)))) * (hi - lo)
     grid_points = Set(round.((x - lo) ./ Δ) for x in xs) |> collect
@@ -45,47 +48,39 @@ function min_volume_bbox(xs, ε, ::Val{N} = Val(length(eltype(xs)))) where N
         return SMatrix{length(eltype(xs)), 0, eltype(eltype(xs))}()
     end
 
-    v, d = diameter_exhaustive(xs#=, ε=#)
-    v = normalize(v)
-    P = I - v * v'
-    xs_projected = mappedarray(LinearMap(P), xs)
-    hcat(v, min_volume_bbox(xs_projected, ε, Val(N - 1)))
+    v, d = diameter(xs, ε)
+    # v = normalize(v)
+    # P = I - v * v'
+    # xs_projected = mappedarray(LinearMap(P), xs)
+    # hcat(v, min_volume_bbox(xs_projected, ε, Val(N - 1)))
 
-    # # v, d = diameter_exhaustive(eachcol(X))
-    # R = invert_column_order(qr(v * ones(typeof(v))').Q)
-    # if det(R) < 0
-    #     R = negative_last_column(R)
-    # end
-    # X_rot = similar(X)
-    # mul!(X_rot, R', X)
-    # X_projected_down = view_without_last_row(X)
-    # R_lower_dim = min_volume_bbox(X_projected_down, ε)
-    # add_identity_dim(R_lower_dim) * R'
-end
-
-function view_without_last_row(X)
-    N = nrows(X)
-    @view X[SOneTo(N - 1), :]
+    # v, d = diameter_exhaustive(eachcol(X))
+    R = qr(v * ones(typeof(v))').Q
+    if det(R) < 0
+        R = negative_last_column(R)
+    end
+    R = R'
+    two_to_N = ntuple(i -> i + 1, Val(N - 1)) |> SVector
+    PR = R[two_to_N, :]
+    # xs_rot = mappedarray(LinearMap(PR), xs)
+    xs_rot = map(LinearMap(PR), xs)
+    R_lower_dim = min_volume_bbox(xs_rot, ε)
+    add_identity_dim(R_lower_dim) * R
 end
 
 # makes
 #  1 2
 #  3 4
 # into
-#  1 2 0
-#  3 4 0
-#  0 0 1
+#  1 0 0
+#  0 1 2
+#  0 3 4
 function add_identity_dim(A::StaticMatrix{N, N}) where {N}
     z = zero(SVector{N, eltype(A)})
     vcat(
-        hcat(A, z),
-        hcat( z', one(eltype(A)),),
+        hcat(one(eltype(A)), z'),
+        hcat(z, A),
     )
-end
-
-function invert_column_order(A::StaticMatrix{M, N}) where {M, N}
-    order = ntuple(i -> N - i + 1, Val(N)) |> SVector
-    A[:, order]
 end
 
 function eigen_cov(pc::PointCloud)
