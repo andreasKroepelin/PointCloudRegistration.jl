@@ -6,28 +6,30 @@ end
 default_config() =
     (; iterations = 10, annealing = 5, restarts = 5, rng = Random.default_rng())
 
-function bbox(X)
-    lo = hi = first(points(X))
-    for point in points(X)
+function bbox(xs::VecOfSVec)
+    lo = hi = first(xs)
+    for point in xs
         lo = min.(point, lo)
         hi = max.(point, hi)
     end
     lo, hi
 end
 
-function diameter(xs, ε)
+bbox(pc::PointCloud) = bbox(pc.points)
+
+function diameter(xs::VecOfSVec{N}, ε) where N
     if iszero(ε)
         return diameter_exhaustive(xs)
     end
     lo, hi = bbox(xs)
-    Δ = (ε / 2sqrt(length(eltype(xs)))) * (hi - lo)
+    Δ = (ε / 2sqrt(N)) * (hi - lo)
     grid_points = Set(round.((x - lo) ./ Δ) for x in xs) |> collect
     diameter_exhaustive(grid_points)
 end
 
-function diameter_exhaustive(xs)
+function diameter_exhaustive(xs::VecOfSVec{N, T}) where {N, T}
     max_v = zero(eltype(xs))
-    max_d = typemin(eltype(max_v))
+    max_d = typemin(T)
     for i in 1:length(xs)
         xi = xs[i]
         for j in (i + 1):length(xs)
@@ -139,12 +141,12 @@ function transformation_type(a, b)
     AffineMap{rotation_type(a, b), translation_type(a, b)}
 end
 
-wsum(hmatrix, weights) = wsum(identity, hmatrix, weights)
+wsum(points, weights) = wsum(identity, points, weights)
 
-function wsum(f, hmatrix::HybridMatrix{N, M, T}, weights) where {N, M, T}
-    s = zero(f(zero(SVector{N, T})))
-    @inbounds for i in eachindex(eachcol(hmatrix), weights)
-        s += weights[i] * f(hmatrix[:, i]::SVector{N, T})
+function wsum(f, points::AbstractVector{<: SVector}, weights)
+    s = zero(f(zero(eltype(points))))
+    for (point, weight) in zip(points, weights)
+        s += weight * f(point)
     end
     s
 end

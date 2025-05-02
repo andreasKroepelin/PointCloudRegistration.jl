@@ -41,7 +41,7 @@ struct KdeComputation{
     ifft_plan::Pli
 
     function KdeComputation(
-        points::AbstractVector{<:StaticVector{N, T}},
+        points::VecOfSVec{N, T},
         grid::Grid{N, T},
         sqsigma::T,
     ) where {N, T}
@@ -100,22 +100,17 @@ end
 
 struct AnnealingLevel{
     N,
-    M,
     T,
-    CT <: AbstractArray{T, M},
+    CT <: AbstractArray{<: SVector{N, T}, N},
     CWT <: AbstractArray{T, N},
 }
     grid::Grid{N, T}
     convd_target::CT
     convd_weights_target::CWT
 
-    function AnnealingLevel(grid, convd_target, convd_weights_target)
-        N = ndims(convd_weights_target)
-        M = ndims(convd_target)
-        @assert M == N + 1
+    function AnnealingLevel(grid::Grid{N}, convd_target, convd_weights_target) where N
         new{
             N,
-            M,
             eltype(convd_target),
             typeof(convd_target),
             typeof(convd_weights_target),
@@ -128,21 +123,23 @@ struct AnnealingLevel{
 end
 
 function AnnealingLevel(
-    target::PointCloud,
+    target::PointCloud{N},
     target_bbox::NTuple{2},
     weighted_target_points,
     sqscale,
-)
+) where N
     target_lo, target_hi = target_bbox
     sigma = sqrt(sqscale)
     grid = Grid(target_lo .- 3sigma, target_hi .+ 3sigma, sigma / 4)
-    convd_target = convd_target_type(target)(
-        zeros(eltype(target), nrows(target), size(grid)...),
+    convd_target = reinterpret(
+        reshape,
+        SVector{N, eltype(target)},
+        zeros(eltype(target), N, size(grid)...),
     )
     convd_weights_target = zeros(eltype(target), size(grid)...)
-    kde! = KdeComputation(points(target), grid, sqscale)
-    kde!(convd_weights_target, weights(target))
-    kde!.(each1slice(convd_target), eachrow(weighted_target_points))
+    kde! = KdeComputation(target.points, grid, sqscale)
+    kde!(convd_weights_target, target.weights)
+    kde!.(eachslice(parent(convd_target), dim = 1), eachrow(reinterpret(reshape, eltype(eltype(weighted_target_points)),weighted_target_points)))
     # for (a, b) in zip(each1slice(convd_target), eachrow(weighted_target_points))
     #     kde!(a, b)
     # end
@@ -153,8 +150,7 @@ end
 
 function compute_annealing_levels(target, sqscales)
     target_bbox = bbox(target)
-    weighted_target_points = similar(target.points)
-    mul!(weighted_target_points, target.points, Diagonal(target.weights))
+    weighted_target_points = target.points .* target.weights
 
     [
         AnnealingLevel(target, target_bbox, weighted_target_points, sqscale) for
@@ -170,8 +166,8 @@ function eval_kernel_correlation(
     valid_idcs = CartesianIndices(size(al.grid))
     kc = zero(eltype(source))
     for j in eachindex(points(source), weights(source))
-        src = points(source)[j]
-        w_src = weights(source)[j]
+        src = source.points[j]
+        w_src = source.weights[j]
         transformed_src = transformation(src)
         grid_idx = idx_on_grid(transformed_src, al.grid)
         grid_idx in valid_idcs || continue
@@ -181,34 +177,12 @@ function eval_kernel_correlation(
     kc
 end
 
-function convd_target_type(target)
-    N = nrows(target)
-    HybridArray{Tuple{N, ntuple(_ -> StaticArrays.Dynamic(), Val(N))...}}
-end
-
-function each1slice(
-    X::HybridArray{Tuple{N, Vararg{StaticArrays.Dynamic(), M}}},
-) where {N, M}
-    colons = ntuple(_ -> :, Val(M))
-    ntuple(i -> view(X, i, colons...), Val(N))
-end
-
-function swap_columns(A::SMatrix{N, N}) where {N}
-    idcs = ntuple(identity, Val(N)) |> SVector
-    @reset idcs[1] = 2
-    @reset idcs[2] = 1
-    A[:, idcs]
-end
-
 function axisalign_target(target, eig)
     axisaligner = eig.vectors'
     if det(axisaligner) < 0
-        axisaligner = swap_columns(axisaligner)
+        axisaligner = negative_last_column(axisaligner)
     end
     axisaligner, LinearMap(axisaligner)(target)
-    # aligned_target_points = similar(target.points)
-    # mul!(aligned_target_points, axisaligner, target.points)
-    # axisaligner, PointCloud(aligned_target_points, target.weights)
 end
 
 struct PreparedTarget{
@@ -296,7 +270,7 @@ function _register_no_correspondences(
 ) where {N, TS, TT}
     T = promote_type(TS, TT)
     (; annealing_levels, target, axis_aligning_rotation) = prepared_target
-    source_grid_idcs = zeros(CartesianIndex{N}, size(source, 2))
+    source_grid_idcs = zeros(CartesianIndex{N}, length(source.points))
 
     best = worst(transformation_type(Val(N), T))
     init_transformation = simple_transformation(source, target)
@@ -316,8 +290,8 @@ function _register_no_correspondences(
                 target_mean = zero(SVector{N, TT})
                 source_mean = zero(SVector{N, TS})
                 kc = zero(T)
-                for j in axes(source, 2)
-                    src = points(source)[j]
+                for j in eachindex(source.points)
+                    src = source.points[j]
                     transformed_src = transformation(src)
                     grid_idx = idx_on_grid(transformed_src, grid)
                     if source_grid_idcs[j] != grid_idx
@@ -326,8 +300,8 @@ function _register_no_correspondences(
                     source_grid_idcs[j] = grid_idx
                     grid_idx in valid_idcs || continue
 
-                    w_src = weights(source)[j]
-                    convd_trg = convd_target[:, grid_idx]
+                    w_src = source.weights[j]
+                    convd_trg = convd_target[grid_idx]
                     convd_w_trg = convd_weights_target[grid_idx]
                     target_mean += w_src * convd_trg
                     source_mean += w_src * convd_w_trg * src
@@ -339,13 +313,13 @@ function _register_no_correspondences(
                 target_mean /= kc
                 source_mean /= kc
                 covariance = zero(rotation_type(Val(N), T))
-                for j in axes(source, 2)
+                for j in eachindex(source.points)
                     grid_idx = source_grid_idcs[j]
                     grid_idx in valid_idcs || continue
 
-                    src = points(source)[j]
-                    w_src = weights(source)[j]
-                    convd_trg = convd_target[:, grid_idx]
+                    src = source.points[j]
+                    w_src = source.weights[j]
+                    convd_trg = convd_target[grid_idx]
                     convd_w_trg = convd_weights_target[grid_idx]
                     covariance +=
                         w_src *

@@ -12,12 +12,12 @@ function cost(gm::GemanMcclure, x, y)
     gm.sqscale * sqdist / (gm.sqscale + sqdist)
 end
 
-function correspondences(; source, target)
+function correspondences(; source::PointCloud{N}, target::PointCloud{N}) where N
     mappedarray(
-        points(source),
-        weights(source),
-        points(target),
-        weights(target),
+        source.points,
+        source.weights,
+        target.points,
+        target.weights,
     ) do src, w_src, trg, w_trg
         (source = src, target = trg, weight = w_src * w_trg)
     end
@@ -74,14 +74,12 @@ function _register_robustly(source, target, sqscales, restarts, iterations, rng)
                 end
                 mm_weights ./= sum(mm_weights)
 
-                source_mean =
-                    sum(w * src for (w, src) in zip(mm_weights, points(source)))
-                target_mean =
-                    sum(w * trg for (w, trg) in zip(mm_weights, points(target)))
+                source_mean = wsum(source.points, mm_weights)
+                target_mean = wsum(target.points, mm_weights)
                 covariance = zero(rotation_type(source, target))
                 @inbounds for i in eachindex(mm_weights)
-                    centered_trg = points(target)[i] - target_mean
-                    centered_src = points(source)[i] - source_mean
+                    centered_trg = target.points[i] - target_mean
+                    centered_src = source.points[i] - source_mean
                     covariance += mm_weights[i] * centered_trg * centered_src'
                 end
                 transformation = transformation_from_moments(
