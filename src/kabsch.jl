@@ -19,7 +19,10 @@ function register_naively(source, target)
     _register_naively(PointCloud(source), PointCloud(target))
 end
 
-function _register_naively(source::PointCloud{N, TS}, target::PointCloud{N, TT}) where {N, TS, TT}
+function _register_naively(
+    source::PointCloud{N, TS},
+    target::PointCloud{N, TT},
+) where {N, TS, TT}
     check_sizes(source, target)
     T = promote_type(TS, TT)
     covariance = zero(SMatrix{N, N, T})

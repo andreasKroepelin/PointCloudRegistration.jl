@@ -17,7 +17,7 @@ end
 
 bbox(pc::PointCloud) = bbox(pc.points)
 
-function diameter(xs::VecOfSVec{N}, ε) where N
+function diameter(xs::VecOfSVec{N}, ε) where {N}
     if iszero(ε)
         return diameter_exhaustive(xs)
     end
@@ -45,7 +45,7 @@ function diameter_exhaustive(xs::VecOfSVec{N, T}) where {N, T}
     max_v, max_d
 end
 
-function min_volume_bbox(xs, ε, ::Val{N} = Val(length(eltype(xs)))) where N
+function min_volume_bbox(xs, ε, ::Val{N} = Val(length(eltype(xs)))) where {N}
     if N == 0
         return SMatrix{length(eltype(xs)), 0, eltype(eltype(xs))}()
     end
@@ -79,10 +79,7 @@ end
 #  0 3 4
 function add_identity_dim(A::StaticMatrix{N, N}) where {N}
     z = zero(SVector{N, eltype(A)})
-    vcat(
-        hcat(one(eltype(A)), z'),
-        hcat(z, A),
-    )
+    vcat(hcat(one(eltype(A)), z'), hcat(z, A))
 end
 
 function eigen_cov(pc::PointCloud)
@@ -143,7 +140,7 @@ end
 
 wsum(points, weights) = wsum(identity, points, weights)
 
-function wsum(f, points::AbstractVector{<: SVector}, weights)
+function wsum(f, points::AbstractVector{<:SVector}, weights)
     s = zero(f(zero(eltype(points))))
     for (point, weight) in zip(points, weights)
         s += weight * f(point)
@@ -177,7 +174,7 @@ function annealing_plan(target_or_eigen, scale, n)
     mv2sqs(mv) = mv / 100
     if n < 2
         if ismissing(scale)
-            (mv2sqs(maxvar(target_or_eigen)), )
+            (mv2sqs(maxvar(target_or_eigen)),)
         else
             (scale^2,)
         end

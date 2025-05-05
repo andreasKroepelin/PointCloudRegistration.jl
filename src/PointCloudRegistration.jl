@@ -31,9 +31,18 @@ function register(source, target; correspondences = Val(:unknown), kwargs...)
     elseif correspondences isa Val{:unsure}
         register_robustly(source, target; kwargs...)
     elseif correspondences isa Symbol
-        register(source, target; correspondences = Val(correspondences), kwargs...)
+        register(
+            source,
+            target;
+            correspondences = Val(correspondences),
+            kwargs...,
+        )
     else
-        throw(ArgumentError("`correspondences` must be one of `:unknown`, `:known`, or `:unsure`."))
+        throw(
+            ArgumentError(
+                "`correspondences` must be one of `:unknown`, `:known`, or `:unsure`.",
+            ),
+        )
     end
 end
 

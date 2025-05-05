@@ -25,7 +25,9 @@ prepd_X = prepare_target_kernel_correlation(X);
 # Y = rotation' * (X[:, shuffle(axes(X, 2))[begin:2:end]] .- translation)
 # Y .+= 3 * randn(size(Y))
 # Y = shape_coords("apple-9")
-Y = PointCloud(coordarray(retrievepdb("1iwo", dir = tempdir())["A"], calphaselector))
+Y = PointCloud(
+    coordarray(retrievepdb("1iwo"; dir = tempdir())["A"], calphaselector),
+)
 transformation = register(Y, prepd_X; restarts = 100)
 
 side_by_side(Y, X, transformation)
@@ -36,12 +38,7 @@ cols = 6
 al = AnalysisLogger([])
 Logging.disable_logging(LogLevel(-2001))
 T = with_logger(al) do
-    register(
-        Y,
-        prepd_X;
-        iterations = 200,
-        restarts = rows * cols - 1,
-    )
+    register(Y, prepd_X; iterations = 200, restarts = rows * cols - 1)
 end
 Logging.disable_logging(Logging.Debug)
 

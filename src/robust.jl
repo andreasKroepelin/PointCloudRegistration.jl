@@ -12,7 +12,10 @@ function cost(gm::GemanMcclure, x, y)
     gm.sqscale * sqdist / (gm.sqscale + sqdist)
 end
 
-function correspondences(; source::PointCloud{N}, target::PointCloud{N}) where N
+function correspondences(;
+    source::PointCloud{N},
+    target::PointCloud{N},
+) where {N}
     mappedarray(
         source.points,
         source.weights,

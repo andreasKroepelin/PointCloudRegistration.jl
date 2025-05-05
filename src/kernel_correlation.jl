@@ -101,14 +101,18 @@ end
 struct AnnealingLevel{
     N,
     T,
-    CT <: AbstractArray{<: SVector{N, T}, N},
+    CT <: AbstractArray{<:SVector{N, T}, N},
     CWT <: AbstractArray{T, N},
 }
     grid::Grid{N, T}
     convd_target::CT
     convd_weights_target::CWT
 
-    function AnnealingLevel(grid::Grid{N}, convd_target, convd_weights_target) where N
+    function AnnealingLevel(
+        grid::Grid{N},
+        convd_target,
+        convd_weights_target,
+    ) where {N}
         new{
             N,
             eltype(convd_target),
@@ -127,7 +131,7 @@ function AnnealingLevel(
     target_bbox::NTuple{2},
     weighted_target_points,
     sqscale,
-) where N
+) where {N}
     target_lo, target_hi = target_bbox
     sigma = sqrt(sqscale)
     grid = Grid(target_lo .- 3sigma, target_hi .+ 3sigma, sigma / 4)
@@ -139,7 +143,16 @@ function AnnealingLevel(
     convd_weights_target = zeros(eltype(target), size(grid)...)
     kde! = KdeComputation(target.points, grid, sqscale)
     kde!(convd_weights_target, target.weights)
-    kde!.(eachslice(parent(convd_target), dim = 1), eachrow(reinterpret(reshape, eltype(eltype(weighted_target_points)),weighted_target_points)))
+    kde!.(
+        eachslice(parent(convd_target); dim = 1),
+        eachrow(
+            reinterpret(
+                reshape,
+                eltype(eltype(weighted_target_points)),
+                weighted_target_points,
+            ),
+        ),
+    )
     # for (a, b) in zip(each1slice(convd_target), eachrow(weighted_target_points))
     #     kde!(a, b)
     # end
@@ -208,7 +221,8 @@ function prepare_target_kernel_correlation(
     _prepare_target(PointCloud(target), scale, axisalign, annealing)
 end
 
-prepare_target_kernel_correlation(prepared_target::PreparedTarget; _kwargs...) = prepared_target
+prepare_target_kernel_correlation(prepared_target::PreparedTarget; _kwargs...) =
+    prepared_target
 
 function _prepare_target(target_original, scale, axisalign, annealing)
     if axisalign
@@ -234,7 +248,8 @@ function register_no_correspondences(
     iterations::Int = default_config().iterations,
     rng = default_config().rng,
 )
-    prepared_target = prepare_target_kernel_correlation(target; scale, axisalign, annealing)
+    prepared_target =
+        prepare_target_kernel_correlation(target; scale, axisalign, annealing)
 
     _register_no_correspondences(
         PointCloud(source),
@@ -283,7 +298,14 @@ function _register_no_correspondences(
             (; grid, convd_target, convd_weights_target) = annealing_level
             valid_idcs = CartesianIndices(size(grid))
 
-            @logmsg LogLevel(-2000) "mm iteration" restart iter = -1 kc = eval_kernel_correlation(last(annealing_levels), source, transformation) rotation = transformation.linear translation = transformation.translation init_transformation target_kde = copy(convd_weights_target) grid id = :mm
+            @logmsg LogLevel(-2000) "mm iteration" restart iter = -1 kc =
+                eval_kernel_correlation(
+                    last(annealing_levels),
+                    source,
+                    transformation,
+                ) rotation = transformation.linear translation =
+                transformation.translation init_transformation target_kde =
+                copy(convd_weights_target) grid id = :mm
 
             for iter in 1:iterations
                 changed = false

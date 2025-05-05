@@ -14,7 +14,11 @@ includet("logging.jl")
 d = 3
 n = 100
 X = HybridMatrix{d, StaticArrays.Dynamic()}(cumsum(randn(d, n) .+ 1; dims = 2))
-rotation = PointCloudRegistration.rand_rotation(Random.default_rng(), Val(d), eltype(X))
+rotation = PointCloudRegistration.rand_rotation(
+    Random.default_rng(),
+    Val(d),
+    eltype(X),
+)
 translation = ones(SVector{d, Float64})
 permuted_idcs = collect(axes(X, 2))
 shuffled_proportion = 0.9

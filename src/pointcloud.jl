@@ -1,4 +1,4 @@
-const VecOfSVec{N, T} = AbstractVector{<: SVector{N, T}}
+const VecOfSVec{N, T} = AbstractVector{<:SVector{N, T}}
 
 function VecOfSVec(mat::AbstractMatrix)
     N = size(mat, 1)
@@ -25,15 +25,17 @@ end
 PointCloud(points::VecOfSVec) = PointCloud(points, Trues(length(points)))
 
 PointCloud(points_mat::AbstractMatrix) = PointCloud(VecOfSVec(points_mat))
-PointCloud(points_mat::AbstractMatrix, weights::AbstractVector) = PointCloud(VecOfSVec(points_mat), weights)
+PointCloud(points_mat::AbstractMatrix, weights::AbstractVector) =
+    PointCloud(VecOfSVec(points_mat), weights)
 
 PointCloud(pc::PointCloud) = pc
 
-Base.size(pc::PointCloud{N}) where N = (N, length(pc.points))
-StaticArrays.Size(pc::PointCloud{N}) where N = Size(N, length(pc.points))
+Base.size(pc::PointCloud{N}) where {N} = (N, length(pc.points))
+StaticArrays.Size(pc::PointCloud{N}) where {N} = Size(N, length(pc.points))
 Base.@propagate_inbounds Base.getindex(pc::PointCloud, i, j) =
     getindex(getindex(pc.points, i), j)
-Base.axes(pc::PointCloud{N}, i) where N = ifelse(i == 1, SOneTo(N), eachindex(pc.points))
+Base.axes(pc::PointCloud{N}, i) where {N} =
+    ifelse(i == 1, SOneTo(N), eachindex(pc.points))
 # We use `x -> SVector(x)` instead of just `SVector` so that MappedArrays.jl
 # can infer the eltype better.
 # points(pc::PointCloud) = mappedarray(x -> SVector(x), eachcol(pc.points))
@@ -43,4 +45,5 @@ Base.axes(pc::PointCloud{N}, i) where N = ifelse(i == 1, SOneTo(N), eachindex(pc
 
 nrows(pcs::PointCloud{N}) where {N} = N
 
-(m::AbstractAffineMap)(pc::PointCloud)= PointCloud(m.(points), pc.weights, pc.sum_of_weights, m(mean))
+(m::AbstractAffineMap)(pc::PointCloud) =
+    PointCloud(m.(points), pc.weights, pc.sum_of_weights, m(mean))
