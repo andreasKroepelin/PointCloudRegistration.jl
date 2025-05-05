@@ -25,9 +25,10 @@ prepd_X = prepare_target_kernel_correlation(X);
 # Y = rotation' * (X[:, shuffle(axes(X, 2))[begin:2:end]] .- translation)
 # Y .+= 3 * randn(size(Y))
 # Y = shape_coords("apple-9")
-Y = PointCloud(
-    coordarray(retrievepdb("1iwo"; dir = tempdir())["A"], calphaselector),
-)
+Y = shape_coords("apple-1")[:, 20:50] # just the leaves
+# Y = PointCloud(
+#     coordarray(retrievepdb("1iwo"; dir = tempdir())["A"], calphaselector),
+# )
 transformation = register(Y, prepd_X; restarts = 100)
 
 side_by_side(Y, X, transformation)
