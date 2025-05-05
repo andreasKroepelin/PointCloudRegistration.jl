@@ -19,7 +19,9 @@ function rand_transformation(
 ) where {N}
     rotation = rand_rotation(rng, source, target)
 
-    translation = target.mean - rotation * source.mean
+    i = rand(rng, eachindex(source.points))
+    j = rand(rng, eachindex(target.points))
+    translation = target.points[j] - rotation * source.points[i]
 
     AffineMap(rotation, translation)::transformation_type(source, target)
 end
