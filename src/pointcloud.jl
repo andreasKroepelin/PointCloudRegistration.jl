@@ -1,10 +1,15 @@
 const VecOfSVec{N, T} = AbstractVector{<:SVector{N, T}}
 
 function VecOfSVec(mat::AbstractMatrix)
-    N = size(mat, 1)
+    N = _size_1(mat)
     T = eltype(mat)
     reinterpret(reshape, SVector{N, T}, mat)
 end
+
+_size_1(mat::AbstractMatrix) = _size_1(Size(mat), mat)
+_size_1(::Size{Sz}, mat) where Sz = _size_1(first(Sz), mat)
+_size_1(i::Int, mat) = i
+_size_1(::StaticArrays.Dynamic, mat) = size(mat, 1)
 
 struct PointCloud{N, T, P <: VecOfSVec{N, T}, WT, W <: AbstractVector} <:
        AbstractMatrix{T}
@@ -33,7 +38,7 @@ PointCloud(pc::PointCloud) = pc
 Base.size(pc::PointCloud{N}) where {N} = (N, length(pc.points))
 StaticArrays.Size(pc::PointCloud{N}) where {N} = Size(N, length(pc.points))
 Base.@propagate_inbounds Base.getindex(pc::PointCloud, i, j) =
-    getindex(getindex(pc.points, i), j)
+    getindex(getindex(pc.points, j), i)
 Base.axes(pc::PointCloud{N}, i) where {N} =
     ifelse(i == 1, SOneTo(N), eachindex(pc.points))
 # We use `x -> SVector(x)` instead of just `SVector` so that MappedArrays.jl
@@ -45,5 +50,8 @@ Base.axes(pc::PointCloud{N}, i) where {N} =
 
 nrows(pcs::PointCloud{N}) where {N} = N
 
-(m::AbstractAffineMap)(pc::PointCloud) =
-    PointCloud(m.(points), pc.weights, pc.sum_of_weights, m(mean))
+(m::AffineMap)(pc::PointCloud) =
+    PointCloud(m.(pc.points), pc.weights, pc.sum_of_weights, m(pc.mean))
+
+(m::LinearMap)(pc::PointCloud) =
+    PointCloud(m.(pc.points), pc.weights, pc.sum_of_weights, m(pc.mean))

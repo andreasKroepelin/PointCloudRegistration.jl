@@ -109,13 +109,13 @@ struct AnnealingLevel{
     convd_weights_target::CWT
 
     function AnnealingLevel(
-        grid::Grid{N},
+        grid::Grid{N, T},
         convd_target,
         convd_weights_target,
-    ) where {N}
+    ) where {N, T}
         new{
             N,
-            eltype(convd_target),
+            T,
             typeof(convd_target),
             typeof(convd_weights_target),
         }(
@@ -144,7 +144,7 @@ function AnnealingLevel(
     kde! = KdeComputation(target.points, grid, sqscale)
     kde!(convd_weights_target, target.weights)
     kde!.(
-        eachslice(parent(convd_target); dim = 1),
+        eachslice(parent(convd_target); dims = 1),
         eachrow(
             reinterpret(
                 reshape,
@@ -178,7 +178,7 @@ function eval_kernel_correlation(
 )
     valid_idcs = CartesianIndices(size(al.grid))
     kc = zero(eltype(source))
-    for j in eachindex(points(source), weights(source))
+    for j in eachindex(source.points, source.weights)
         src = source.points[j]
         w_src = source.weights[j]
         transformed_src = transformation(src)

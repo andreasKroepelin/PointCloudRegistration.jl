@@ -26,11 +26,11 @@ function _register_naively(
     check_sizes(source, target)
     T = promote_type(TS, TT)
     covariance = zero(SMatrix{N, N, T})
-    for i in eachindex(weights(source))
-        src = points(source)[i] - source.mean
-        trg = points(target)[i] - target.mean
-        w_src = weights(source)[i]
-        w_trg = weights(target)[i]
+    for i in eachindex(source.points)
+        src = source.points[i] - source.mean
+        trg = target.points[i] - target.mean
+        w_src = source.weights[i]
+        w_trg = target.weights[i]
         covariance += w_src * w_trg * src * trg'
     end
     transformation_from_moments(covariance, source.mean, target.mean)
