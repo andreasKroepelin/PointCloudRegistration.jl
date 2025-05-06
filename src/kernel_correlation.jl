@@ -91,11 +91,12 @@ function (kdecomp!::KdeComputation{N, T})(
     mul!(buffer_space, ifft_plan, buffer_freq)
 
     # broadcasting leads to enourmous allocations for some reason, so let's use
-    # a loop...
+    # map!...
     # res .= real.(buffer_space)
-    for i in eachindex(res, buffer_space)
-        res[i] = real(buffer_space[i])
-    end
+    # for i in eachindex(res, buffer_space)
+    #     res[i] = real(buffer_space[i])
+    # end
+    map!(real, res, buffer_space)
 end
 
 struct AnnealingLevel{
