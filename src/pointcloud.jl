@@ -12,7 +12,7 @@ function VecOfSVec{N}(mat::AbstractMatrix) where {N}
 end
 
 _size_1(mat::AbstractMatrix) = _size_1(Size(mat), mat)
-_size_1(::Size{Sz}, mat) where Sz = _size_1(first(Sz), mat)
+_size_1(::Size{Sz}, mat) where {Sz} = _size_1(first(Sz), mat)
 _size_1(i::Int, mat) = i
 _size_1(::StaticArrays.Dynamic, mat) = size(mat, 1)
 
@@ -37,7 +37,8 @@ PointCloud(points::VecOfSVec) = PointCloud(points, Trues(length(points)))
 PointCloud(points_mat::AbstractMatrix) = PointCloud(VecOfSVec(points_mat))
 PointCloud(points_mat::AbstractMatrix, weights::AbstractVector) =
     PointCloud(VecOfSVec(points_mat), weights)
-PointCloud{N}(points_mat::AbstractMatrix) where {N} = PointCloud(VecOfSVec{N}(points_mat))
+PointCloud{N}(points_mat::AbstractMatrix) where {N} =
+    PointCloud(VecOfSVec{N}(points_mat))
 PointCloud{N}(points_mat::AbstractMatrix, weights::AbstractVector) where {N} =
     PointCloud(VecOfSVec{N}(points_mat), weights)
 

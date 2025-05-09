@@ -126,8 +126,8 @@ function side_by_side(source, target, transformation)
     fig = Figure()
     display(fig)
     if d == 2
-        ax_src = Axis(fig[1, 1]; title = "source") #= autolimitaspect = 1=#
-        ax_trg = Axis(fig[1, 2]; title = "target") #= autolimitaspect = 1=#
+        ax_src = Axis(fig[1, 1]; title = "source")#= autolimitaspect = 1=#
+        ax_trg = Axis(fig[1, 2]; title = "target")#= autolimitaspect = 1=#
         scatter!(ax_src, source.points; color = axes(source.points, 2))
         scatter!(ax_trg, target.points; color = axes(target.points, 2))
         colsize!(fig.layout, 1, Aspect(1, 1))

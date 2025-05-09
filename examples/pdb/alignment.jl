@@ -1,12 +1,19 @@
-function aligned_atoms(el1, el2,
-                residue_selectors::Function...;
-                scoremodel::AbstractScoreModel=AffineGapScoreModel(BLOSUM62, gap_open=-10, gap_extend=-1),
-                aligntype::BioAlignments.AbstractAlignment=LocalAlignment(),
-                alignatoms::Function=calphaselector)
+function aligned_atoms(
+    el1,
+    el2,
+    residue_selectors::Function...;
+    scoremodel::AbstractScoreModel = AffineGapScoreModel(
+        BLOSUM62,
+        gap_open = -10,
+        gap_extend = -1,
+    ),
+    aligntype::BioAlignments.AbstractAlignment = LocalAlignment(),
+    alignatoms::Function = calphaselector,
+)
     res1 = collectresidues(el1, residue_selectors...)
     res2 = collectresidues(el2, residue_selectors...)
     # Shortcut if the sequences are the same
-    if LongAA(res1; gaps=false) == LongAA(res2; gaps=false)
+    if LongAA(res1; gaps = false) == LongAA(res2; gaps = false)
         inds1 = collect(1:length(res1))
         inds2 = collect(1:length(res2))
     else
@@ -52,4 +59,3 @@ function aligned_atoms(el1, el2,
 
     (PointCloud ∘ coordarray).((atoms1, atoms2))
 end
-

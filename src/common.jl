@@ -140,7 +140,7 @@ end
 
 wsum(points, weights) = wsum(identity, points, weights)
 
-function wsum(f, points::AbstractVector{<:SVector}, weights)
+function wsum(f, points::VecOfSVec, weights)
     s = zero(f(zero(eltype(points))))
     for (point, weight) in zip(points, weights)
         s += weight * f(point)
