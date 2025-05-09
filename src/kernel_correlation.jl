@@ -114,12 +114,7 @@ struct AnnealingLevel{
         convd_target,
         convd_weights_target,
     ) where {N, T}
-        new{
-            N,
-            T,
-            typeof(convd_target),
-            typeof(convd_weights_target),
-        }(
+        new{N, T, typeof(convd_target), typeof(convd_weights_target)}(
             grid,
             convd_target,
             convd_weights_target,
@@ -374,4 +369,124 @@ function _register_no_correspondences(
     end
 
     LinearMap(axis_aligning_rotation') ∘ best.transformation
+end
+
+struct GaussKernel{T}
+    neghalfinvsqbandwidth::T
+end
+
+(kernel::GaussKernel)(sqr::Real) = exp(kernel.neghalfinvsqbandwidth * sqr)
+
+function (kernel::GaussKernel)(x::AbstractVector, y::AbstractVector)
+    kernel(sqeuclidean(x, y))
+end
+
+function compute_kc_weights!(
+    kc_weights,
+    source::PointCloud,
+    target::PointCloud,
+    kernel,
+    transformation,
+)
+    @inbounds for j in axes(kc_weights, 2)
+        src = source.points[j]
+        srcw = source.weights[j]
+        transformed_src = transformation(src)
+        for i in axes(kc_weights, 1)
+            trg = target.points[i]
+            trgw = target.weights[i]
+            kc_weights[i, j] = trgw * srcw * kernel(transformed_src, trg)
+        end
+    end
+end
+
+function register_kc_naive(
+    source,
+    target;
+    scale::Union{Real, Missing} = missing,
+    annealing::Int = default_config().annealing,
+    restarts::Int = default_config().restarts,
+    iterations::Int = default_config().iterations,
+    rng = default_config().rng,
+)
+    pc_target = PointCloud(target)
+    sqscales = annealing_plan(pc_target, scale, annealing)
+
+    _register_kc_naive(
+        PointCloud(source),
+        pc_target,
+        restarts,
+        iterations,
+        rng,
+    )
+end
+
+function _register_kc_naive(
+    source::PointCloud{N, TS},
+    target::PointCloud{N, TT},
+    sqscales,
+    restarts,
+    iterations,
+    rng,
+) where {N, TS, TT}
+    T = promote_type(TS, TT)
+    kc_weights = zeros(T, length(target.points), length(source.points))
+    target_kc_weights = similar(kc_weights, length(target.points), 1)
+    source_kc_weights = similar(kc_weights, 1, length(source.points))
+
+    best = worst(transformation_type(Val(N), T))
+    init_transformation = simple_transformation(source, target)
+    restart = 0
+    kc = zero(T)
+    while true
+        transformation = init_transformation
+
+        for sqscale in sqscales
+            kernel = GaussKernel(-inv(2sqscale))
+            for iter in 1:iterations
+                changed = false
+
+                compute_kc_weights!(
+                    kc_weights,
+                    source,
+                    target,
+                    kernel,
+                    transformation,
+                )
+                kc = sum(kc_weights)
+                sum!(target_kc_weights, kc_weights)
+                sum!(source_kc_weights, kc_weights)
+
+                target_mean = wsum(target.points, target_kc_weights) / kc
+                source_mean = wsum(source.points, source_kc_weights) / kc
+
+                covariance = zero(rotation_type(Val(N), T))
+                for j in axes(kc_weights, 2)
+                    src = source.points[j]
+                    src_centered = src - source_mean
+                    for i in axes(kc_weights, 1)
+                        trg = target.points[i]
+                        trg_centered = trg - target_mean
+                        w = kc_weights[i, j]
+                        covariance += w * trg_centered * src_centered'
+                    end
+                end
+
+                transformation = transformation_from_moments(
+                    covariance,
+                    source_mean,
+                    target_mean,
+                )
+            end
+        end
+        best = better(best, TransformationWithCost(-kc, transformation))
+        if restart < restarts
+            restart += 1
+            init_transformation = rand_transformation(rng, source, target)
+        else
+            break
+        end
+    end
+
+    best.transformation
 end
