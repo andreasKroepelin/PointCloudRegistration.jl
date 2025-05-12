@@ -16,7 +16,7 @@ function negative_last_column(A::SMatrix)
 end
 
 function register_rmsd(source, target)
-    _register_naively(PointCloud(source), PointCloud(target))
+    _register_rmsd(PointCloud(source), PointCloud(target))
 end
 
 function _register_rmsd(
