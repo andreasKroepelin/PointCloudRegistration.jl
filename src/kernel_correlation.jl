@@ -208,7 +208,7 @@ end
 
 Base.eltype(::PreparedTarget{N, T}) where {N, T} = T
 
-function prepare_target_kernel_correlation(
+function prepare_target_kc(
     target::AbstractMatrix;
     scale::Union{Real, Missing} = missing,
     axisalign::Bool = true,
@@ -217,7 +217,7 @@ function prepare_target_kernel_correlation(
     _prepare_target(PointCloud(target), scale, axisalign, annealing)
 end
 
-prepare_target_kernel_correlation(prepared_target::PreparedTarget; _kwargs...) =
+prepare_target_kc(prepared_target::PreparedTarget; _kwargs...) =
     prepared_target
 
 function _prepare_target(target_original, scale, axisalign, annealing)
@@ -234,7 +234,7 @@ function _prepare_target(target_original, scale, axisalign, annealing)
     PreparedTarget(axis_aligning_rotation, annealing_levels, target)
 end
 
-function register_no_correspondences(
+function register_kc(
     source,
     target::AbstractMatrix;
     scale::Union{Real, Missing} = missing,
@@ -245,9 +245,9 @@ function register_no_correspondences(
     rng = default_config().rng,
 )
     prepared_target =
-        prepare_target_kernel_correlation(target; scale, axisalign, annealing)
+        prepare_target_kc(target; scale, axisalign, annealing)
 
-    _register_no_correspondences(
+    _register_kc(
         PointCloud(source),
         prepared_target,
         restarts,
@@ -256,14 +256,14 @@ function register_no_correspondences(
     )
 end
 
-function register_no_correspondences(
+function register_kc(
     source,
     prepared_target::PreparedTarget;
     restarts::Int = default_config().restarts,
     iterations::Int = default_config().iterations,
     rng = default_config().rng,
 )
-    _register_no_correspondences(
+    _register_kc(
         PointCloud(source),
         prepared_target,
         restarts,
@@ -272,7 +272,7 @@ function register_no_correspondences(
     )
 end
 
-function _register_no_correspondences(
+function _register_kc(
     source::PointCloud{N, TS},
     prepared_target::PreparedTarget{N, TT},
     restarts,
@@ -415,6 +415,7 @@ function register_kc_naive(
     _register_kc_naive(
         PointCloud(source),
         pc_target,
+        sqscales,
         restarts,
         iterations,
         rng,

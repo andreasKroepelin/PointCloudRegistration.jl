@@ -15,11 +15,11 @@ function negative_last_column(A::SMatrix)
     A
 end
 
-function register_naively(source, target)
+function register_rmsd(source, target)
     _register_naively(PointCloud(source), PointCloud(target))
 end
 
-function _register_naively(
+function _register_rmsd(
     source::PointCloud{N, TS},
     target::PointCloud{N, TT},
 ) where {N, TS, TT}

@@ -27,10 +27,9 @@ Y = rotation' * (X[:, permuted_idcs] .- translation)
 al = AnalysisLogger([])
 Logging.disable_logging(LogLevel(-2001))
 T = with_logger(al) do
-    register(
+    register_gmc(
         Y,
         X;
-        correspondences = Val(:unsure),
         scale = 1.0,
         iterations = 20,
         annealing = 3,
@@ -82,10 +81,9 @@ errors = Float64[]
 
         Y = rotation' * (X[:, permuted_idcs] .- translation)
 
-        T = register(
+        T = register_gmc(
             Y,
             X;
-            correspondences = Val(:unsure),
             scale = 1.0,
             iterations = 10,
             annealing = 10,

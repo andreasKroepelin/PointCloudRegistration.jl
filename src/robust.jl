@@ -35,7 +35,7 @@ function evaluate_geman_mcclure(sqscale, source, target, transformation)
     TransformationWithCost(total_cost, transformation)
 end
 
-function register_robustly(source, target; scale::Real, kwargs...)
+function register_gmc(source, target; scale::Real, kwargs...)
     config = (; default_config()..., kwargs...)
     pc_source = PointCloud(source)
     pc_target = PointCloud(target)
@@ -50,7 +50,7 @@ function register_robustly(source, target; scale::Real, kwargs...)
     )
 end
 
-function _register_robustly(source, target, sqscales, restarts, iterations, rng)
+function _register_gmc(source, target, sqscales, restarts, iterations, rng)
     check_sizes(source, target)
 
     cs = correspondences(; source, target)
