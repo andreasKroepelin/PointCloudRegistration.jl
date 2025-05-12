@@ -118,17 +118,15 @@ function statically_known_rows(::Size{Sz}, X) where {Sz}
     end
 end
 
-function rotation_type(source::AbstractMatrix, target::AbstractMatrix)
-    N = nrows(source, target)
-    T = common_eltype(source, target)
+function rotation_type(source::PointCloud{N, TS}, target::PointCloud{N, TT}) where {N, TS, TT}
+    T = promote_type(TS, TT)
     rotation_type(Val(N), T)
 end
 
 rotation_type(::Val{N}, ::Type{T}) where {N, T} = SMatrix{N, N, T, N * N}
 
-function translation_type(source::AbstractMatrix, target::AbstractMatrix)
-    N = nrows(source, target)
-    T = common_eltype(source, target)
+function translation_type(source::PointCloud{N, TS}, target::PointCloud{N, TT}) where {N, TS, TT}
+    T = promote_type(TS, TT)
     translation_type(Val(N), T)
 end
 
