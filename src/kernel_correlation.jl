@@ -1,5 +1,3 @@
-using InteractiveUtils
-
 struct Grid{N, T}
     lo::SVector{N, T}
     hi::SVector{N, T}

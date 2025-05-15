@@ -35,18 +35,23 @@ function evaluate_geman_mcclure(sqscale, source, target, transformation)
     TransformationWithCost(total_cost, transformation)
 end
 
-function register_gmc(source, target; scale::Real, kwargs...)
-    config = (; default_config()..., kwargs...)
+function register_gmc(source, target;
+    scale::Union{Real, Missing} = missing,
+    annealing::Int = default_config().annealing,
+    restarts::Int = default_config().restarts,
+    iterations::Int = default_config().iterations,
+    rng = default_config().rng,
+)
     pc_source = PointCloud(source)
     pc_target = PointCloud(target)
-    sqscales = annealing_plan(pc_target, scale, config.annealing)
-    _register_robustly(
+    sqscales = annealing_plan(pc_target, scale, annealing)
+    _register_gmc(
         pc_source,
         pc_target,
         sqscales,
-        config.restarts,
-        config.iterations,
-        config.rng,
+        restarts,
+        iterations,
+        rng,
     )
 end
 
