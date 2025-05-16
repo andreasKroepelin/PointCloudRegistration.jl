@@ -7,6 +7,6 @@ X_raw = rand(3, 100_000)
 @btime PointCloud($X_raw);
 @btime PointCloud{3}($X_raw);
 X = PointCloud(X_raw)
-@btime prepare_target_kernel_correlation($X);
+@btime prepare_target_kc($X_raw);
 Profile.clear()
-@pprof prepare_target_kernel_correlation(X)
+@pprof prepare_target_kc(X_raw)

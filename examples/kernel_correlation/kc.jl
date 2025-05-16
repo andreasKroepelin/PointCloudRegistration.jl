@@ -34,8 +34,8 @@ transformation = register_kc(Y, prepd_X; restarts = 100)
 
 side_by_side(Y, X, transformation)
 
-rows = 3
-cols = 6
+rows = 2
+cols = 2
 
 al = AnalysisLogger([])
 Logging.disable_logging(LogLevel(-2001))

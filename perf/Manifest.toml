@@ -70,12 +70,6 @@ git-tree-sha1 = "6863c5b7fc997eadcabdbaf6c5f201dc30032643"
 uuid = "e1450e63-4bb3-523b-b2a4-4ffa8c0fd77d"
 version = "1.2.2"
 
-[[deps.Bumper]]
-deps = ["UnsafeArrays"]
-git-tree-sha1 = "e3cd36a329dc00c8ced78cc0e89edada02763f40"
-uuid = "8ce10254-0962-460f-a3d8-1f77fea1446e"
-version = "0.7.1"
-
 [[deps.Bzip2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
 git-tree-sha1 = "1b96ea4a01afe0ea4090c5c8039690672dd13f2e"
@@ -483,12 +477,6 @@ version = "1.11.0"
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
 version = "2023.12.12"
 
-[[deps.NearestNeighbors]]
-deps = ["Distances", "StaticArrays"]
-git-tree-sha1 = "8a3271d8309285f4db73b4f662b1b290c715e85e"
-uuid = "b8a86587-4115-5ab1-83bc-aa920d37bbce"
-version = "0.4.21"
-
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
 version = "1.2.0"
@@ -542,7 +530,7 @@ weakdeps = ["REPL"]
     REPLExt = "REPL"
 
 [[deps.PointCloudRegistration]]
-deps = ["Accessors", "Bumper", "CoordinateTransformations", "Distances", "FFTW", "FillArrays", "HybridArrays", "InteractiveUtils", "LinearAlgebra", "Logging", "MappedArrays", "NearestNeighbors", "Random", "StaticArrays", "Statistics"]
+deps = ["Accessors", "CoordinateTransformations", "Distances", "FFTW", "FillArrays", "HybridArrays", "LinearAlgebra", "Logging", "MappedArrays", "PrecompileTools", "Random", "StaticArrays", "Statistics"]
 path = ".."
 uuid = "afb9b67c-ae14-49fb-afbe-36d52467eca1"
 version = "0.1.0"
@@ -687,11 +675,6 @@ version = "1.11.0"
 [[deps.Unicode]]
 uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 version = "1.11.0"
-
-[[deps.UnsafeArrays]]
-git-tree-sha1 = "efcbb6828697ffffc245a9de7300552535abe005"
-uuid = "c4a57d5a-5b31-53a6-b365-19f8c011fbd6"
-version = "1.0.8"
 
 [[deps.XML2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libiconv_jll", "Zlib_jll"]
