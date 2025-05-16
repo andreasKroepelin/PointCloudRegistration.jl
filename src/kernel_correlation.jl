@@ -23,6 +23,32 @@ extent(grid::Grid) = grid.hi - grid.lo
 Base.size(grid::Grid) = grid.size
 domains(grid::Grid) = range.(grid.lo, grid.hi, grid.size)
 
+struct FftGaussian{N, T} <: AbstractArray{T, N}
+    size::NTuple{N, Int}
+    characteristic_functions::NTuple{N, Vector{T}}
+
+    function FftGaussian(grid::Grid{N, T}, sqsigma) where {N, T}
+        freq_steps = -2pi ./ Tuple(extent(grid))
+        cfs = map(freq_steps, size(grid)) do freq_step, s
+            lo = 0
+            hi = s ÷ 2
+            exp.(-sqsigma ./ 2 .* (freq_step .* (lo:hi)) .^ 2)
+        end
+        new{N, T}(size(grid), cfs)
+    end
+end
+
+Base.size(fg::FftGaussian) = fg.size
+
+function Base.getindex(fg::FftGaussian{N}, idcs::Vararg{Int, N}) where {N}
+    @boundscheck all(0 .< idcs .<= fg.size)
+
+    pos = idcs .- 1
+    pos = min.(pos, fg.size .- pos)
+    factors = map((cf, p) -> cf[p + 1], fg.characteristic_functions, pos)
+    prod(factors)
+end
+
 struct KdeComputation{
     N,
     T,
@@ -37,6 +63,7 @@ struct KdeComputation{
     buffer_freq::B
     fft_plan::Pl
     ifft_plan::Pli
+    fft_gaussian::FftGaussian{N, T}
 
     function KdeComputation(
         points::VecOfSVec{N, T},
@@ -48,6 +75,7 @@ struct KdeComputation{
         buffer_freq = Array{complex(T), N}(undef, size(grid))
         fft_plan = plan_fft(buffer_space)
         ifft_plan = plan_ifft(buffer_freq)
+        fft_gaussian = FftGaussian(grid, sqsigma)
         new{N, T, typeof(buffer_space), typeof(fft_plan), typeof(ifft_plan)}(
             grid,
             grid_idcs,
@@ -56,6 +84,7 @@ struct KdeComputation{
             buffer_freq,
             fft_plan,
             ifft_plan,
+            fft_gaussian
         )
     end
 end
@@ -72,6 +101,7 @@ function (kdecomp!::KdeComputation{N, T})(
         buffer_freq,
         fft_plan,
         ifft_plan,
+        fft_gaussian,
     ) = kdecomp!
     fill!(buffer_space, zero(eltype(buffer_space)))
     for (idx, weight) in zip(grid_idcs, weights)
@@ -79,13 +109,7 @@ function (kdecomp!::KdeComputation{N, T})(
     end
 
     mul!(buffer_freq, fft_plan, buffer_space)
-    freq_steps = -2pi ./ extent(grid)
-    for idx in CartesianIndices(buffer_freq)
-        pos = Tuple(idx) .- 1
-        pos = min.(pos, size(buffer_freq) .- pos)
-        cf = exp(-sqsigma / 2 * sum((freq_steps .* pos) .^ 2))
-        buffer_freq[idx] *= cf
-    end
+    buffer_freq .*= fft_gaussian
     mul!(buffer_space, ifft_plan, buffer_freq)
 
     # broadcasting leads to enourmous allocations for some reason, so let's use
