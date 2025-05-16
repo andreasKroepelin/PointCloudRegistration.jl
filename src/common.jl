@@ -4,7 +4,7 @@ function check_sizes(pointclouds...)
 end
 
 default_config() =
-    (; iterations = 10, annealing = 5, restarts = 5, rng = Random.default_rng())
+    (; iterations = 10, annealing = 5, restarts = 5, rng = Random.default_rng(), accumulator = BestTransformation)
 
 function bbox(xs::VecOfSVec)
     lo = hi = first(xs)
@@ -151,12 +151,6 @@ struct TransformationWithCost{T <: Real, A <: AffineMap}
     transformation::A
 end
 
-function worst(
-    A::Type{<:AffineMap{<:AbstractMatrix{T}, <:AbstractVector{T}}},
-) where {T}
-    TransformationWithCost(typemax(T), identity_transformation(A))
-end
-
 function better(
     t1::TransformationWithCost{T, A},
     t2::TransformationWithCost{T, A},
@@ -165,6 +159,55 @@ function better(
         t1
     else
         t2
+    end
+end
+
+abstract type AbstractTransformationAccumulator end
+
+struct BestTransformation{TWC <: TransformationWithCost} <: AbstractTransformationAccumulator
+    best::TWC
+end
+
+function BestTransformation(
+    A::Type{<:AffineMap{<:AbstractMatrix{T}, <:AbstractVector{T}}},
+) where {T}
+    BestTransformation(TransformationWithCost(typemax(T), identity_transformation(A)))
+end
+
+function update(bt::BestTransformation{TWC}, t::TWC) where TWC
+    BestTransformation(better(bt.best, t))
+end
+
+function result(bt::BestTransformation, lm::LinearMap)
+    if isone(lm.linear)
+        bt.best.transformation
+    else
+        lm ∘ bt.best.transformation
+    end
+end
+
+struct AllTransformations{TWC <: TransformationWithCost} <: AbstractTransformationAccumulator
+    transformations::Vector{TWC}
+end
+
+function AllTransformations(
+    A::Type{<:AffineMap{<:AbstractMatrix{T}, <:AbstractVector{T}}},
+) where {T}
+    AllTransformations(TransformationWithCost{T, A}[])
+end
+
+function update(at::AllTransformations{TWC}, t::TWC) where TWC
+    push!(at.transformations, t)
+    at
+end
+
+function result(at::AllTransformations, lm::LinearMap)
+    if isone(lm.linear)
+        at.transformations
+    else
+        map(at.transformations) do twc
+            @set twc.transformation = lm ∘ twc.transformation
+        end
     end
 end
 

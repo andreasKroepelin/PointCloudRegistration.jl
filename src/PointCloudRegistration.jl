@@ -14,7 +14,7 @@ using Logging
 using Statistics
 using PrecompileTools: @compile_workload
 
-export PointCloud, register_rmsd, register_gmc, register_kc, prepare_target_kc
+export PointCloud, register_rmsd, register_gmc, register_kc, prepare_target_kc, BestTransformation, AllTransformations
 
 include("pointcloud.jl")
 include("common.jl")

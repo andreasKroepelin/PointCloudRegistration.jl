@@ -265,6 +265,7 @@ function register_kc(
     restarts::Int = default_config().restarts,
     iterations::Int = default_config().iterations,
     rng = default_config().rng,
+    accumulator::Type{<: AbstractTransformationAccumulator} = default_config().accumulator,
 )
     prepared_target =
         prepare_target_kc(target; scale, axisalign, annealing)
@@ -275,6 +276,7 @@ function register_kc(
         restarts,
         iterations,
         rng,
+        accumulator,
     )
 end
 
@@ -284,6 +286,7 @@ function register_kc(
     restarts::Int = default_config().restarts,
     iterations::Int = default_config().iterations,
     rng = default_config().rng,
+    accumulator::Type{<: AbstractTransformationAccumulator} = default_config().accumulator,
 )
     _register_kc(
         PointCloud(source),
@@ -291,6 +294,7 @@ function register_kc(
         restarts,
         iterations,
         rng,
+        accumulator,
     )
 end
 
@@ -300,12 +304,13 @@ function _register_kc(
     restarts,
     iterations,
     rng,
+    accumulator_type,
 ) where {N, TS, TT}
     T = promote_type(TS, TT)
     (; annealing_levels, target, axis_aligning_rotation) = prepared_target
     source_grid_idcs = zeros(CartesianIndex{N}, length(source.points))
 
-    best = worst(transformation_type(Val(N), T))
+    accumulator = accumulator_type(transformation_type(Val(N), T))
     init_transformation = simple_transformation(source, target)
     restart = 0
     kc = zero(T)
@@ -381,7 +386,7 @@ function _register_kc(
                     copy(convd_weights_target) grid id = :mm
             end
         end
-        best = better(best, TransformationWithCost(-kc, transformation))
+        accumulator = update(accumulator, TransformationWithCost(-kc, transformation))
         if restart < restarts
             restart += 1
             init_transformation = rand_transformation(rng, source, target)
@@ -390,7 +395,7 @@ function _register_kc(
         end
     end
 
-    LinearMap(axis_aligning_rotation') ∘ best.transformation
+    result(accumulator, LinearMap(axis_aligning_rotation'))
 end
 
 struct GaussKernel{T}
