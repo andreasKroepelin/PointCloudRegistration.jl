@@ -16,20 +16,52 @@ _size_1(::Size{Sz}, mat) where {Sz} = _size_1(first(Sz), mat)
 _size_1(i::Int, mat) = i
 _size_1(::StaticArrays.Dynamic, mat) = size(mat, 1)
 
-struct PointCloud{N, T, P <: VecOfSVec{N, T}, WT, W <: AbstractVector} <:
-       AbstractMatrix{T}
+function mean_cov_sumw(points, weights)
+    sum_w = zero(eltype(weights))
+    mean = zero(eltype(points))
+    cov = mean * mean'
+
+    for (x, w) in zip(points, weights)
+        sum_w += w
+        diff = x - mean
+        mean += w / sum_w * diff
+        cov += w * diff * (x - mean)'
+    end
+
+    cov /= sum_w
+
+    mean, cov, sum_w
+end
+
+struct PointCloud{
+    N,
+    T,
+    P <: VecOfSVec{N, T},
+    WT,
+    W <: AbstractVector,
+    EV <: SMatrix{N, N, T},
+} <: AbstractMatrix{T}
     points::P
     weights::W
     sum_of_weights::WT
     mean::SVector{N, T}
+    coveigvecs::EV
+    coveigvals::SVector{N, T}
 end
 
 function PointCloud(points::VecOfSVec, weights::AbstractVector)
     length(points) == length(weights) ||
         throw(ArgumentError("number of points must match number of weights"))
-    sum_of_weights = sum(weights)
-    mean = wsum(points, weights) / sum_of_weights
-    PointCloud(points, weights, sum_of_weights, mean)
+    mean, cov, sum_of_weights = mean_cov_sumw(points, weights)
+    coveig = eigen(cov)
+    PointCloud(
+        points,
+        weights,
+        sum_of_weights,
+        mean,
+        coveig.vectors,
+        coveig.values,
+    )
 end
 
 PointCloud(points::VecOfSVec) = PointCloud(points, Trues(length(points)))
@@ -59,8 +91,20 @@ Base.axes(pc::PointCloud{N}, i) where {N} =
 
 nrows(pcs::PointCloud{N}) where {N} = N
 
-(m::AffineMap)(pc::PointCloud) =
-    PointCloud(m.(pc.points), pc.weights, pc.sum_of_weights, m(pc.mean))
+(m::AffineMap)(pc::PointCloud) = PointCloud(
+    m.(pc.points),
+    pc.weights,
+    pc.sum_of_weights,
+    m(pc.mean),
+    m.linear * pc.coveigvecs,
+    pc.coveigvals,
+)
 
-(m::LinearMap)(pc::PointCloud) =
-    PointCloud(m.(pc.points), pc.weights, pc.sum_of_weights, m(pc.mean))
+(m::LinearMap)(pc::PointCloud) = PointCloud(
+    m.(pc.points),
+    pc.weights,
+    pc.sum_of_weights,
+    m(pc.mean),
+    m(pc.coveigvecs),
+    pc.coveigvals,
+)

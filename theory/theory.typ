@@ -1,3 +1,4 @@
+#import "@preview/lovelace:0.3.0": *
 // #set page(margin: 1cm)
 #set text(font: "Atkinson Hyperlegible Next")
 // #set text(size: 20pt)
@@ -177,3 +178,83 @@ $
   1 - exp(- 1 / 2 (1 + (sqrt(d) alpha) / 2)^2 + 1 / 2)
 $
 
+#pagebreak()
+
+= One-pass covariance matrix
+
+Algorithm:
+#pseudocode-list[
+  - *input:* points $bold(x)_1, ..., bold(x)_n$
+  - *output:* mean $bold(mu)$ and covariance matrix $bold(C)$
+  + $bold(mu) <- bold(0)$
+  + $bold(C) <- bold(0)$
+  + *for* $i = 1, ..., n$
+    + $bold(d) <- bold(x)_i - bold(mu)$
+    + $bold(mu) <- bold(mu) + bold(d) / i$
+    + $bold(C) <- bold(C) + (i - 1) / i bold(d) bold(d)^trp$
+  + *end*
+  + $bold(C) <- bold(C) slash n$
+]
+
+Proof of correctness:
+
+Assume $bold(mu)_(i - 1) = 1 / (i - 1) sum_k^(i - 1) bold(x)_k$.
+We are then supposed to compute $bold(mu)_i$ as
+$
+  bold(mu)_i
+  =
+  bold(mu)_(i - 1) + (bold(x)_i - bold(mu)_(i - 1)) / i
+  =
+  (i bold(mu)_(i - 1) + bold(x)_i - bold(mu)_(i - 1)) / i
+  =
+  (bold(x)_i + (i - 1) bold(mu)_(i - 1)) / i
+  =
+  (bold(x)_i + sum_k^(i - 1) bold(x)_k) / i
+  =
+  (sum_k^i bold(x)_k) / i
+  .
+$
+Next, assume that $bold(C)_(i - 1) = sum_k^(i - 1) (bold(x)_k - bold(mu)_(i - 1))
+(bold(x)_k - bold(mu)_(i - 1))^trp$.
+We then compute $bold(C)_i$ as
+$
+  bold(C)_i
+  &=
+  bold(C)_(i - 1) + (i - 1) / i
+  (bold(x)_i - bold(mu)_(i - 1))
+  (bold(x)_i - bold(mu)_(i - 1))^trp \
+  &=
+  bold(C)_(i - 1) + (i - 1) / i
+  (((i - 1) bold(x)_i - sum_k^(i - 1) bold(x)_k) / (i - 1))
+  (((i - 1) bold(x)_i - sum_k^(i - 1) bold(x)_k) / (i - 1))^trp \
+  &=
+  bold(C)_(i - 1) + (i - 1) / i
+  ((i bold(x)_i - sum_k^i bold(x)_k) / (i - 1))
+  ((i bold(x)_i - sum_k^i bold(x)_k) / (i - 1))^trp \
+  &=
+  bold(C)_(i - 1) + (i - 1) / i i^2 / (i - 1)^2
+  (bold(x)_i - bold(mu)_i)
+  (bold(x)_i - bold(mu)_i)^trp \
+  &=
+  bold(C)_(i - 1) + i / (i - 1)
+  (bold(x)_i - bold(mu)_i)
+  (bold(x)_i - bold(mu)_i)^trp \
+  &=
+  (
+  (i - 1) sum_k^(i - 1) (bold(x)_k - bold(mu)_(i - 1)) (bold(x)_k - bold(mu)_(i - 1))^trp
+  +
+  i (bold(x)_i - bold(mu)_i) (bold(x)_i - bold(mu)_i)^trp
+  ) / (i - 1) \
+$
+
+aside:
+$
+  &#hide($=$)
+  (bold(x)_k - bold(mu)_i)
+  (bold(x)_k - bold(mu)_i)^trp
+  -
+  (bold(x)_k - bold(mu)_(i - 1))
+  (bold(x)_k - bold(mu)_(i - 1))^trp \
+  &=
+  s
+$

@@ -35,16 +35,18 @@ function evaluate_geman_mcclure(sqscale, source, target, transformation)
     TransformationWithCost(total_cost, transformation)
 end
 
-function register_gmc(source, target;
-    scale::Union{Real, Missing} = missing,
-    annealing::Int = default_config().annealing,
+function register_gmc(
+    source,
+    target;
+    scale::ScaleType = default_config().scale,
     restarts::Int = default_config().restarts,
     iterations::Int = default_config().iterations,
     rng = default_config().rng,
+    accumulator::Type{<: AbstractTransformationAccumulator} = default_config().accumulator,
 )
     pc_source = PointCloud(source)
     pc_target = PointCloud(target)
-    sqscales = annealing_plan(pc_target, scale, annealing)
+    sqscales = annealing_plan(pc_target, scale)
     _register_gmc(
         pc_source,
         pc_target,
@@ -52,16 +54,26 @@ function register_gmc(source, target;
         restarts,
         iterations,
         rng,
+        accumulator,
     )
 end
 
-function _register_gmc(source, target, sqscales, restarts, iterations, rng)
+function _register_gmc(
+    source::PointCloud{N, TS},
+    target::PointCloud{N, TT},
+    sqscales,
+    restarts,
+    iterations,
+    rng,
+    accumulator_type,
+) where {N, TS, TT}
     check_sizes(source, target)
+    T = promote_type(TS, TT)
 
     cs = correspondences(; source, target)
     mm_weights = zeros(common_eltype(source, target), size(source, 2))
 
-    best = worst(transformation_type(source, target))
+    accumulator = accumulator_type(transformation_type(Val(N), T))
     init_transformation = simple_transformation(source, target)
     restart = 0
     while true
@@ -100,8 +112,8 @@ function _register_gmc(source, target, sqscales, restarts, iterations, rng)
                     transformation.translation init_transformation _id = :mm
             end
         end
-        best = better(
-            best,
+        accumulator = update(
+            accumulator,
             evaluate_geman_mcclure(
                 last(sqscales),
                 source,
@@ -117,5 +129,5 @@ function _register_gmc(source, target, sqscales, restarts, iterations, rng)
         end
     end
 
-    best.transformation
+    result(accumulator, LinearMap(I))
 end

@@ -3,8 +3,14 @@ function check_sizes(pointclouds...)
         throw(ArgumentError("point clouds must have same size"))
 end
 
-default_config() =
-    (; iterations = 10, annealing = 5, restarts = 5, rng = Random.default_rng(), accumulator = BestTransformation)
+default_config() = (;
+    iterations = 10,
+    scale = DefaultAnnealing(),
+    restarts = 5,
+    rng = Random.default_rng(),
+    accumulator = BestTransformation,
+    axisalign = true,
+)
 
 function bbox(xs::VecOfSVec)
     lo = hi = first(xs)
@@ -118,14 +124,20 @@ function statically_known_rows(::Size{Sz}, X) where {Sz}
     end
 end
 
-function rotation_type(source::PointCloud{N, TS}, target::PointCloud{N, TT}) where {N, TS, TT}
+function rotation_type(
+    source::PointCloud{N, TS},
+    target::PointCloud{N, TT},
+) where {N, TS, TT}
     T = promote_type(TS, TT)
     rotation_type(Val(N), T)
 end
 
 rotation_type(::Val{N}, ::Type{T}) where {N, T} = SMatrix{N, N, T, N * N}
 
-function translation_type(source::PointCloud{N, TS}, target::PointCloud{N, TT}) where {N, TS, TT}
+function translation_type(
+    source::PointCloud{N, TS},
+    target::PointCloud{N, TT},
+) where {N, TS, TT}
     T = promote_type(TS, TT)
     translation_type(Val(N), T)
 end
@@ -164,29 +176,32 @@ end
 
 abstract type AbstractTransformationAccumulator end
 
-struct BestTransformation{TWC <: TransformationWithCost} <: AbstractTransformationAccumulator
+struct BestTransformation{TWC <: TransformationWithCost} <:
+       AbstractTransformationAccumulator
     best::TWC
 end
 
 function BestTransformation(
     A::Type{<:AffineMap{<:AbstractMatrix{T}, <:AbstractVector{T}}},
 ) where {T}
-    BestTransformation(TransformationWithCost(typemax(T), identity_transformation(A)))
+    BestTransformation(
+        TransformationWithCost(typemax(T), identity_transformation(A)),
+    )
 end
 
-function update(bt::BestTransformation{TWC}, t::TWC) where TWC
+function update(bt::BestTransformation{TWC}, t::TWC) where {TWC}
     BestTransformation(better(bt.best, t))
 end
 
-function result(bt::BestTransformation, lm::LinearMap)
+result(bt::BestTransformation, lm::LinearMap) =
     if isone(lm.linear)
         bt.best.transformation
     else
         lm ∘ bt.best.transformation
     end
-end
 
-struct AllTransformations{TWC <: TransformationWithCost} <: AbstractTransformationAccumulator
+struct AllTransformations{TWC <: TransformationWithCost} <:
+       AbstractTransformationAccumulator
     transformations::Vector{TWC}
 end
 
@@ -196,7 +211,7 @@ function AllTransformations(
     AllTransformations(TransformationWithCost{T, A}[])
 end
 
-function update(at::AllTransformations{TWC}, t::TWC) where TWC
+function update(at::AllTransformations{TWC}, t::TWC) where {TWC}
     push!(at.transformations, t)
     at
 end
@@ -211,20 +226,38 @@ function result(at::AllTransformations, lm::LinearMap)
     end
 end
 
-function annealing_plan(target_or_eigen, scale, n)
-    mv2sqs(mv) = mv / 100
-    if n < 2
-        if ismissing(scale)
-            (mv2sqs(maxvar(target_or_eigen)),)
-        else
-            (scale^2,)
-        end
-    else
-        mv = maxvar(target_or_eigen)
-        if ismissing(scale)
-            logrange(mv, mv2sqs(mv); length = n)
-        else
-            logrange(mv, scale^2; length = n)
-        end
-    end
+struct DefaultAnnealing
+    steps::Int
+end
+
+DefaultAnnealing() = DefaultAnnealing(5)
+
+struct DownTo{T <: Real}
+    scale::T
+    steps::Int
+end
+
+DownTo(scale) = DownTo(scale, 5)
+
+const ScaleType = Union{
+    T,
+    <: AbstractVector{T},
+    DefaultAnnealing,
+    DownTo{T},
+} where {T <: Real}
+
+annealing_plan(_, scale::Number) = tuple(scale^2)
+
+annealing_plan(_, scales::AbstractVector) = scales .^ 2
+
+function annealing_plan(target, ann::DefaultAnnealing)
+    hi = maximum(target.coveigvals)
+    lo = hi / 100
+    logrange(hi, lo; length = ann.steps)
+end
+
+function annealing_plan(target, ann::DownTo)
+    hi = maximum(target.coveigvals)
+    lo = ann.scale ^ 2
+    logrange(hi, lo; length = ann.steps)
 end

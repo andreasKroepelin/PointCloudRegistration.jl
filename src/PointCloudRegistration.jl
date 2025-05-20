@@ -6,6 +6,7 @@ using FillArrays
 using MappedArrays
 using Accessors
 using CoordinateTransformations
+using Rotations
 using Distances
 using LinearAlgebra
 using FFTW
@@ -13,8 +14,17 @@ using Random
 using Logging
 using Statistics
 using PrecompileTools: @compile_workload
+using ProgressLogging
 
-export PointCloud, register_rmsd, register_gmc, register_kc, prepare_target_kc, BestTransformation, AllTransformations
+export PointCloud,
+    register_rmsd,
+    register_gmc,
+    register_kc,
+    prepare_target_kc,
+    BestTransformation,
+    AllTransformations,
+    DownTo,
+    DefaultAnnealing
 
 include("pointcloud.jl")
 include("common.jl")

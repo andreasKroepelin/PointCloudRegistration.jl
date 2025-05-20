@@ -10,13 +10,7 @@ includet("alignment.jl")
 pdb_Y = retrievepdb("1su4"; dir = tempdir())["A"]
 pdb_X = retrievepdb("1iwo"; dir = tempdir())["A"]
 Y, X = aligned_atoms(pdb_Y, pdb_X, notwaterselector)
-transformation = register_gmc(
-    Y,
-    X;
-    scale = 1.0,
-    restarts = 100,
-    annealing = 10,
-)
+transformation = register_gmc(Y, X; scale = 1.0, restarts = 100, annealing = 10)
 transformation(Y)
 
 function show_both(X, Y)

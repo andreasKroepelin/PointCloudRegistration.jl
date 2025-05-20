@@ -19,7 +19,7 @@ n = 100
 # X = HybridMatrix{d, StaticArrays.Dynamic()}(cumsum(hcat(randn(d, n) .+ .5, randn(d, n) .+ [-.5,.0,]); dims = 2))
 X = shape_coords("apple-1")[:, 20:50] # just the leaves
 # X = PointCloud(coordarray(retrievepdb("1su4", dir = tempdir()), calphaselector))
-prepd_X = prepare_target_kc(X, scale = .01);
+prepd_X = prepare_target_kc(X; scale = 0.01);
 # rotation = PointCloudRegistration.rand_rotation(Random.default_rng(), Val(d), eltype(X))
 # translation = 100 * ones(SVector{d, Float64})
 # Y = rotation' * (X[:, shuffle(axes(X, 2))[begin:2:end]] .- translation)

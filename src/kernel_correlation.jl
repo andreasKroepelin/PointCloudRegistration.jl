@@ -84,7 +84,7 @@ struct KdeComputation{
             buffer_freq,
             fft_plan,
             ifft_plan,
-            fft_gaussian
+            fft_gaussian,
         )
     end
 end
@@ -208,8 +208,8 @@ function eval_kernel_correlation(
     kc
 end
 
-function axisalign_target(target, eig)
-    axisaligner = eig.vectors'
+function axisalign_target(target)
+    axisaligner = target.coveigvecs'
     if det(axisaligner) < 0
         axisaligner = negative_last_column(axisaligner)
     end
@@ -232,26 +232,23 @@ Base.eltype(::PreparedTarget{N, T}) where {N, T} = T
 
 function prepare_target_kc(
     target::AbstractMatrix;
-    scale::Union{Real, Missing} = missing,
-    axisalign::Bool = true,
-    annealing::Int = 5,
+    scale::ScaleType = default_config().scale,
+    axisalign::Bool = default_config().axisalign,
 )
-    _prepare_target(PointCloud(target), scale, axisalign, annealing)
+    _prepare_target(PointCloud(target), scale, axisalign)
 end
 
-prepare_target_kc(prepared_target::PreparedTarget; _kwargs...) =
-    prepared_target
+# prepare_target_kc(prepared_target::PreparedTarget; _kwargs...) =
+#     prepared_target
 
-function _prepare_target(target_original, scale, axisalign, annealing)
+function _prepare_target(target_original, scale, axisalign)
     if axisalign
-        eig = eigen_cov(target_original)
-        axis_aligning_rotation, target = axisalign_target(target_original, eig)
-        sqscales = annealing_plan(eig, scale, annealing)
+        axis_aligning_rotation, target = axisalign_target(target_original)
     else
         target = target_original
         axis_aligning_rotation = one(rotation_type(target, target))
-        sqscales = annealing_plan(target, scale, annealing)
     end
+    sqscales = annealing_plan(target, scale)
     annealing_levels = compute_annealing_levels(target, sqscales)
     PreparedTarget(axis_aligning_rotation, annealing_levels, target)
 end
@@ -259,16 +256,14 @@ end
 function register_kc(
     source,
     target::AbstractMatrix;
-    scale::Union{Real, Missing} = missing,
-    axisalign::Bool = true,
-    annealing::Int = default_config().annealing,
+    scale::ScaleType = default_config().scale,
+    axisalign::Bool = default_config().axisalign,
     restarts::Int = default_config().restarts,
     iterations::Int = default_config().iterations,
     rng = default_config().rng,
     accumulator::Type{<: AbstractTransformationAccumulator} = default_config().accumulator,
 )
-    prepared_target =
-        prepare_target_kc(target; scale, axisalign, annealing)
+    prepared_target = prepare_target_kc(target; scale, axisalign)
 
     _register_kc(
         PointCloud(source),
@@ -314,7 +309,7 @@ function _register_kc(
     init_transformation = simple_transformation(source, target)
     restart = 0
     kc = zero(T)
-    while true
+    @withprogress name="performing restarts" while true
         transformation = init_transformation
 
         for annealing_level in annealing_levels
@@ -386,11 +381,14 @@ function _register_kc(
                     copy(convd_weights_target) grid id = :mm
             end
         end
-        accumulator = update(accumulator, TransformationWithCost(-kc, transformation))
+        accumulator =
+            update(accumulator, TransformationWithCost(-kc, transformation))
         if restart < restarts
             restart += 1
+            @logprogress (restart / restarts)
             init_transformation = rand_transformation(rng, source, target)
         else
+            @logprogress "done"
             break
         end
     end

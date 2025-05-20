@@ -27,14 +27,7 @@ Y = rotation' * (X[:, permuted_idcs] .- translation)
 al = AnalysisLogger([])
 Logging.disable_logging(LogLevel(-2001))
 T = with_logger(al) do
-    register_gmc(
-        Y,
-        X;
-        scale = 1.0,
-        iterations = 20,
-        annealing = 3,
-        restarts = 10,
-    )
+    register_gmc(Y, X; scale = 1.0, iterations = 20, annealing = 3, restarts = 10)
 end
 Logging.disable_logging(Logging.Debug)
 

@@ -2,7 +2,7 @@
 
 julia_version = "1.11.5"
 manifest_format = "2.0"
-project_hash = "e195c56f060c395ae953227afce309986d05b1b1"
+project_hash = "b9dc056de851f44f7548bdf0e678023427196f6c"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -785,6 +785,12 @@ git-tree-sha1 = "a560dd966b386ac9ae60bdd3a3d3a326062d3c3e"
 uuid = "8cdb02fc-e678-4876-92c5-9defec4f444e"
 version = "0.3.1"
 
+[[deps.LeftChildRightSiblingTrees]]
+deps = ["AbstractTrees"]
+git-tree-sha1 = "fb6803dafae4a5d62ea5cab204b1e657d9737e7f"
+uuid = "1d6d02ad-be62-4b6b-8a6d-2f90e265016e"
+version = "0.2.0"
+
 [[deps.LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
 uuid = "b27032c2-a3e7-50c8-80cd-2d36dbcbfd21"
@@ -1107,7 +1113,7 @@ uuid = "995b91a9-d308-5afd-9ec6-746e21dbc043"
 version = "1.4.3"
 
 [[deps.PointCloudRegistration]]
-deps = ["Accessors", "CoordinateTransformations", "Distances", "FFTW", "FillArrays", "HybridArrays", "LinearAlgebra", "Logging", "MappedArrays", "PrecompileTools", "Random", "StaticArrays", "Statistics"]
+deps = ["Accessors", "CoordinateTransformations", "Distances", "FFTW", "FillArrays", "HybridArrays", "LinearAlgebra", "Logging", "MappedArrays", "PrecompileTools", "ProgressLogging", "Random", "Rotations", "StaticArrays", "Statistics"]
 path = "../.."
 uuid = "afb9b67c-ae14-49fb-afbe-36d52467eca1"
 version = "0.1.0"
@@ -1133,6 +1139,12 @@ version = "1.4.3"
 deps = ["Unicode"]
 uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 version = "1.11.0"
+
+[[deps.ProgressLogging]]
+deps = ["Logging", "SHA", "UUIDs"]
+git-tree-sha1 = "80d919dee55b9c50e8d9e2da5eeafff3fe58b539"
+uuid = "33c8b6b6-d38a-422a-b730-caa89a2f386c"
+version = "0.1.4"
 
 [[deps.ProgressMeter]]
 deps = ["Distributed", "Printf"]
@@ -1163,6 +1175,12 @@ version = "2.11.2"
     [deps.QuadGK.weakdeps]
     Enzyme = "7da242da-08ed-463a-9acd-ee780be4f1d9"
 
+[[deps.Quaternions]]
+deps = ["LinearAlgebra", "Random", "RealDot"]
+git-tree-sha1 = "994cc27cdacca10e68feb291673ec3a76aa2fae9"
+uuid = "94ee1d12-ae83-5a48-8b1c-48b8ff168ae0"
+version = "0.7.6"
+
 [[deps.REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets", "StyledStrings", "Unicode"]
 uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
@@ -1187,6 +1205,12 @@ weakdeps = ["FixedPointNumbers"]
 
     [deps.Ratios.extensions]
     RatiosFixedPointNumbersExt = "FixedPointNumbers"
+
+[[deps.RealDot]]
+deps = ["LinearAlgebra"]
+git-tree-sha1 = "9f0a1b71baaf7650f4fa8a1d168c7fb6ee41f0c9"
+uuid = "c1ae055f-0cd5-4b69-90a6-9a35b1a98df9"
+version = "0.1.0"
 
 [[deps.RecipesBase]]
 deps = ["PrecompileTools"]
@@ -1232,6 +1256,16 @@ deps = ["Artifacts", "JLLWrappers", "Libdl"]
 git-tree-sha1 = "58cdd8fb2201a6267e1db87ff148dd6c1dbd8ad8"
 uuid = "f50d1b31-88e8-58de-be2c-1cc44531875f"
 version = "0.5.1+0"
+
+[[deps.Rotations]]
+deps = ["LinearAlgebra", "Quaternions", "Random", "StaticArrays"]
+git-tree-sha1 = "5680a9276685d392c87407df00d57c9924d9f11e"
+uuid = "6038ab10-8711-5258-84ad-4b1120ba62dc"
+version = "1.7.1"
+weakdeps = ["RecipesBase"]
+
+    [deps.Rotations.extensions]
+    RotationsRecipesBaseExt = "RecipesBase"
 
 [[deps.RoundingEmulator]]
 git-tree-sha1 = "40b9edad2e5287e05bd413a38f61a8ff55b9557b"
@@ -1440,6 +1474,12 @@ deps = ["LinearAlgebra"]
 git-tree-sha1 = "1feb45f88d133a655e001435632f019a9a1bcdb6"
 uuid = "62fd8b95-f654-4bbd-a8a5-9c27f68ccd50"
 version = "0.1.1"
+
+[[deps.TerminalLoggers]]
+deps = ["LeftChildRightSiblingTrees", "Logging", "Markdown", "Printf", "ProgressLogging", "UUIDs"]
+git-tree-sha1 = "f133fab380933d042f6796eda4e130272ba520ca"
+uuid = "5d786b92-1e48-4d6f-9151-6b4477ca9bed"
+version = "0.1.7"
 
 [[deps.Test]]
 deps = ["InteractiveUtils", "Logging", "Random", "Serialization"]

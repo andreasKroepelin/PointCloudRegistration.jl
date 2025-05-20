@@ -3,13 +3,7 @@ function rand_rotation(rng, ::PointCloud{N, T}, ::PointCloud{N, T}) where {N, T}
 end
 
 function rand_rotation(rng, ::Val{N}, ::Type{T}) where {N, T}
-    M = randn(rng, rotation_type(Val(N), T))
-    orthogonal, _ = qr(M)
-    if det(orthogonal) < 0
-        negative_last_column(orthogonal)
-    else
-        orthogonal
-    end
+    rand(rng, RotMatrix{N, T}) |> SMatrix{N, N, T}
 end
 
 function rand_transformation(
