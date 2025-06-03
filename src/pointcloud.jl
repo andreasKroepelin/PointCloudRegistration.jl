@@ -1,11 +1,24 @@
+"""
+    VecOfSVec{N, T}
+
+Abbreviation for an `AbstractVector` of `SVectors` of length `N` and eltype `T`
+"""
 const VecOfSVec{N, T} = AbstractVector{<:SVector{N, T}}
 
-function VecOfSVec(mat::AbstractMatrix)
-    N = _size_1(mat)
-    T = eltype(mat)
-    reinterpret(reshape, SVector{N, T}, mat)
-end
+"""
+    VecOfSVec(::AbstractMatrix)
 
+Potentially type unstable version of `VecOfSVec{N}(::AbstractMatrix)` when
+the number of rows is not inferrable from the given matrix type
+"""
+VecOfSVec(mat::AbstractMatrix) = VecOfSVec{_size_1(mat)}(mat)
+
+"""
+    VecOfSVec{N}(mat::AbstractMatrix)
+
+Returns a view of the given matrix where every column is a
+`SVector{N, eltype(mat)}`.
+"""
 function VecOfSVec{N}(mat::AbstractMatrix) where {N}
     T = eltype(mat)
     reinterpret(reshape, SVector{N, T}, mat)
