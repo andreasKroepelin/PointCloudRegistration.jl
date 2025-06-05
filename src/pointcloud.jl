@@ -16,8 +16,9 @@ VecOfSVec(mat::AbstractMatrix) = VecOfSVec{_size_1(mat)}(mat)
 """
     VecOfSVec{N}(mat::AbstractMatrix)
 
-Returns a view of the given matrix where every column is a
-`SVector{N, eltype(mat)}`.
+Returns a view of the given matrix as a vector of `SVector{N, eltype(mat)}`,
+containing the entries of each column of `mat`.
+The number of rows of `mat` must be `N`.
 """
 function VecOfSVec{N}(mat::AbstractMatrix) where {N}
     T = eltype(mat)
@@ -46,6 +47,13 @@ function mean_cov_sumw(points, weights)
     mean, cov, sum_w
 end
 
+"""
+Representation of a weighted point cloud.
+An instance `pc` of `PointCloud{N, T}` stores `N`-dimensional points with
+coordinate type `T`.
+Also, it acts as an `AbstractMatrix{T}` with `N` rows and `length(pc.points)`
+columns.
+"""
 struct PointCloud{
     N,
     T,
@@ -62,6 +70,11 @@ struct PointCloud{
     coveigvals::SVector{N, T}
 end
 
+"""
+    PointCloud(::VecOfSVec, ::AbstractVector)
+
+Wrap a list of points and explicit weights as a `PointCloud`.
+"""
 function PointCloud(points::VecOfSVec, weights::AbstractVector)
     length(points) == length(weights) ||
         throw(ArgumentError("number of points must match number of weights"))
@@ -77,8 +90,25 @@ function PointCloud(points::VecOfSVec, weights::AbstractVector)
     )
 end
 
+"""
+    PointCloud(::VecOfSVec)
+
+Create a point cloud from the given points and use implicit unit weights.
+"""
 PointCloud(points::VecOfSVec) = PointCloud(points, Trues(length(points)))
 
+"""
+    PointCloud(::AbstractMatrix)
+    PointCloud{N}(::AbstractMatrix)
+    PointCloud(::AbstractMatrix, ::AbstractVector)
+    PointCloud{N}(::AbstractMatrix, ::AbstractVector)
+
+Create a point cloud from a matrix where every column represents one point.
+If the static parameter `N` is given, it must match the number of rows of the
+matrix, if not, this might not be type stable.
+A vector of weights can be given explicitly, otherwise implicit unit weights are
+used.
+"""
 PointCloud(points_mat::AbstractMatrix) = PointCloud(VecOfSVec(points_mat))
 PointCloud(points_mat::AbstractMatrix, weights::AbstractVector) =
     PointCloud(VecOfSVec(points_mat), weights)
@@ -95,12 +125,6 @@ Base.@propagate_inbounds Base.getindex(pc::PointCloud, i, j) =
     getindex(getindex(pc.points, j), i)
 Base.axes(pc::PointCloud{N}, i) where {N} =
     ifelse(i == 1, SOneTo(N), eachindex(pc.points))
-# We use `x -> SVector(x)` instead of just `SVector` so that MappedArrays.jl
-# can infer the eltype better.
-# points(pc::PointCloud) = mappedarray(x -> SVector(x), eachcol(pc.points))
-# points(X::HybridMatrix) = mappedarray(x -> SVector(x), eachcol(X))
-# points(xs::AbstractVector{<: SVector}) = xs
-# weights(pc::PointCloud) = pc.weights
 
 nrows(pcs::PointCloud{N}) where {N} = N
 

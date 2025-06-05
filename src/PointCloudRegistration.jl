@@ -26,6 +26,8 @@ export PointCloud,
     DownTo,
     DefaultAnnealing
 
+public VecOfSVec
+
 include("pointcloud.jl")
 include("common.jl")
 include("kabsch.jl")

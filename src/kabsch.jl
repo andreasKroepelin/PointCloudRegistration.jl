@@ -15,6 +15,25 @@ function negative_last_column(A::SMatrix)
     A
 end
 
+"""
+    register_rmsd(source, target)
+
+Find a [`CoordinateTransformations.AffineMap`](@extref) that rotates and
+translates `source` in a way that minimizes the Root Mean Square Distance to
+`target`.
+This assumes that the ``i``-th point in `source` corresponds to the ``i``-th
+point in `target`, so `source` and `target` must have the same size.
+
+`source` and `target` can each either be matrices with one point per column
+or [`PointCloud`](@ref)s.
+
+This is a konvex optimization problem with a closed form solution
+([Kabsch algorithm](https://en.wikipedia.org/wiki/Kabsch_algorithm))
+but is susceptible to outliers or wrong correspondences.
+
+Use this function if you do not expect outliers or wrong correspondences and
+you need maximum speed.
+"""
 function register_rmsd(source, target)
     _register_rmsd(PointCloud(source), PointCloud(target))
 end

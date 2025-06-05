@@ -35,6 +35,22 @@ function evaluate_geman_mcclure(sqscale, source, target, transformation)
     TransformationWithCost(total_cost, transformation)
 end
 
+"""
+    register_gmc(source, target; scale, restarts, iterations, rng, accumulator)
+
+Find an `AffineMap` from `CoordinateTransformations.jl` that rotates and
+translates `source` in a way that minimizes the Geman-McClure loss to `target`.
+
+The Geman-McClure loss has a scale parameter ``\\rho`` that defines the range of
+distances that affect the loss (making it robust against outliers):
+```math
+d(Y, X) = \\sum_{i = 1}^n \\operatorname{GMC}(\\Vert y_i - x_i \\Vert)
+```
+where
+```math
+\\operatorname{GMC}(r) = \\frac{r^2}{\\rho^2 + r^2}
+```
+"""
 function register_gmc(
     source,
     target;
