@@ -87,8 +87,12 @@ density_of_optima(0.1)
 
 fig = Figure()
 ax = Axis(fig[1, 1])
-tricontourf!(ax, eachrow(means[:, best_mask])..., kcs[best_mask], colorscale = log10)
-
+tricontourf!(
+    ax,
+    eachrow(means[:, best_mask])...,
+    kcs[best_mask];
+    colorscale = log10,
+)
 
 # best = register_kc(source, prepd_target; accumulator = BestTransformation, restarts = 10_000);
 

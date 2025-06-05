@@ -8,4 +8,8 @@ links = InterLinks(
     "CoordinateTransformations" => "https://juliageometry.github.io/CoordinateTransformations.jl/dev/",
 )
 
-makedocs(sitename="PointCloudRegistration.jl", remotes = nothing, plugins = [links])
+makedocs(;
+    sitename = "PointCloudRegistration.jl",
+    remotes = nothing,
+    plugins = [links],
+)
