@@ -1,4 +1,4 @@
-# PointCloudRegistration.jl
+# the Docs for PointCloudRegistration.jl
 
 ```@autodocs
 Modules = [PointCloudRegistration]

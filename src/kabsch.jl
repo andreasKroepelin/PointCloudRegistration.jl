@@ -20,7 +20,14 @@ end
 
 Find a [`CoordinateTransformations.AffineMap`](@extref) that rotates and
 translates `source` in a way that minimizes the Root Mean Square Distance to
-`target`.
+`target`, i.e.
+```math
+% \\operatorname{arg\\;min}\\limits_{
+%     \\text{rotation } R \\text{ and  translation } t
+% }
+\\sqrt{ \\frac{1}{n} \\sum_{i = 1}^n \\Vert R y_i + t - x_i \\Vert^2 }
+```
+for source points ``y_i`` and target points ``x_i``.
 This assumes that the ``i``-th point in `source` corresponds to the ``i``-th
 point in `target`, so `source` and `target` must have the same size.
 
