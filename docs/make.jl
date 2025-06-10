@@ -8,7 +8,10 @@ using CoordinateTransformations
 Revise.revise()
 
 links = InterLinks(
-    "CoordinateTransformations" => "https://juliageometry.github.io/CoordinateTransformations.jl/dev/",
+    "CoordinateTransformations" => (
+        "https://juliageometry.github.io/CoordinateTransformations.jl/dev/",
+        joinpath(@__DIR__, "inventories", "coordinatetransformations.inv"),
+    ),
 )
 
 makedocs(;

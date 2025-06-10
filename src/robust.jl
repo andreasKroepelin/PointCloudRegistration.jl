@@ -38,18 +38,25 @@ end
 """
     register_gmc(source, target; scale, restarts, iterations, rng, accumulator)
 
-Find an `AffineMap` from `CoordinateTransformations.jl` that rotates and
-translates `source` in a way that minimizes the Geman-McClure loss to `target`.
-
-The Geman-McClure loss has a scale parameter ``\\rho`` that defines the range of
-distances that affect the loss (making it robust against outliers):
+Find a [`CoordinateTransformations.AffineMap`](@extref) that rotates and
+translates `source` in a way that minimizes the Geman-McClure loss to `target`,
+i.e.
 ```math
-d(Y, X) = \\sum_{i = 1}^n \\operatorname{GMC}(\\Vert y_i - x_i \\Vert)
+\\sum_{i = 1}^n \\operatorname{GMC}_\\rho(\\Vert R y_i + t - x_i \\Vert)
 ```
 where
 ```math
-\\operatorname{GMC}(r) = \\frac{r^2}{\\rho^2 + r^2}
+\\operatorname{GMC}_\\rho(r) = \\frac{r^2}{\\rho^2 + r^2}
 ```
+for source points ``y_i`` and target points ``x_i``.
+This assumes that the ``i``-th point in `source` corresponds to the ``i``-th
+point in `target`, so `source` and `target` must have the same size.
+
+The Geman-McClure loss has a scale parameter ``\\rho`` that defines the range of
+distances that affect the loss (making it robust against outliers).
+Since the loss is non-convex, read the
+[respective section](#Dealing-with-non-convexity) to learn about
+how to use the keyword arguments.
 """
 function register_gmc(
     source,
