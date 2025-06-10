@@ -11,8 +11,18 @@ Private = false
 ## Dealing with non-convexity
 This packages implements registration with respect to two non-convex
 losses/scores.
-While they are inherently different, the respective `register_*` functions share
-a common interface to deal with this non-convexity, namely certain keyword
-arguments:
+While they are inherently different, the respective `register_gmc` and
+`register_kc` functions share a common interface to deal with this
+non-convexity, namely certain keyword arguments:
 
 ### `scale`
+
+Both the Geman-McClure loss and the Kernel Correlation have a scale parameter
+that determines to what distances they are sensitive to.
+Thus, the scale should eventually take a value that is relevant for the
+application at hand.
+In the simplest case, you can just set to a **scalar value**.
+
+However, optimizing the rotation and translation can easily get stuck in a
+non-global optimum when starting with a scale too small.
+
