@@ -8,6 +8,7 @@ using Accessors
 using CoordinateTransformations
 using Rotations
 using Distances
+using NearestNeighbors
 using LinearAlgebra
 using FFTW
 using Random

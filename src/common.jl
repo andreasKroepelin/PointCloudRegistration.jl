@@ -226,12 +226,51 @@ function result(at::AllTransformations, lm::LinearMap)
     end
 end
 
+function avg_nn_dist(pc::PointCloud)
+    tree = KDTree(pc.points, Euclidean(); reorder = true)
+    # the nearest neighbour is always the point itself, so query for the
+    # nearest two
+    _, dists2 = knn(tree, pc.points, 2)
+    # dists = maximum.(dists2)
+    mean(first, dists2)
+end
+
+function avg_nn_dist2(pc::PointCloud{N, T}) where {N, T}
+    sum_of_dists = zero(T)
+    for i in eachindex(pc.points)
+        xi = pc.points[i]
+        min_sqdist = typemax(T)
+        for j in eachindex(pc.points)
+            i == j && continue
+            xj = pc.points[j]
+            d = sqeuclidean(xi, xj)
+            min_sqdist = min(d, min_sqdist)
+        end
+        sum_of_dists += sqrt(min_sqdist)
+    end
+    sum_of_dists / length(pc.points)
+end
+
+"""
+    DefaultAnnealing([steps = 5])
+
+Annealing plan starting from the largest standard deviation of the target point
+cloud in any direction, going down to average nearest neighbor distance in the
+target, in `steps` steps with logarithmic progression.
+"""
 struct DefaultAnnealing
     steps::Int
 end
 
 DefaultAnnealing() = DefaultAnnealing(5)
 
+"""
+    DownTo(scale, [steps = 5])
+
+Annealing plan starting from the largest standard deviation of the target point
+cloud in any direction, going down to `scale` in `steps` steps with logarithmic
+progression.
+"""
 struct DownTo{T <: Real}
     scale::T
     steps::Int
@@ -252,7 +291,7 @@ annealing_plan(_, scales::AbstractVector) = scales .^ 2
 
 function annealing_plan(target, ann::DefaultAnnealing)
     hi = maximum(target.coveigvals)
-    lo = hi / 100
+    lo = avg_nn_dist(target) ^ 2
     logrange(hi, lo; length = ann.steps)
 end
 

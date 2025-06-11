@@ -25,4 +25,13 @@ In the simplest case, you can just set to a **scalar value**.
 
 However, optimizing the rotation and translation can easily get stuck in a
 non-global optimum when starting with a scale too small.
+Too avoid that, you can specify how the scale should be successively decreased.
+For maximum control, you can set `scale` to any **`AbstractVector{<: Real}`**.
+
+If you are unsure what values are sensible to use, two heuristics are
+implemented.
+```@docs; canonical=false
+DownTo
+DefaultAnnealing
+```
 
