@@ -8,7 +8,7 @@ Order = [:function, :type]
 Private = false
 ```
 
-## Dealing with non-convexity
+## Common keyword arguments
 This packages implements registration with respect to two non-convex
 losses/scores.
 While they are inherently different, the respective `register_gmc` and

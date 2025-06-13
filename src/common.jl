@@ -300,3 +300,11 @@ function annealing_plan(target, ann::DownTo)
     lo = ann.scale ^ 2
     logrange(hi, lo; length = ann.steps)
 end
+
+const REGISTER_DOCS_START = """
+Find a [`CoordinateTransformations.AffineMap`](@extref) that rotates and
+translates `source` in a way that """
+
+const REGISTER_DOCS_SYMBOLS = """
+for source points ``y_i``, target points ``x_i``, rotation ``R``, and
+translation ``t``. """

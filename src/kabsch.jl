@@ -18,8 +18,8 @@ end
 """
     register_rmsd(source, target)
 
-Find a [`CoordinateTransformations.AffineMap`](@extref) that rotates and
-translates `source` in a way that minimizes the Root Mean Square Distance to
+$REGISTER_DOCS_START
+minimizes the Root Mean Square Distance to
 `target`, i.e.
 ```math
 % \\operatorname{arg\\;min}\\limits_{
@@ -27,7 +27,7 @@ translates `source` in a way that minimizes the Root Mean Square Distance to
 % }
 \\sqrt{ \\frac{1}{n} \\sum_{i = 1}^n \\Vert R y_i + t - x_i \\Vert^2 }
 ```
-for source points ``y_i`` and target points ``x_i``.
+$REGISTER_DOCS_SYMBOLS
 This assumes that the ``i``-th point in `source` corresponds to the ``i``-th
 point in `target`, so `source` and `target` must have the same size.
 
