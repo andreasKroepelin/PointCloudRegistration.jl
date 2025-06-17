@@ -5,7 +5,7 @@ end
 
 default_config() = (;
     iterations = 10,
-    scale = DefaultAnnealing(),
+    scale = TargetScales(),
     restarts = 5,
     rng = Random.default_rng(),
     accumulator = BestTransformation,
@@ -176,6 +176,11 @@ end
 
 abstract type AbstractTransformationAccumulator end
 
+"""
+Stores the best transformation found.
+
+Makes `register_gmc` and `register_kc` return a single transformation.
+"""
 struct BestTransformation{TWC <: TransformationWithCost} <:
        AbstractTransformationAccumulator
     best::TWC
@@ -200,6 +205,11 @@ result(bt::BestTransformation, lm::LinearMap) =
         lm ∘ bt.best.transformation
     end
 
+"""
+Stores all transformations found.
+
+Makes `register_gmc` and `register_kc` return a `Vector` of transformations.
+"""
 struct AllTransformations{TWC <: TransformationWithCost} <:
        AbstractTransformationAccumulator
     transformations::Vector{TWC}
@@ -252,17 +262,17 @@ function avg_nn_dist2(pc::PointCloud{N, T}) where {N, T}
 end
 
 """
-    DefaultAnnealing([steps = 5])
+    TargetScales([steps = 5])
 
 Annealing plan starting from the largest standard deviation of the target point
 cloud in any direction, going down to average nearest neighbor distance in the
 target, in `steps` steps with logarithmic progression.
 """
-struct DefaultAnnealing
+struct TargetScales
     steps::Int
 end
 
-DefaultAnnealing() = DefaultAnnealing(5)
+TargetScales() = TargetScales(5)
 
 """
     DownTo(scale, [steps = 5])
@@ -281,7 +291,7 @@ DownTo(scale) = DownTo(scale, 5)
 const ScaleType = Union{
     T,
     <: AbstractVector{T},
-    DefaultAnnealing,
+    TargetScales,
     DownTo{T},
 } where {T <: Real}
 
@@ -289,7 +299,7 @@ annealing_plan(_, scale::Number) = tuple(scale^2)
 
 annealing_plan(_, scales::AbstractVector) = scales .^ 2
 
-function annealing_plan(target, ann::DefaultAnnealing)
+function annealing_plan(target, ann::TargetScales)
     hi = maximum(target.coveigvals)
     lo = avg_nn_dist(target) ^ 2
     logrange(hi, lo; length = ann.steps)
@@ -308,3 +318,13 @@ translates `source` in a way that """
 const REGISTER_DOCS_SYMBOLS = """
 for source points ``y_i``, target points ``x_i``, rotation ``R``, and
 translation ``t``. """
+
+const REGISTER_DOCS_EQUAL = """
+This assumes that the ``i``-th point in `source` corresponds to the ``i``-th
+point in `target`, so `source` and `target` must have the same size.
+"""
+
+const REGISTER_DOCS_TYPES = """
+`source` and `target` can each either be matrices with one point per column
+or [`PointCloud`](@ref)s.
+"""

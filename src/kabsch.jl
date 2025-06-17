@@ -28,11 +28,9 @@ minimizes the Root Mean Square Distance to
 \\sqrt{ \\frac{1}{n} \\sum_{i = 1}^n \\Vert R y_i + t - x_i \\Vert^2 }
 ```
 $REGISTER_DOCS_SYMBOLS
-This assumes that the ``i``-th point in `source` corresponds to the ``i``-th
-point in `target`, so `source` and `target` must have the same size.
+$REGISTER_DOCS_EQUAL
 
-`source` and `target` can each either be matrices with one point per column
-or [`PointCloud`](@ref)s.
+$REGISTER_DOCS_TYPES
 
 This is a konvex optimization problem with a closed form solution
 ([Kabsch algorithm](https://en.wikipedia.org/wiki/Kabsch_algorithm))

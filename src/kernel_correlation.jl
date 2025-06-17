@@ -253,6 +253,25 @@ function _prepare_target(target_original, scale, axisalign)
     PreparedTarget(axis_aligning_rotation, annealing_levels, target)
 end
 
+"""
+    register_kc(source, target; scale, axisalign, restarts, iterations, rng, accumulator)
+
+$REGISTER_DOCS_START
+maximizes the Kernel Correlation to `target`,
+i.e.
+```math
+\\sum_{i = 1}^n \\sum_{j = 1}^m \\exp\\left(\\frac{\\Vert R y_i + t - x_i \\Vert}{2 \\sigma^2}\\right)
+```
+$REGISTER_DOCS_SYMBOLS
+
+$REGISTER_DOCS_TYPES
+
+The bandwidth parameter ``\\sigma`` corresponds to the `scale` keyword argument
+and you can learn about how to use the keyword arguments in
+[this section](#Common-keyword-arguments).
+
+Use this function if you do not know correspondences.
+"""
 function register_kc(
     source,
     target::AbstractMatrix;

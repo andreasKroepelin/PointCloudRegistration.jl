@@ -25,7 +25,7 @@ export PointCloud,
     BestTransformation,
     AllTransformations,
     DownTo,
-    DefaultAnnealing
+    TargetScales
 
 public VecOfSVec
 

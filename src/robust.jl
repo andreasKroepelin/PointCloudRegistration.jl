@@ -49,13 +49,16 @@ where
 \\operatorname{GMC}_\\rho(r) = \\frac{r^2}{\\rho^2 + r^2}
 ```
 $REGISTER_DOCS_SYMBOLS
-This assumes that the ``i``-th point in `source` corresponds to the ``i``-th
-point in `target`, so `source` and `target` must have the same size.
+$REGISTER_DOCS_EQUAL
+
+$REGISTER_DOCS_TYPES
 
 The Geman-McClure loss has a scale parameter ``\\rho`` that defines the range of
 distances that affect the loss (making it robust against outliers).
 ``\\rho`` corresponds to the `scale` keyword argument and you can learn about
 how to use the keyword arguments in [this section](#Common-keyword-arguments).
+
+Use this function if you expect outliers or wrong correspondences.
 """
 function register_gmc(
     source,
