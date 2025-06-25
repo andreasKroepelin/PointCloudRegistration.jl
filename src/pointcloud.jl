@@ -123,6 +123,9 @@ Base.size(pc::PointCloud{N}) where {N} = (N, length(pc.points))
 StaticArrays.Size(pc::PointCloud{N}) where {N} = Size(N, length(pc.points))
 Base.@propagate_inbounds Base.getindex(pc::PointCloud, i, j) =
     getindex(getindex(pc.points, j), i)
+Base.@propagate_inbounds function Base.getindex(pc::PointCloud, idcs::AbstractVector{<: Integer})
+    PointCloud(pc.points[idcs], pc.weights[idcs])
+end
 Base.axes(pc::PointCloud{N}, i) where {N} =
     ifelse(i == 1, SOneTo(N), eachindex(pc.points))
 

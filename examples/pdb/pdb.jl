@@ -10,8 +10,14 @@ includet("alignment.jl")
 pdb_Y = retrievepdb("1su4"; dir = tempdir())["A"]
 pdb_X = retrievepdb("1iwo"; dir = tempdir())["A"]
 Y, X = aligned_atoms(pdb_Y, pdb_X, notwaterselector)
-transformation = register_gmc(Y, X; scale = 1.0, restarts = 100, annealing = 10)
-transformation(Y)
+iY, iX = guess_correspondences(Y, X)
+twc = register_gmc(Y, X; restarts = 100)
+twc.transformation.linear
+Y_, X_ = Y[iY], X[iX]
+twc_ = register_gmc(Y_, X_; restarts = 100)
+twc_.transformation.linear
+
+# transformation(Y)
 
 function show_both(X, Y)
     fig = Figure()
@@ -31,4 +37,5 @@ function show_both(X, Y)
     fig
 end
 
-show_both(X, transformation(Y))
+show_both(X, twc.transformation(Y))
+show_both(X, twc_.transformation(Y))

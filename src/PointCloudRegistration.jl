@@ -14,6 +14,7 @@ using FFTW
 using Random
 using Logging
 using Statistics
+using StatsBase
 using PrecompileTools: @compile_workload
 using ProgressLogging
 
@@ -22,6 +23,7 @@ export PointCloud,
     register_gmc,
     register_kc,
     prepare_target_kc,
+    guess_correspondences,
     BestTransformation,
     AllTransformations,
     DownTo,
@@ -35,6 +37,7 @@ include("kabsch.jl")
 include("init.jl")
 include("robust.jl")
 include("kernel_correlation.jl")
+include("guess_correspondences.jl")
 
 @compile_workload begin
     X2 = rand(2, 10)
