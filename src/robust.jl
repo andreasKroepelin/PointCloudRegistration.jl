@@ -36,7 +36,7 @@ function evaluate_geman_mcclure(sqscale, source, target, transformation)
 end
 
 """
-    register_gmc(source, target; scale, restarts, iterations, rng, accumulator)
+    register_gmc(source, target[; scale, restarts, iterations, rng, accumulator])
 
 $REGISTER_DOCS_START
 minimizes the Geman-McClure loss to `target`,

@@ -230,6 +230,24 @@ end
 
 Base.eltype(::PreparedTarget{N, T}) where {N, T} = T
 
+"""
+    prepare_target_kc(target[; scale, axisalign])
+
+Perform all the necessary precomputation for `register_kc`.
+This function is especially useful if you plan to register multiple sources to
+the same target.
+
+```julia
+X = PointCloud(rand(3, 100))
+Y1 = PointCloud(rand(3, 150))
+Y2 = PointCloud(rand(3, 130))
+
+prepd_X = prepare_target_kc(X) # this takes some time
+
+T1 = register_kc(prepd_X, Y1) # this is fast
+T2 = register_kc(prepd_X, Y2) # this is fast
+```
+"""
 function prepare_target_kc(
     target::AbstractMatrix;
     scale::ScaleType = default_config().scale,
@@ -237,9 +255,6 @@ function prepare_target_kc(
 )
     _prepare_target(PointCloud(target), scale, axisalign)
 end
-
-# prepare_target_kc(prepared_target::PreparedTarget; _kwargs...) =
-#     prepared_target
 
 function _prepare_target(target_original, scale, axisalign)
     if axisalign
@@ -254,13 +269,13 @@ function _prepare_target(target_original, scale, axisalign)
 end
 
 """
-    register_kc(source, target; scale, axisalign, restarts, iterations, rng, accumulator)
+    register_kc(source, target[; scale, axisalign, restarts, iterations, rng, accumulator])
 
 $REGISTER_DOCS_START
 maximizes the Kernel Correlation to `target`,
 i.e.
 ```math
-\\sum_{i = 1}^n \\sum_{j = 1}^m \\exp\\left(\\frac{\\Vert R y_i + t - x_i \\Vert}{2 \\sigma^2}\\right)
+\\sum_{i = 1}^n \\sum_{j = 1}^m \\exp\\left(- \\frac{\\Vert R y_i + t - x_i \\Vert}{2 \\sigma^2}\\right)
 ```
 $REGISTER_DOCS_SYMBOLS
 
@@ -294,6 +309,15 @@ function register_kc(
     )
 end
 
+"""
+    register_kc(source, prepared_target[; restarts, iterations, rng, accumulator])
+
+$REGISTER_DOCS_START
+maximizes the Kernel Correlation to `prepared_target` which was computed by
+[`prepare_target_kc`](@ref).
+
+Use this function if you plan to register multiple sources to the same target.
+"""
 function register_kc(
     source,
     prepared_target::PreparedTarget;

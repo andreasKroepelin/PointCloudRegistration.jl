@@ -7,11 +7,7 @@ PointCloud
 register_rmsd
 register_gmc
 register_kc
-# prepare_target_kc
-BestTransformation
-AllTransformations
-DownTo
-TargetScales
+prepare_target_kc
 ```
 
 ## Common keyword arguments
@@ -37,7 +33,7 @@ For maximum control, you can set `scale` to any **`AbstractVector{<: Real}`**.
 
 If you are unsure what values are sensible to use, two heuristics are
 implemented.
-```@docs; canonical=false
+```@docs
 DownTo
 TargetScales
 ```
@@ -72,7 +68,7 @@ This affects the return type of the registration functions.
 `accumulator` expects a subtype of
 `PointCloudRegistration.AbstractTransformationAccumulator`.
 The following two subtypes are provided:
-```@docs; canonical=false
+```@docs
 PointCloudRegistration.BestTransformation
 PointCloudRegistration.AllTransformations
 ```
