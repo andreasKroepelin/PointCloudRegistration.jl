@@ -200,9 +200,9 @@ end
 
 result(bt::BestTransformation, lm::LinearMap) =
     if isone(lm.linear)
-        bt.best.transformation
+        bt.best
     else
-        lm ∘ bt.best.transformation
+        @set bt.best.transformation = lm ∘ bt.best.transformation
     end
 
 """
