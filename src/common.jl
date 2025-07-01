@@ -288,12 +288,8 @@ end
 
 DownTo(scale) = DownTo(scale, 5)
 
-const ScaleType = Union{
-    T,
-    <: AbstractVector{T},
-    TargetScales,
-    DownTo{T},
-} where {T <: Real}
+const ScaleType =
+    Union{T, <: AbstractVector{T}, TargetScales, DownTo{T}} where {T <: Real}
 
 annealing_plan(_, scale::Number) = tuple(scale^2)
 
