@@ -37,6 +37,7 @@ include("kabsch.jl")
 include("init.jl")
 include("robust.jl")
 include("kernel_correlation.jl")
+include("coherent_point_drift.jl")
 include("guess_correspondences.jl")
 
 @compile_workload begin
