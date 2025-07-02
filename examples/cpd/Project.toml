@@ -1,0 +1,6 @@
+[deps]
+BioStructures = "de9282ab-8554-53be-b2d6-f6c222edabfc"
+GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
+Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
+PointCloudRegistration = "afb9b67c-ae14-49fb-afbe-36d52467eca1"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
