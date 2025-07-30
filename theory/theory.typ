@@ -1,14 +1,16 @@
 #import "@preview/lovelace:0.3.0": *
 // #set page(margin: 1cm)
-#set text(font: "Atkinson Hyperlegible Next")
+#set text(font: "Gentium", number-type: "old-style")
 // #set text(size: 20pt)
-#show math.equation: set text(font: "Lete Sans Math")
+#show math.equation: set text(font: "TeX Gyre Pagella Math")
 #show math.equation: set block(breakable: true)
 #set heading(numbering: "1.1")
+#show heading: smallcaps
 #set enum(indent: 1em)
 
 #let trp = $sans(upright(T))$
 #let kernel = $phi_i (bold(y)'_j)$
+#let Diag = $op("Diag")$
 
 #text(
   2em,
@@ -177,6 +179,121 @@ $
   =
   1 - exp(- 1 / 2 (1 + (sqrt(d) alpha) / 2)^2 + 1 / 2)
 $
+
+== Random Fourier Features
+
+Let us assume we can compute a $R times I$ matrix $bold(Z)(X)$ for a point cloud
+$X$ with $I$ points such that
+$bold(Z)(X)^trp bold(Z)(Y) approx (phi_sigma (x_i, y_j))_(i j) = bold(Phi)$.
+If $bold(p)$ and $bold(q)$ are the weight vectors of the target $X$ and the
+source $Y$, respectively, we can approximate the kernel correlation as
+$
+  kappa(X, Y)
+  =
+  bold(p)^trp bold(Phi) bold(q)
+  approx
+  bold(p)^trp (bold(Z)(X)^trp bold(Z)(Y)) bold(q)
+  =
+  (bold(Z)(X) bold(p))^trp (bold(Z)(Y) bold(q))
+$
+
+For $kappa macron(bold(x)) = sum_(i j) phi_(i j) p_i q_j bold(x)_i$ we then have
+$
+  sum_(i j) phi_(i j) p_i q_j bold(x)_i
+  &=
+  sum_i p_i bold(x)_i (sum_j phi_(i j) q_j)
+  =
+  sum_i p_i bold(x)_i (bold(Phi) bold(q))_i \
+  &=
+  sum_i (bold(X) Diag(bold(p)))_(: i) (bold(Phi) bold(q))_i \
+  &=
+  bold(X) Diag(bold(p)) bold(Phi) bold(q) \
+  &approx
+  bold(X) Diag(bold(p)) bold(Z)(X)^trp bold(Z)(Y) bold(q) .
+$
+
+Similarly, for $kappa macron(bold(y)) = sum_(i j) phi_(i j) p_i q_j bold(y)_j$
+we have
+$
+  sum_(i j) phi_(i j) p_i q_j bold(y)_j
+  &=
+  sum_i p_i (sum_j phi_(i j) q_j bold(y)_j) \
+  &=
+  sum_i p_i (sum_j phi_(i j) (bold(Y) Diag(bold(q)))_(: j))
+  =
+  sum_i p_i (sum_j phi_(i j) (bold(Y) Diag(bold(q)))^trp_(j :)) \
+  &=
+  sum_i p_i (bold(Phi) Diag(bold(q)) bold(Y)^trp)_(i :) \
+  &=
+  (bold(Phi) Diag(bold(q)) bold(Y)^trp)^trp bold(p) \
+  &=
+  bold(Y) Diag(bold(q)) bold(Phi)^trp bold(p) \
+  &approx
+  bold(Y) Diag(bold(q)) bold(Z)(Y)^trp bold(Z)(X) bold(p) .
+$
+
+And then for
+$bold(S) =
+sum_(i j) phi_(i j) p_i q_j
+(bold(x)_i - macron(bold(x)))
+(bold(y)_j - macron(bold(y)))^trp$:
+
+$
+  sum_(i j) phi_(i j) p_i q_j
+  (bold(x)_i - macron(bold(x)))
+  (bold(y)_j - macron(bold(y)))^trp
+  &=
+  sum_j q_j
+  (sum_i phi_(i j) p_i (bold(x)_i - macron(bold(x))))
+  (bold(y)_j - macron(bold(y)))^trp \
+  &=
+  sum_j q_j
+  (sum_i phi_(i j) p_i bold(x)_i - (sum_i phi_(i j) p_i) macron(bold(x)))
+  (bold(y)_j - macron(bold(y)))^trp \
+  &=
+  sum_j q_j
+  ((bold(Phi)^trp Diag(bold(p)) bold(X)^trp)_(j :) - (bold(Phi)^trp bold(p))_j macron(bold(x)))
+  (bold(y)_j - macron(bold(y)))^trp \
+  &=
+  sum_j q_j
+  ((bold(X) Diag(bold(p)) bold(Phi))_(: j) - (macron(bold(x)) bold(p)^trp bold(Phi))_(: j))
+  (bold(y)_j - macron(bold(y)))^trp \
+  &=
+  sum_j q_j
+  ((bold(X) Diag(bold(p)) - macron(bold(x)) bold(p)^trp) bold(Phi))_(: j)
+  (bold(y)_j - macron(bold(y)))^trp \
+  &=
+  sum_j
+  ((bold(X) Diag(bold(p)) - macron(bold(x)) bold(p)^trp) bold(Phi))_(: j)
+  (bold(Y) Diag(bold(q)) - macron(bold(y)) bold(q)^trp)^trp_(j :) \
+  &=
+  (bold(X) Diag(bold(p)) - macron(bold(x)) bold(p)^trp)
+  bold(Phi)
+  (bold(Y) Diag(bold(q)) - macron(bold(y)) bold(q)^trp)^trp \
+  &approx
+  (bold(X) Diag(bold(p)) - macron(bold(x)) bold(p)^trp)
+  bold(Z)(X)^trp bold(Z)(Y)
+  (bold(Y) Diag(bold(q)) - macron(bold(y)) bold(q)^trp)^trp \
+  &=
+  (bold(X) Diag(bold(p)) bold(Z)(X)^trp - macron(bold(x)) (bold(Z)(X) bold(p))^trp)
+  (bold(Z)(Y) Diag(bold(q)) bold(Y)^trp - bold(Z)(Y) bold(q) macron(bold(y))^trp) \
+$
+
+In summary, we do the following computations:
+- unrelated to the source:
+  + $bold(Z)(X) in RR^(R times I)$
+  + $tilde(bold(p)) := bold(Z)(X) bold(p) in RR^R$
+  + $tilde(bold(X)) := bold(X) Diag(bold(p)) bold(Z)(X)^trp in RR^(d times R)$
+- for each (potentially transformed) source $Y$:
+  + $bold(Z)(Y) in RR^(R times J)$
+  + $tilde(bold(q)) := bold(Z)(Y) bold(q) in RR^R$
+  + $tilde(bold(Y)) := bold(Y) Diag(bold(q)) bold(Z)(Y)^trp in RR^(d times R)$
+  + $kappa = tilde(bold(p))^trp tilde(bold(q))$
+  + $macron(bold(x)) = 1 / kappa tilde(bold(X)) tilde(bold(q)) in RR^d$
+  + $macron(bold(y)) = 1 / kappa tilde(bold(Y)) tilde(bold(p)) in RR^d$
+  + $bold(S) =
+      (tilde(bold(X)) - macron(bold(x)) tilde(bold(p))^trp)
+      (tilde(bold(Y)) - macron(bold(y)) tilde(bold(q))^trp)^trp in RR^(d times d)$
 
 #pagebreak()
 
