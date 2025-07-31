@@ -439,6 +439,100 @@ function _register_kc(
     result(accumulator, LinearMap(axis_aligning_rotation'))
 end
 
+struct Rff{N, T}
+    params::Vector{@NamedTuple{w::SVector{N, T}, b::T}}
+    sigma::T
+end
+
+function Rff{N}(sigma, num_features)
+    T = typeof(sigma)
+    params = [
+        (w = inv(sigma) * randn(SVector{N, T}), b = 2pi * rand(T))
+        for _ in 1:num_features
+    ]
+    Rff{N, T}(params, sigma)
+end
+
+
+
+function _register_kc_rff(
+    source::PointCloud{N, TS},
+    prepared_target::PreparedTargetRff{N, TT},
+    restarts,
+    iterations,
+    rng,
+    accumulator_type,
+) where {N, TS, TT}
+    T = promote_type(TS, TT)
+    (; annealing_levels, rff) = prepared_target
+    num_features = length(rff)
+    source_feature_weights = similar(source.weights, num_features)
+    source_feature_points = similar(source.points, num_features)
+    src_features = zeros(TS, num_features)
+
+    accumulator = accumulator_type(transformation_type(Val(N), T))
+    init_transformation = simple_transformation(source, target)
+    restart = 0
+    kc = zero(T)
+    @withprogress name="performing restarts" while true
+        transformation = init_transformation
+
+        for annealing_level in annealing_levels
+            (; target_feature_weights, target_feature_points) = annealing_level
+
+            for iter in 1:iterations
+                for j in eachindex(source.points)
+                    src = source.points[j]
+                    w_src = source.weights[j]
+                    transformed_src = transformation(src)
+                    featurize!(src_features, rff, transformed_src)
+                    source_feature_weights .+= w_src .* src_features
+                    for r in eachindex(source_feature_points)
+                        source_feature_points[r] += w_src * transformed_src * src_features[r]
+                    end
+                end
+
+                kc = zero(T)
+                target_mean = zero(SVector{N, TT})
+                source_mean = zero(SVector{N, TS})
+                covariance = zero(rotation_type(Val(N), T))
+                for r in 1:num_features
+                    trg_f = target_feature_points[r]
+                    src_f = source_feature_points[r]
+                    trg_f_w = target_feature_weights[r]
+                    src_f_w = source_feature_weights[r]
+
+                    kc += trg_f_w * src_f_w
+                    target_mean += src_f_w * trg_f
+                    source_mean += trg_f_w * src_f
+                    covariance += trg_f * src_f'
+                end
+                target_mean /= kc
+                source_mean /= kc
+                covariance -= kc * target_mean * source_mean'
+
+                transformation = transformation_from_moments(
+                    covariance,
+                    source_mean,
+                    target_mean,
+                )
+            end
+        end
+        accumulator =
+            update(accumulator, TransformationWithCost(-kc, transformation))
+        if restart < restarts
+            restart += 1
+            @logprogress (restart / restarts)
+            init_transformation = rand_transformation(rng, source, target)
+        else
+            @logprogress "done"
+            break
+        end
+    end
+
+    result(accumulator, LinearMap(I))
+end
+
 struct GaussKernel{T}
     neghalfinvsqbandwidth::T
 end

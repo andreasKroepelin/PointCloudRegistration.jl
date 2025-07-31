@@ -291,9 +291,23 @@ In summary, we do the following computations:
   + $kappa = tilde(bold(p))^trp tilde(bold(q))$
   + $macron(bold(x)) = 1 / kappa tilde(bold(X)) tilde(bold(q)) in RR^d$
   + $macron(bold(y)) = 1 / kappa tilde(bold(Y)) tilde(bold(p)) in RR^d$
-  + $bold(S) =
+  + $bold(S) &=
       (tilde(bold(X)) - macron(bold(x)) tilde(bold(p))^trp)
-      (tilde(bold(Y)) - macron(bold(y)) tilde(bold(q))^trp)^trp in RR^(d times d)$
+      (tilde(bold(Y)) - macron(bold(y)) tilde(bold(q))^trp)^trp
+      =
+      tilde(bold(X)) tilde(bold(Y))^trp
+      - tilde(bold(X)) tilde(bold(q)) macron(bold(y))^trp
+      - macron(bold(x)) tilde(bold(p))^trp tilde(bold(Y))^trp
+      + macron(bold(x)) tilde(bold(p))^trp tilde(bold(q)) macron(bold(y))^trp
+      \ &=
+      tilde(bold(X)) tilde(bold(Y))^trp
+      - kappa macron(bold(x)) macron(bold(y))^trp
+      - (kappa macron(bold(y)) macron(bold(x))^trp)^trp
+      + macron(bold(x)) kappa macron(bold(y))^trp
+      \ &=
+      tilde(bold(X)) tilde(bold(Y))^trp
+      - kappa macron(bold(x)) macron(bold(y))^trp
+      in RR^(d times d)$
 
 #pagebreak()
 
