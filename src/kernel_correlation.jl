@@ -441,23 +441,37 @@ end
 
 struct Rff{N, T}
     params::Vector{@NamedTuple{w::SVector{N, T}, b::T}}
-    sigma::T
+    # ws::Vector{SVector{N, T}}
+    # bs::Vector{T}
+    # sigma::T
 end
 
-function Rff{N}(sigma, num_features)
-    T = typeof(sigma)
+function Rff{N, T}(num_features::Int) where {N, T}
+    # T = float(typeof(sigma))
     params = [
-        (w = inv(sigma) * randn(SVector{N, T}), b = 2pi * rand(T))
+        (w = randn(SVector{N, T}), b = 2pi * rand(T))
         for _ in 1:num_features
     ]
-    Rff{N, T}(params, sigma)
+    Rff{N, T}(params)
+    # ws = randn(SVector{N, T}, num_features)
+    # ws .*= inv(sigma)
+    # bs = rand(T, num_features)
+    # bs .*= 2pi
+    # Rff{N, T}(ws, bs, sigma)
 end
 
-
+function featurize!(z, rff::Rff{N, T}, scale, x::SVector{N}) where {N, T}
+    factor = T(sqrt(2 / length(rff.params)))
+    inv_sigma = inv(scale)
+    map!(z, rff.params) do (; w, b)
+        factor * cos(inv_sigma * dot(w, x) + b)
+    end
+end
 
 function _register_kc_rff(
     source::PointCloud{N, TS},
-    prepared_target::PreparedTargetRff{N, TT},
+    target::PointCloud{N, TT},
+    scales,
     restarts,
     iterations,
     rng,
@@ -477,15 +491,14 @@ function _register_kc_rff(
     @withprogress name="performing restarts" while true
         transformation = init_transformation
 
-        for annealing_level in annealing_levels
-            (; target_feature_weights, target_feature_points) = annealing_level
-
+        for scale in scales
+            # TODO: build targt_feature_weights and target_feature_points
             for iter in 1:iterations
                 for j in eachindex(source.points)
                     src = source.points[j]
                     w_src = source.weights[j]
                     transformed_src = transformation(src)
-                    featurize!(src_features, rff, transformed_src)
+                    featurize!(src_features, rff, scale, transformed_src)
                     source_feature_weights .+= w_src .* src_features
                     for r in eachindex(source_feature_points)
                         source_feature_points[r] += w_src * transformed_src * src_features[r]
