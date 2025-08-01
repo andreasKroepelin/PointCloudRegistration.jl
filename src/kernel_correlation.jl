@@ -460,11 +460,38 @@ function Rff{N, T}(num_features::Int) where {N, T}
     # Rff{N, T}(ws, bs, sigma)
 end
 
-function featurize!(z, rff::Rff{N, T}, scale, x::SVector{N}) where {N, T}
-    factor = T(sqrt(2 / length(rff.params)))
+num_features(rff::Rff) = length(rff.params)
+
+struct RffPointCloud{N, T, PC <: PointCloud{N, T}, TP <: AbstractVector{SVector{N, T}}, TW <: AbstractVector{T}}
+    pointcloud::PC
+    rff::Rff{N, T}
+    points::TP
+    weights::TW
+    feature_buffer::Vector{T}
+end
+
+function RffPointCloud(pc::PointCloud{N, T}, rff::Rff{N, T}) where {N, T}
+    points = similar(pc.points, num_features(rff))
+    weights = similar(pc.weights, num_features(rff))
+    feature_buffer = zeros(T, num_features(rff))
+    RffPointCloud(pc, rff, points, weights, feature_buffer)
+end
+
+function compute!(rffpc::RffPointCloud{N, T}, scale, transformation = identity) where {N, T}
+    (; feature_buffer, rff, pointcloud) = rffpc
+    factor = T(sqrt(2 / num_features(rff)))
     inv_sigma = inv(scale)
-    map!(z, rff.params) do (; w, b)
-        factor * cos(inv_sigma * dot(w, x) + b)
+    for i in eachindex(pointcloud.points)
+        x = pointcloud.points[i]
+        w = pointcloud.weights[i]
+        transformed_x = transformation(x)
+        map!(feature_buffer, rff.params) do (; w, b)
+            factor * cos(inv_sigma * dot(w, x) + b)
+        end
+        rffpc.weights .+= w .* feature_buffer
+        for r in eachindex(rffpc.points)
+            rffpc.points[r] += w * transformed_x * feature_buffer[r]
+        end
     end
 end
 
@@ -472,17 +499,16 @@ function _register_kc_rff(
     source::PointCloud{N, TS},
     target::PointCloud{N, TT},
     scales,
+    features,
     restarts,
     iterations,
     rng,
     accumulator_type,
 ) where {N, TS, TT}
     T = promote_type(TS, TT)
-    (; annealing_levels, rff) = prepared_target
-    num_features = length(rff)
-    source_feature_weights = similar(source.weights, num_features)
-    source_feature_points = similar(source.points, num_features)
-    src_features = zeros(TS, num_features)
+    rff = Rff{N, T}(features)
+    rff_target = RffPointCloud(target, rff)
+    rff_source = RffPointCloud(source, rff)
 
     accumulator = accumulator_type(transformation_type(Val(N), T))
     init_transformation = simple_transformation(source, target)
@@ -493,17 +519,9 @@ function _register_kc_rff(
 
         for scale in scales
             # TODO: build targt_feature_weights and target_feature_points
+            compute!(rff_target, scale)
             for iter in 1:iterations
-                for j in eachindex(source.points)
-                    src = source.points[j]
-                    w_src = source.weights[j]
-                    transformed_src = transformation(src)
-                    featurize!(src_features, rff, scale, transformed_src)
-                    source_feature_weights .+= w_src .* src_features
-                    for r in eachindex(source_feature_points)
-                        source_feature_points[r] += w_src * transformed_src * src_features[r]
-                    end
-                end
+                compute!(rff_source, scale, transformation)
 
                 kc = zero(T)
                 target_mean = zero(SVector{N, TT})
