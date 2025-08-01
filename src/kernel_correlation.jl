@@ -488,7 +488,7 @@ function compute!(
 ) where {N, T}
     (; feature_buffer, rff, pointcloud) = rffpc
     factor = T(sqrt(2 / num_features(rff)))
-    inv_sigma = inv(scale)
+    inv_sigma = T(inv(scale))
     for i in eachindex(pointcloud.points)
         x = pointcloud.points[i]
         w = pointcloud.weights[i]
@@ -503,18 +503,43 @@ function compute!(
     end
 end
 
+function register_kc_rff(
+    source,
+    target;
+    scale::ScaleType = default_config().scale,
+    features::Int = default_config().features,
+    restarts::Int = default_config().restarts,
+    iterations::Int = default_config().iterations,
+    rng = default_config().rng,
+    accumulator::Type{<: AbstractTransformationAccumulator} = default_config().accumulator,
+)
+    pc_source = PointCloud(source)
+    pc_target = PointCloud(target)
+    sqscales = annealing_plan(pc_target, scale)
+    _register_kc_rff(
+        pc_source,
+        pc_target,
+        sqscales,
+        features,
+        restarts,
+        iterations,
+        rng,
+        accumulator,
+    )
+end
+
 function _register_kc_rff(
     source::PointCloud{N, TS},
     target::PointCloud{N, TT},
-    scales,
-    features,
+    sqscales,
+    num_features,
     restarts,
     iterations,
     rng,
     accumulator_type,
 ) where {N, TS, TT}
     T = promote_type(TS, TT)
-    rff = Rff{N, T}(features)
+    rff = Rff{N, T}(num_features)
     rff_target = RffPointCloud(target, rff)
     rff_source = RffPointCloud(source, rff)
 
@@ -525,8 +550,8 @@ function _register_kc_rff(
     @withprogress name="performing restarts" while true
         transformation = init_transformation
 
-        for scale in scales
-            # TODO: build targt_feature_weights and target_feature_points
+        for sqscale in sqscales
+            scale = sqrt(sqscale)
             compute!(rff_target, scale)
             for iter in 1:iterations
                 compute!(rff_source, scale, transformation)

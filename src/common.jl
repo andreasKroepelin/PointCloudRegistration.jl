@@ -10,6 +10,7 @@ default_config() = (;
     rng = Random.default_rng(),
     accumulator = BestTransformation,
     axisalign = true,
+    features = 100,
 )
 
 function bbox(xs::VecOfSVec)
