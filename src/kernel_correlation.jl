@@ -448,10 +448,8 @@ end
 
 function Rff{N, T}(num_features::Int) where {N, T}
     # T = float(typeof(sigma))
-    params = [
-        (w = randn(SVector{N, T}), b = 2pi * rand(T))
-        for _ in 1:num_features
-    ]
+    params =
+        [(w = randn(SVector{N, T}), b = 2pi * rand(T)) for _ in 1:num_features]
     Rff{N, T}(params)
     # ws = randn(SVector{N, T}, num_features)
     # ws .*= inv(sigma)
@@ -462,7 +460,13 @@ end
 
 num_features(rff::Rff) = length(rff.params)
 
-struct RffPointCloud{N, T, PC <: PointCloud{N, T}, TP <: AbstractVector{SVector{N, T}}, TW <: AbstractVector{T}}
+struct RffPointCloud{
+    N,
+    T,
+    PC <: PointCloud{N, T},
+    TP <: AbstractVector{SVector{N, T}},
+    TW <: AbstractVector{T},
+}
     pointcloud::PC
     rff::Rff{N, T}
     points::TP
@@ -477,7 +481,11 @@ function RffPointCloud(pc::PointCloud{N, T}, rff::Rff{N, T}) where {N, T}
     RffPointCloud(pc, rff, points, weights, feature_buffer)
 end
 
-function compute!(rffpc::RffPointCloud{N, T}, scale, transformation = identity) where {N, T}
+function compute!(
+    rffpc::RffPointCloud{N, T},
+    scale,
+    transformation = identity,
+) where {N, T}
     (; feature_buffer, rff, pointcloud) = rffpc
     factor = T(sqrt(2 / num_features(rff)))
     inv_sigma = inv(scale)
