@@ -476,7 +476,7 @@ end
 
 function RffPointCloud(pc::PointCloud{N, T}, rff::Rff{N, T}) where {N, T}
     points = similar(pc.points, num_features(rff))
-    weights = similar(pc.weights, num_features(rff))
+    weights = similar(pc.weights, T, num_features(rff))
     feature_buffer = zeros(T, num_features(rff))
     RffPointCloud(pc, rff, points, weights, feature_buffer)
 end
@@ -489,16 +489,18 @@ function compute!(
     (; feature_buffer, rff, pointcloud) = rffpc
     factor = T(sqrt(2 / num_features(rff)))
     inv_sigma = T(inv(scale))
+    rffpc.weights .= zero(T)
+    rffpc.points .= (zero(eltype(rffpc.points)), ) # wrap in tuple for broadcasting
     for i in eachindex(pointcloud.points)
         x = pointcloud.points[i]
         w = pointcloud.weights[i]
         transformed_x = transformation(x)
         map!(feature_buffer, rff.params) do (; w, b)
-            factor * cos(inv_sigma * dot(w, x) + b)
+            factor * cos(inv_sigma * dot(w, transformed_x) + b)
         end
         rffpc.weights .+= w .* feature_buffer
         for r in eachindex(rffpc.points)
-            rffpc.points[r] += w * transformed_x * feature_buffer[r]
+            rffpc.points[r] += w * x * feature_buffer[r]
         end
     end
 end
@@ -542,6 +544,10 @@ function _register_kc_rff(
     rff = Rff{N, T}(num_features)
     rff_target = RffPointCloud(target, rff)
     rff_source = RffPointCloud(source, rff)
+    # for debugging:
+    kc_weights = zeros(T, length(target.points), length(source.points))
+    target_kc_weights = similar(kc_weights, length(target.points), 1)
+    source_kc_weights = similar(kc_weights, 1, length(source.points))
 
     accumulator = accumulator_type(transformation_type(Val(N), T))
     init_transformation = simple_transformation(source, target)
@@ -552,6 +558,8 @@ function _register_kc_rff(
 
         for sqscale in sqscales
             scale = sqrt(sqscale)
+            # for debugging:
+            kernel = GaussKernel(-inv(2sqscale))
             compute!(rff_target, scale)
             for iter in 1:iterations
                 compute!(rff_source, scale, transformation)
@@ -561,10 +569,10 @@ function _register_kc_rff(
                 source_mean = zero(SVector{N, TS})
                 covariance = zero(rotation_type(Val(N), T))
                 for r in 1:num_features
-                    trg_f = target_feature_points[r]
-                    src_f = source_feature_points[r]
-                    trg_f_w = target_feature_weights[r]
-                    src_f_w = source_feature_weights[r]
+                    trg_f = rff_target.points[r]
+                    src_f = rff_source.points[r]
+                    trg_f_w = rff_target.weights[r]
+                    src_f_w = rff_source.weights[r]
 
                     kc += trg_f_w * src_f_w
                     target_mean += src_f_w * trg_f
@@ -574,6 +582,22 @@ function _register_kc_rff(
                 target_mean /= kc
                 source_mean /= kc
                 covariance -= kc * target_mean * source_mean'
+
+                # for debugging
+                compute_kc_weights!(
+                    kc_weights,
+                    source,
+                    target,
+                    kernel,
+                    transformation,
+                )
+                kc_exact = sum(kc_weights)
+                sum!(target_kc_weights, kc_weights)
+                sum!(source_kc_weights, kc_weights)
+                target_mean_exact = wsum(target.points, target_kc_weights) / kc_exact
+                source_mean_exact = wsum(source.points, source_kc_weights) / kc_exact
+
+                @info "iteration" iter kc kc_exact string(target_mean) string(target_mean_exact) string(source_mean) string(source_mean_exact)
 
                 transformation = transformation_from_moments(
                     covariance,
@@ -629,14 +653,14 @@ end
 function register_kc_naive(
     source,
     target;
-    scale::Union{Real, Missing} = missing,
-    annealing::Int = default_config().annealing,
+    scale::ScaleType = default_config().scale,
     restarts::Int = default_config().restarts,
     iterations::Int = default_config().iterations,
     rng = default_config().rng,
+    accumulator::Type{<: AbstractTransformationAccumulator} = default_config().accumulator,
 )
     pc_target = PointCloud(target)
-    sqscales = annealing_plan(pc_target, scale, annealing)
+    sqscales = annealing_plan(pc_target, scale)
 
     _register_kc_naive(
         PointCloud(source),
@@ -645,6 +669,7 @@ function register_kc_naive(
         restarts,
         iterations,
         rng,
+        accumulator,
     )
 end
 
@@ -655,13 +680,14 @@ function _register_kc_naive(
     restarts,
     iterations,
     rng,
+    accumulator_type,
 ) where {N, TS, TT}
     T = promote_type(TS, TT)
     kc_weights = zeros(T, length(target.points), length(source.points))
     target_kc_weights = similar(kc_weights, length(target.points), 1)
     source_kc_weights = similar(kc_weights, 1, length(source.points))
 
-    best = worst(transformation_type(Val(N), T))
+    accumulator = accumulator_type(transformation_type(Val(N), T))
     init_transformation = simple_transformation(source, target)
     restart = 0
     kc = zero(T)
@@ -706,7 +732,8 @@ function _register_kc_naive(
                 )
             end
         end
-        best = better(best, TransformationWithCost(-kc, transformation))
+        accumulator =
+            update(accumulator, TransformationWithCost(-kc, transformation))
         if restart < restarts
             restart += 1
             init_transformation = rand_transformation(rng, source, target)
@@ -715,5 +742,5 @@ function _register_kc_naive(
         end
     end
 
-    best.transformation
+    result(accumulator, LinearMap(I))
 end

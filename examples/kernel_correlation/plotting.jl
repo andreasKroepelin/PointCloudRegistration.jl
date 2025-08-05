@@ -128,33 +128,52 @@ function side_by_side(source, target, transformation)
     if d == 2
         ax_src = Axis(fig[1, 1]; title = "source")#= autolimitaspect = 1=#
         ax_trg = Axis(fig[1, 2]; title = "target")#= autolimitaspect = 1=#
+        ax_bth = Axis(fig[2, 1:2]; title = "combined", autolimitaspect = 1)
         scatter!(ax_src, source.points; color = axes(source.points, 2))
         scatter!(ax_trg, target.points; color = axes(target.points, 2))
+        scatter!(ax_bth, source.points; color = :tomato)
+        scatter!(ax_bth, target.points; color = :teal)
         colsize!(fig.layout, 1, Aspect(1, 1))
         colsize!(fig.layout, 2, Aspect(1, 1))
         linkaxes!(ax_src, ax_trg)
+        linkaxes!(ax_src, ax_bth)
     elseif d == 3
-        slider = Slider(fig[2, 1:2]; range = 0.01:0.01:2)
+        slider = Slider(fig[3, 1:2]; range = 1:0.1:5)
         ax_src = Axis3(fig[1, 1]; title = "source", aspect = :data)
         ax_trg = Axis3(fig[1, 2]; title = "target", aspect = :data)
-        meshscatter!(
+        ax_bth = Axis3(fig[2, 1:2]; title = "combined", aspect = :data)
+        scatter!(
             ax_src,
             source.points;
             color = axes(source.points, 2),
             markersize = slider.value,
         )
-        meshscatter!(
+        scatter!(
             ax_trg,
             target.points;
             color = axes(target.points, 2),
             markersize = slider.value,
         )
+        scatter!(
+            ax_bth,
+            source.points;
+            color = :tomato,
+            markersize = slider.value,
+        )
+        scatter!(
+            ax_bth,
+            target.points;
+            color = :teal,
+            markersize = slider.value,
+        )
 
         on(ax_src.azimuth) do az
             ax_trg.azimuth = az
+            ax_bth.azimuth = az
         end
         on(ax_src.elevation) do el
             ax_trg.elevation = el
+            ax_bth.elevation = el
         end
     end
 

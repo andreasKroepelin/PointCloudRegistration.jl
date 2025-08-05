@@ -203,7 +203,8 @@ result(bt::BestTransformation, lm::LinearMap) =
     if isone(lm.linear)
         bt.best
     else
-        @set bt.best.transformation = lm ∘ bt.best.transformation
+        @reset bt.best.transformation = lm ∘ bt.best.transformation
+        bt.best
     end
 
 """
