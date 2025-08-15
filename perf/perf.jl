@@ -11,8 +11,21 @@ X = PointCloud(X_raw)
 Profile.clear()
 @pprof prepare_target_kc(X_raw)
 
-X_prepd = PointCloudRegistration.prepare_source_cpd(X; regularizer_lengthscale = .1)
-register_cpd(X_prepd, X; scale = .3, outlier_proportion = .01, regularizer_strength = 1.)
+X_prepd =
+    PointCloudRegistration.prepare_source_cpd(X; regularizer_lengthscale = 0.1)
+register_cpd(
+    X_prepd,
+    X;
+    scale = 0.3,
+    outlier_proportion = 0.01,
+    regularizer_strength = 1.0,
+)
 
 Profile.clear()
-@pprof register_cpd(X_prepd, X; scale = .3, outlier_proportion = .01, regularizer_strength = 1.)
+@pprof register_cpd(
+    X_prepd,
+    X;
+    scale = 0.3,
+    outlier_proportion = 0.01,
+    regularizer_strength = 1.0,
+)

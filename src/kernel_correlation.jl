@@ -490,7 +490,7 @@ function compute!(
     factor = T(sqrt(2 / num_features(rff)))
     inv_sigma = T(inv(scale))
     rffpc.weights .= zero(T)
-    rffpc.points .= (zero(eltype(rffpc.points)), ) # wrap in tuple for broadcasting
+    rffpc.points .= (zero(eltype(rffpc.points)),) # wrap in tuple for broadcasting
     for i in eachindex(pointcloud.points)
         x = pointcloud.points[i]
         w = pointcloud.weights[i]
@@ -594,10 +594,14 @@ function _register_kc_rff(
                 kc_exact = sum(kc_weights)
                 sum!(target_kc_weights, kc_weights)
                 sum!(source_kc_weights, kc_weights)
-                target_mean_exact = wsum(target.points, target_kc_weights) / kc_exact
-                source_mean_exact = wsum(source.points, source_kc_weights) / kc_exact
+                target_mean_exact =
+                    wsum(target.points, target_kc_weights) / kc_exact
+                source_mean_exact =
+                    wsum(source.points, source_kc_weights) / kc_exact
 
-                @info "iteration" iter kc kc_exact string(target_mean) string(target_mean_exact) string(source_mean) string(source_mean_exact)
+                @info "iteration" iter kc kc_exact string(target_mean) string(
+                    target_mean_exact,
+                ) string(source_mean) string(source_mean_exact)
 
                 transformation = transformation_from_moments(
                     covariance,

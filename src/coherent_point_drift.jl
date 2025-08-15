@@ -24,8 +24,8 @@ function _prepare_source_cpd(
     PreparedSourceCPD(
         source,
         G,
-        inv.(eig.values[end - rk:end]),
-        permutedims(eig.vectors[:, end - rk:end]),
+        inv.(eig.values[(end - rk):end]),
+        permutedims(eig.vectors[:, (end - rk):end]),
     )
 end
 
@@ -38,7 +38,13 @@ function register_cpd(
     regularizer_lengthscale,
 ) where {N, T}
     prepd_source = _prepare_source_cpd(source, regularizer_lengthscale)
-    _register_cpd(prepd_source, target, scale^2, outlier_proportion, regularizer_strength)
+    _register_cpd(
+        prepd_source,
+        target,
+        scale^2,
+        outlier_proportion,
+        regularizer_strength,
+    )
 end
 
 function register_cpd(
@@ -48,7 +54,13 @@ function register_cpd(
     outlier_proportion,
     regularizer_strength,
 ) where {N, T}
-    _register_cpd(prepd_source, target, scale^2, outlier_proportion, regularizer_strength)
+    _register_cpd(
+        prepd_source,
+        target,
+        scale^2,
+        outlier_proportion,
+        regularizer_strength,
+    )
 end
 
 function _register_cpd(
@@ -65,9 +77,9 @@ function _register_cpd(
     target_representatives = [zero(src) for src in source.points]
 
     outlier_term = (
-        outlier_proportion / (1 - outlier_proportion)
-        * sqrt(2pi * sqscale) ^ N
-        * length(source.points) / length(target.points)
+        outlier_proportion / (1 - outlier_proportion) *
+        sqrt(2pi * sqscale) ^ N *
+        length(source.points) / length(target.points)
     )
 
     P = zeros(T, length(target.points), length(source.points))
@@ -119,7 +131,8 @@ function _register_cpd(
         for j in eachindex(source.points)
             mul!(prior_coeffs, small_inv, view(QP, :, j))
             # coeffs = @view prior_matrix[:, j]
-            displacement_spanning_set[j] = wsum(ideal_displacement, prior_coeffs)
+            displacement_spanning_set[j] =
+                wsum(ideal_displacement, prior_coeffs)
         end
     end
 
