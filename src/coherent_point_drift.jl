@@ -20,7 +20,8 @@ function _prepare_source_cpd(
     G = pairwise(sqeuclidean, source.points)
     G .= exp.(neginv2sqregscale .* G)
     eig = eigen(Symmetric(G))
-    rk = floor(Int, length(source.points) ^ (1 / 3))
+    # rk = floor(Int, length(source.points) ^ (1 / 3))
+    rk = length(source.points) ÷ 2
     PreparedSourceCPD(
         source,
         G,
@@ -88,10 +89,12 @@ function _register_cpd(
     QP = similar(prepd_source.gram_eigvectors)
     rk = size(prepd_source.gram_eigvectors, 1)
     QPQ = similar(prepd_source.gram_eigvectors, rk, rk)
-    prior_coeffs = similar(prepd_source.gram_eigvectors, rk)
+    small_inv_QP = similar(prepd_source.gram_eigvectors, rk, length(source.points))
+    prior_matrix = similar(prepd_source.gram)
+    # prior_coeffs = similar(prepd_source.gram_eigvectors, rk)
     neginv2sqscale = -inv(2 * sqscale)
 
-    for iter in 1:100
+    for iter in 1:1000
         for j in eachindex(source.points)
             src = source.points[j]
             coeffs = @view prepd_source.gram[:, j]
@@ -122,17 +125,24 @@ function _register_cpd(
         end
 
         P_colsums ./= regularizer_strength * sqscale
+        # small_inv = inv(Diagonal(prepd_source.inv_gram_eigvalues) + prepd_source.gram_eigvectors * Diagonal(vec(P_colsums)) * prepd_source.gram_eigvectors')
+        # prior_matrix = Diagonal(vec(P_colsums)) - Diagonal(vec(P_colsums)) * prepd_source.gram_eigvectors' * small_inv * prepd_source.gram_eigvectors * Diagonal(vec(P_colsums))
         mul!(QP, prepd_source.gram_eigvectors, Diagonal(vec(P_colsums)))
         mul!(QPQ, QP, prepd_source.gram_eigvectors')
         QPQ .+= Diagonal(prepd_source.inv_gram_eigvalues)
-        small_inv = LinearAlgebra.inv!(lu!(QPQ))
+        lu_QPQ = lu!(QPQ)
+        ldiv!(small_inv_QP, lu_QPQ, QP)
+        mul!(prior_matrix, QP', small_inv_QP)
+        # small_inv = inv(QPQ)
         # prior_matrix =
-        #     inv(G + regularizer_strength * sqscale * inv(Diagonal(vec(P_colsums))))
+        #     inv(prepd_source.gram + inv(Diagonal(vec(P_colsums))))
+
+        # @info "for prior" extrema(inv, P_colsums) extrema(prior_matrix)
         for j in eachindex(source.points)
-            mul!(prior_coeffs, small_inv, view(QP, :, j))
-            # coeffs = @view prior_matrix[:, j]
-            displacement_spanning_set[j] =
-                wsum(ideal_displacement, prior_coeffs)
+            # mul!(prior_coeffs, small_inv, view(QP, :, j))
+            coeffs = @view prior_matrix[:, j]
+            displacement_spanning_set[j] = P_colsums[j] * ideal_displacement[j] - wsum(ideal_displacement, coeffs)
+                # P_colsums[j] * ideal_displacement[j] - wsum(ideal_displacement, prior_coeffs)
         end
     end
 
