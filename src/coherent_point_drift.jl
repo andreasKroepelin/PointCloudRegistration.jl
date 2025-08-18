@@ -21,7 +21,7 @@ function _prepare_source_cpd(
     G .= exp.(neginv2sqregscale .* G)
     eig = eigen(Symmetric(G))
     # rk = floor(Int, length(source.points) ^ (1 / 3))
-    rk = length(source.points) ÷ 2
+    rk = 2 * length(source.points) ÷ 3
     PreparedSourceCPD(
         source,
         G,
