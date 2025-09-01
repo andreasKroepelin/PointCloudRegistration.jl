@@ -31,7 +31,7 @@ _size_1(i::Int, mat) = i
 _size_1(::StaticArrays.Dynamic, mat) = size(mat, 1)
 
 function mean_cov_sumw(points, weights)
-    sum_w = zero(eltype(weights))
+    sum_w = zero(eltype(eltype(points)))
     mean = zero(eltype(points))
     cov = mean * mean'
 
