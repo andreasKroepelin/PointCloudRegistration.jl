@@ -35,12 +35,13 @@ public VecOfSVec
 include("pointcloud.jl")
 include("common.jl")
 include("kabsch.jl")
-include("init.jl")
+include("transformation_utils.jl")
 include("robust.jl")
 include("kernel_correlation.jl")
 include("coherent_point_drift.jl")
 include("guess_correspondences.jl")
 
+#=
 @compile_workload begin
     X2 = rand(2, 10)
     X3 = rand(3, 10)
@@ -51,5 +52,6 @@ include("guess_correspondences.jl")
         register_kc(X, X)
     end
 end
+=#
 
 end # module PointCloudRegistration
