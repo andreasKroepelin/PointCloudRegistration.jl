@@ -10,16 +10,6 @@ cost(gm::GemanMcclure, x::AbstractVector, y::AbstractVector) =
     cost(gm, sqeuclidean(x, y))
 cost(gm::GemanMcclure, sqdist::Real) = sqdist / (gm.sqscale + sqdist)
 
-function evaluate_geman_mcclure(sqscale, source, target, transformation)
-    gm = GemanMcclure(sqscale)
-    correspondences =
-        zip(source.points, source.weights, target.points, target.weights)
-    total_cost = sum(correspondences) do (src, w_src, trg, w_trg)
-        w_src * w_trg * cost(gm, transformation(src), trg)
-    end
-    TransformationWithCost(total_cost, transformation)
-end
-
 """
     register_gmc(source, target[; scale, restarts, iterations, rng, accumulator])
 
@@ -89,8 +79,7 @@ function _register_gmc(
             # quadratic behavior for small distances as the kernel correlation
             # loss with `sqscale`
             gm = GemanMcclure(2sqscale)
-            prev_transformation =
-                identity_transformation(typeof(transformation))
+            prev_transformation = identity_transformation(transformation)
             for iter in 1:iterations
                 source_mean = zero(eltype(source.points))
                 target_mean = zero(eltype(target.points))

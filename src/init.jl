@@ -32,3 +32,4 @@ end
 function identity_transformation(::Type{<:AffineMap{R, L}}) where {R, L}
     AffineMap(one(R), zero(L))
 end
+identity_transformation(::A) where {A <: AffineMap} = identity_transformation(A)
