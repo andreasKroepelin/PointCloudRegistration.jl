@@ -2,6 +2,7 @@ using Revise
 using PointCloudRegistration
 using Profile, PProf
 using BenchmarkTools
+using Cthulu
 
 X_raw = rand(3, 2000)
 @btime PointCloud($X_raw);
@@ -28,4 +29,15 @@ Profile.clear()
     scale = 0.3,
     outlier_proportion = 0.01,
     regularizer_strength = 1.0,
+)
+
+@btime register_gmc($X, $X)
+
+Profile.clear()
+@pprof register_gmc(
+    X,
+    X;
+    restarts = 100,
+    iterations = 100,
+    scale = logrange(1.0, 0.1, length = 5),
 )
