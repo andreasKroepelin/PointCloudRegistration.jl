@@ -89,7 +89,8 @@ function _register_cpd(
     QP = similar(prepd_source.gram_eigvectors)
     rk = size(prepd_source.gram_eigvectors, 1)
     QPQ = similar(prepd_source.gram_eigvectors, rk, rk)
-    small_inv_QP = similar(prepd_source.gram_eigvectors, rk, length(source.points))
+    small_inv_QP =
+        similar(prepd_source.gram_eigvectors, rk, length(source.points))
     prior_matrix = similar(prepd_source.gram)
     # prior_coeffs = similar(prepd_source.gram_eigvectors, rk)
     neginv2sqscale = -inv(2 * sqscale)
@@ -141,8 +142,10 @@ function _register_cpd(
         for j in eachindex(source.points)
             # mul!(prior_coeffs, small_inv, view(QP, :, j))
             coeffs = @view prior_matrix[:, j]
-            displacement_spanning_set[j] = P_colsums[j] * ideal_displacement[j] - wsum(ideal_displacement, coeffs)
-                # P_colsums[j] * ideal_displacement[j] - wsum(ideal_displacement, prior_coeffs)
+            displacement_spanning_set[j] =
+                P_colsums[j] * ideal_displacement[j] -
+                wsum(ideal_displacement, coeffs)
+            # P_colsums[j] * ideal_displacement[j] - wsum(ideal_displacement, prior_coeffs)
         end
     end
 

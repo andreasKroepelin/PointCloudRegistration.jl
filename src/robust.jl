@@ -95,32 +95,41 @@ function _register_gmc(
     check_sizes(source, target)
     T = promote_type(TS, TT)
 
-    cs = correspondences(; source, target)
+    # cs = correspondences(; source, target)
     mm_weights = zeros(common_eltype(source, target), size(source, 2))
 
     accumulator = accumulator_type(transformation_type(Val(N), T))
-    init_transformation = simple_transformation(source, target)
-    restart = 0
-    while true
-        transformation = init_transformation
-        @logmsg LogLevel(-2000) "mm iteration" restart iter = -1 sqscale =
-            -one(eltype(sqscales)) mm_weights = copy(mm_weights) rotation =
-            transformation.linear translation = transformation.translation init_transformation _id =
-            :mm
+    transformation = simple_transformation(source, target)
+    for restart in 0:restarts
+
+        # @logmsg LogLevel(-2000) "mm iteration" restart iter = -1 sqscale =
+        #     -one(eltype(sqscales)) mm_weights = copy(mm_weights) rotation =
+        #     transformation.linear translation = transformation.translation init_transformation _id =
+        #     :mm
 
         for sqscale in sqscales
             gm = GemanMcclure(sqscale)
             for iter in 1:iterations
-                @inbounds for i in eachindex(mm_weights, cs)
-                    c = cs[i]
-                    mm_weights[i] =
-                        c.weight *
-                        mm_weight(gm, transformation(c.source), c.target)
+                # @inbounds for i in eachindex(mm_weights, cs)
+                #     c = cs[i]
+                #     mm_weights[i] =
+                #         c.weight *
+                #         mm_weight(gm, transformation(c.source), c.target)
+                # end
+                map!(
+                    mm_weights,
+                    source.points,
+                    source.weights,
+                    target.points,
+                    target.weights,
+                ) do src, w_src, trg, w_trg
+                    w_src * w_trg * mm_weight(gm, transformation(src), trg)
                 end
-                mm_weights ./= sum(mm_weights)
+                # mm_weights ./= sum(mm_weights)
+                sum_mm_weights = sum(mm_weights)
 
-                source_mean = wsum(source.points, mm_weights)
-                target_mean = wsum(target.points, mm_weights)
+                source_mean = wsum(source.points, mm_weights) / sum_mm_weights
+                target_mean = wsum(target.points, mm_weights) / sum_mm_weights
                 covariance = zero(rotation_type(source, target))
                 @inbounds for i in eachindex(mm_weights)
                     centered_trg = target.points[i] - target_mean
@@ -132,9 +141,9 @@ function _register_gmc(
                     source_mean,
                     target_mean,
                 )
-                @logmsg LogLevel(-2000) "mm iteration" restart iter sqscale mm_weights =
-                    copy(mm_weights) rotation = transformation.linear translation =
-                    transformation.translation init_transformation _id = :mm
+                # @logmsg LogLevel(-2000) "mm iteration" restart iter sqscale mm_weights =
+                #     copy(mm_weights) rotation = transformation.linear translation =
+                #     transformation.translation init_transformation _id = :mm
             end
         end
         accumulator = update(
@@ -146,12 +155,7 @@ function _register_gmc(
                 transformation,
             ),
         )
-        if restart < restarts
-            restart += 1
-            init_transformation = rand_transformation(rng, source, target)
-        else
-            break
-        end
+        transformation = rand_transformation(rng, source, target)
     end
 
     result(accumulator, LinearMap(I))

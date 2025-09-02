@@ -199,13 +199,11 @@ function update(bt::BestTransformation{TWC}, t::TWC) where {TWC}
     BestTransformation(better(bt.best, t))
 end
 
-result(bt::BestTransformation, lm::LinearMap) =
-    if isone(lm.linear)
-        bt.best
-    else
-        @reset bt.best.transformation = lm ∘ bt.best.transformation
-        bt.best
-    end
+result(bt::BestTransformation) = bt.best
+function result(bt::BestTransformation, lm::LinearMap)
+    @reset bt.best.transformation = lm ∘ bt.best.transformation
+    bt.best
+end
 
 """
 Stores all transformations found.
@@ -228,6 +226,7 @@ function update(at::AllTransformations{TWC}, t::TWC) where {TWC}
     at
 end
 
+result(at::AllTransformations) = at.transformations
 function result(at::AllTransformations, lm::LinearMap)
     if isone(lm.linear)
         at.transformations
