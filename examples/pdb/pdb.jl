@@ -7,8 +7,10 @@ using Makie, GLMakie
 
 includet("alignment.jl")
 
-pdb_Y = retrievepdb("1su4"; dir = tempdir())["A"]
-pdb_X = retrievepdb("1iwo"; dir = tempdir())["A"]
+# pdb_Y = retrievepdb("1su4"; dir = tempdir())["A"]
+# pdb_X = retrievepdb("1iwo"; dir = tempdir())["A"]
+pdb_Y = retrievepdb("1ake"; dir = tempdir())["A"]
+pdb_X = retrievepdb("4ake"; dir = tempdir())["A"]
 Y, X = aligned_atoms(pdb_Y, pdb_X, notwaterselector)
 iY, iX = guess_correspondences(Y, X)
 twc = register_gmc(Y, X; restarts = 100)
@@ -23,7 +25,7 @@ function show_both(X, Y)
     fig = Figure()
     states = collect.([X, Y])
     ax = Axis3(fig[1, 1]; aspect = :data)
-    sld = Slider(fig[2, 1]; range = 0.01:0.01:2)
+    sld = Slider(fig[2, 1]; range = 0.01:0.01:2, startvalue = 1.0)
     i_obs = Observable(false)
     points_obs = @lift states[$i_obs + 1]
     meshscatter!(ax, points_obs; markersize = 3, color = eachindex(X.points))
