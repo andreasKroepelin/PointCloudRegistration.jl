@@ -2,35 +2,20 @@ struct GemanMcclure{T}
     sqscale::T
 end
 
-function mm_weight(gm::GemanMcclure, x, y)
-    sqdist = sqeuclidean(x, y)
-    (gm.sqscale / (gm.sqscale + sqdist))^2
-end
+mm_weight(gm::GemanMcclure, x::AbstractVector, y::AbstractVector) =
+    mm_weight(gm, sqeuclidean(x, y))
+mm_weight(gm::GemanMcclure, sqdist::Real) = gm.sqscale / (gm.sqscale + sqdist)^2
 
-function cost(gm::GemanMcclure, x, y)
-    sqdist = sqeuclidean(x, y)
-    gm.sqscale * sqdist / (gm.sqscale + sqdist)
-end
-
-function correspondences(;
-    source::PointCloud{N},
-    target::PointCloud{N},
-) where {N}
-    mappedarray(
-        source.points,
-        source.weights,
-        target.points,
-        target.weights,
-    ) do src, w_src, trg, w_trg
-        (source = src, target = trg, weight = w_src * w_trg)
-    end
-end
+cost(gm::GemanMcclure, x::AbstractVector, y::AbstractVector) =
+    cost(gm, sqeuclidean(x, y))
+cost(gm::GemanMcclure, sqdist::Real) = sqdist / (gm.sqscale + sqdist)
 
 function evaluate_geman_mcclure(sqscale, source, target, transformation)
-    total_cost = zero(common_eltype(source, target))
     gm = GemanMcclure(sqscale)
-    for c in correspondences(; source, target)
-        total_cost += c.weight * cost(gm, transformation(c.source), c.target)
+    correspondences =
+        zip(source.points, source.weights, target.points, target.weights)
+    total_cost = sum(correspondences) do (src, w_src, trg, w_trg)
+        w_src * w_trg * cost(gm, transformation(src), trg)
     end
     TransformationWithCost(total_cost, transformation)
 end
@@ -95,68 +80,59 @@ function _register_gmc(
     check_sizes(source, target)
     T = promote_type(TS, TT)
 
-    # cs = correspondences(; source, target)
-    mm_weights = zeros(common_eltype(source, target), size(source, 2))
-
     accumulator = accumulator_type(transformation_type(Val(N), T))
+    gm_cost = zero(T)
     transformation = simple_transformation(source, target)
     for restart in 0:restarts
-
-        # @logmsg LogLevel(-2000) "mm iteration" restart iter = -1 sqscale =
-        #     -one(eltype(sqscales)) mm_weights = copy(mm_weights) rotation =
-        #     transformation.linear translation = transformation.translation init_transformation _id =
-        #     :mm
-
         for sqscale in sqscales
-            gm = GemanMcclure(sqscale)
+            # double `sqscale` such that the loss function has the same
+            # quadratic behavior for small distances as the kernel correlation
+            # loss with `sqscale`
+            gm = GemanMcclure(2sqscale)
+            prev_transformation =
+                identity_transformation(typeof(transformation))
             for iter in 1:iterations
-                # @inbounds for i in eachindex(mm_weights, cs)
-                #     c = cs[i]
-                #     mm_weights[i] =
-                #         c.weight *
-                #         mm_weight(gm, transformation(c.source), c.target)
-                # end
-                map!(
-                    mm_weights,
+                source_mean = zero(eltype(source.points))
+                target_mean = zero(eltype(target.points))
+                covariance = zero(rotation_type(source, target))
+                sum_w = zero(T)
+                gm_cost = zero(T)
+
+                correspondences = zip(
                     source.points,
                     source.weights,
                     target.points,
                     target.weights,
-                ) do src, w_src, trg, w_trg
-                    w_src * w_trg * mm_weight(gm, transformation(src), trg)
+                )
+                for (src, w_src, trg, w_trg) in correspondences
+                    sqdist = sqeuclidean(transformation(src), trg)
+                    w_src_w_trg = w_src * w_trg
+                    w = w_src_w_trg * mm_weight(gm, sqdist)
+                    gm_cost += w_src_w_trg * cost(gm, sqdist)
+                    source_mean += w * src
+                    target_mean += w * trg
+                    covariance += w * trg * src'
+                    sum_w += w
                 end
-                # mm_weights ./= sum(mm_weights)
-                sum_mm_weights = sum(mm_weights)
 
-                source_mean = wsum(source.points, mm_weights) / sum_mm_weights
-                target_mean = wsum(target.points, mm_weights) / sum_mm_weights
-                covariance = zero(rotation_type(source, target))
-                @inbounds for i in eachindex(mm_weights)
-                    centered_trg = target.points[i] - target_mean
-                    centered_src = source.points[i] - source_mean
-                    covariance += mm_weights[i] * centered_trg * centered_src'
-                end
+                source_mean /= sum_w
+                target_mean /= sum_w
+                covariance /= sum_w
+                covariance -= target_mean * source_mean'
+
                 transformation = transformation_from_moments(
                     covariance,
                     source_mean,
                     target_mean,
                 )
-                # @logmsg LogLevel(-2000) "mm iteration" restart iter sqscale mm_weights =
-                #     copy(mm_weights) rotation = transformation.linear translation =
-                #     transformation.translation init_transformation _id = :mm
+                isapprox(transformation, prev_transformation) && break
+                prev_transformation = transformation
             end
         end
-        accumulator = update(
-            accumulator,
-            evaluate_geman_mcclure(
-                last(sqscales),
-                source,
-                target,
-                transformation,
-            ),
-        )
+        accumulator =
+            update(accumulator, TransformationWithCost(gm_cost, transformation))
         transformation = rand_transformation(rng, source, target)
     end
 
-    result(accumulator, LinearMap(I))
+    result(accumulator)
 end

@@ -4,7 +4,7 @@ function check_sizes(pointclouds...)
 end
 
 default_config() = (;
-    iterations = 10,
+    iterations = 50,
     scale = TargetScales(),
     restarts = 5,
     rng = Random.default_rng(),
