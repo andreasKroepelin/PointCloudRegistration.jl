@@ -346,42 +346,25 @@ function _register_kc(
 ) where {N, TS, TT}
     T = promote_type(TS, TT)
     (; annealing_levels, target, axis_aligning_rotation) = prepared_target
-    source_grid_idcs = zeros(CartesianIndex{N}, length(source.points))
 
     accumulator = accumulator_type(transformation_type(Val(N), T))
-    init_transformation = simple_transformation(source, target)
-    restart = 0
+    transformation = simple_transformation(source, target)
     kc = zero(T)
-    @withprogress name="performing restarts" while true
-        transformation = init_transformation
-
+    for restart in 0:restarts
         for annealing_level in annealing_levels
             (; grid, convd_target, convd_weights_target) = annealing_level
             valid_idcs = CartesianIndices(size(grid))
-
-            @logmsg LogLevel(-2000) "mm iteration" restart iter = -1 kc =
-                eval_kernel_correlation(
-                    last(annealing_levels),
-                    source,
-                    transformation,
-                ) rotation = transformation.linear translation =
-                transformation.translation init_transformation target_kde =
-                copy(convd_weights_target) grid id = :mm
+            prev_transformation = identity_transformation(transformation)
 
             for iter in 1:iterations
-                changed = false
-                target_mean = zero(SVector{N, TT})
-                source_mean = zero(SVector{N, TS})
-                covariance = zero(rotation_type(Val(N), T))
+                target_mean = zero(eltype(target.points))
+                source_mean = zero(eltype(source.points))
+                covariance = zero(rotation_type(source, target))
                 kc = zero(T)
                 for j in eachindex(source.points)
                     src = source.points[j]
                     transformed_src = transformation(src)
                     grid_idx = idx_on_grid(transformed_src, grid)
-                    if source_grid_idcs[j] != grid_idx
-                        changed = true
-                    end
-                    source_grid_idcs[j] = grid_idx
                     grid_idx in valid_idcs || continue
 
                     w_src = source.weights[j]
@@ -392,38 +375,25 @@ function _register_kc(
                     covariance += w_src * convd_trg * src'
                     kc += w_src * convd_w_trg
                 end
-                if !changed && iter > 1
-                    break
-                end
+
                 target_mean /= kc
                 source_mean /= kc
                 covariance /= kc
                 covariance -= target_mean * source_mean'
+
                 transformation = transformation_from_moments(
                     covariance,
                     source_mean,
                     target_mean,
                 )
-                @logmsg LogLevel(-2000) "mm iteration" restart iter kc =
-                    eval_kernel_correlation(
-                        last(annealing_levels),
-                        source,
-                        transformation,
-                    ) rotation = transformation.linear translation =
-                    transformation.translation init_transformation target_kde =
-                    copy(convd_weights_target) grid id = :mm
+
+                isapprox(transformation, prev_transformation) && break
+                prev_transformation = transformation
             end
         end
         accumulator =
             update(accumulator, TransformationWithCost(-kc, transformation))
-        if restart < restarts
-            restart += 1
-            @logprogress (restart / restarts)
-            init_transformation = rand_transformation(rng, source, target)
-        else
-            @logprogress "done"
-            break
-        end
+        transformation = rand_transformation(rng, source, target)
     end
 
     result(accumulator, LinearMap(axis_aligning_rotation'))
