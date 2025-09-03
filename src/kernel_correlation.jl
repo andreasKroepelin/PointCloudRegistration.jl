@@ -372,6 +372,7 @@ function _register_kc(
                 changed = false
                 target_mean = zero(SVector{N, TT})
                 source_mean = zero(SVector{N, TS})
+                covariance = zero(rotation_type(Val(N), T))
                 kc = zero(T)
                 for j in eachindex(source.points)
                     src = source.points[j]
@@ -388,6 +389,7 @@ function _register_kc(
                     convd_w_trg = convd_weights_target[grid_idx]
                     target_mean += w_src * convd_trg
                     source_mean += w_src * convd_w_trg * src
+                    covariance += w_src * convd_trg * src'
                     kc += w_src * convd_w_trg
                 end
                 if !changed && iter > 1
@@ -395,20 +397,8 @@ function _register_kc(
                 end
                 target_mean /= kc
                 source_mean /= kc
-                covariance = zero(rotation_type(Val(N), T))
-                for j in eachindex(source.points)
-                    grid_idx = source_grid_idcs[j]
-                    grid_idx in valid_idcs || continue
-
-                    src = source.points[j]
-                    w_src = source.weights[j]
-                    convd_trg = convd_target[grid_idx]
-                    convd_w_trg = convd_weights_target[grid_idx]
-                    covariance +=
-                        w_src *
-                        (convd_trg - convd_w_trg * target_mean) *
-                        (src - source_mean)'
-                end
+                covariance /= kc
+                covariance -= target_mean * source_mean'
                 transformation = transformation_from_moments(
                     covariance,
                     source_mean,

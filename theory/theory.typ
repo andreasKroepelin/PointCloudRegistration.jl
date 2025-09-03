@@ -20,22 +20,22 @@
 
 = Kernel Correlation
 
-We are given target points $bold(x)_i in RR^d$ with weights $q_i in RR$ and
-source points $bold(y)_j in RR^d$ with weights $p_j in RR$.
+We are given target points $bold(x)_i in RR^d$ with weights $p_i in RR$ and
+source points $bold(y)_j in RR^d$ with weights $q_j in RR$.
 
 The _kernel correlation_ of the source and the target is defined as
 $
   kappa
   &=
-  sum_(i j) q_i p_j phi_sigma (norm(bold(x)_i - bold(y)_j)) \
+  sum_(i j) p_i q_j phi_sigma (norm(bold(x)_i - bold(y)_j)) \
   &=
-  sum_j p_j sum_i q_i phi_i (bold(y)_j)\
+  sum_j q_j sum_i p_i phi_i (bold(y)_j)\
   &=
-  sum_j p_j tilde(q)(bold(y)_j)
+  sum_j q_j tilde(p)(bold(y)_j)
 $
 where $phi_i (bold(z)) = phi_sigma (norm(bold(x)_i - bold(z)))$ and
-$tilde(q): RR^d -> RR$ is the KDE of the target.
-When $tilde(q)$ can be evaluated quickly, computing $kappa$ becomes fast.
+$tilde(p): RR^d -> RR$ is the KDE of the target.
+When $tilde(p)$ can be evaluated quickly, computing $kappa$ becomes fast.
 
 For the current pose $(bold(R), bold(t))$, let us use the notation
 $bold(y)'_j := bold(R) bold(y)_j + bold(t)$.
@@ -44,14 +44,14 @@ The MM-algorithm consists of repeating these steps:
 + Compute
   $ w_(i j) = phi_i (bold(y)'_j) $
   for all $i$, $j$.
-+ Divide $w_(i j)$ by $sum_(i j) q_i p_j w_(i j)$.
-+ Compute $bold(macron(x)) = sum_(i j) w_(i j) q_i p_j bold(x)_i$
-  and $bold(macron(y)) = sum_(i j) w_(i j) q_i p_j bold(y)_j$.
++ Divide $w_(i j)$ by $sum_(i j) p_i q_j w_(i j)$.
++ Compute $bold(macron(x)) = sum_(i j) w_(i j) p_i q_j bold(x)_i$
+  and $bold(macron(y)) = sum_(i j) w_(i j) p_i q_j bold(y)_j$.
 + Compute
   $
     bold(S) =
     sum_(i j)
-    w_(i j) q_i p_j
+    w_(i j) p_i q_j
     (bold(x)_i - bold(macron(x)))
     (bold(y)_j - bold(macron(y)))^trp
   $
@@ -60,61 +60,36 @@ The MM-algorithm consists of repeating these steps:
 
 == Gridding trick
 
-Define a suitable grid $cal(G) subset RR^d$.
-
-Key idea:
-$
-  phi_sigma (norm(bold(x)_i - bold(R) bold(y)_j - bold(t)))
-  &approx
-  sum_(bold(z)_k in cal(G))
-  phi_sigma (norm(bold(x)_i - bold(z)_k))
-  med
-  delta(norm(bold(z)_k - R bold(y)_j - t)) \
-  &=
-  sum_k phi_(i k) delta_(j k)
-  =:
-  phi_(i k_j)
-$
-where we obtain $k_j$, the grid index corresponding to
-$bold(R) bold(y)_j + bold(t)$, by truncated division by the grid cell width.
-It is then
-$
-  w_(i j) approx phi_(i k_j) / (sum_(i' j') q_i' p_j' phi_(i' k_j'))
-  .
-$
-
 For computing $macron(bold(x))$, we observe
 $
   macron(bold(x))
   &=
-  sum_(i j) w_(i j) q_i p_j bold(x)_i \
-  // &approx
-  // sum_(i j) phi_(i k_j) / (sum_(i' j') q_i' p_j' phi_(i' k_j')) q_i p_j bold(x)_i
+  sum_(i j) w_(i j) p_i q_j bold(x)_i \
   &=
-  (sum_(i j) kernel q_i p_j bold(x)_i) / (sum_(i j) q_i p_j kernel ) \
+  (sum_(i j) kernel p_i q_j bold(x)_i) / (sum_(i j) p_i q_j kernel ) \
   &=
-  (sum_j p_j sum_i kernel q_i bold(x)_i) / (sum_j p_j sum_i kernel q_i)
+  (sum_j q_j sum_i kernel p_i bold(x)_i) / (sum_j q_j sum_i kernel p_i)
   =
-  (sum_j p_j tilde(bold(x))(bold(y)'_j)) / (sum_j p_j tilde(q)(bold(y)'_j))
+  (sum_j q_j tilde(bold(x))(bold(y)'_j)) / (sum_j q_j tilde(p)(bold(y)'_j))
 $
 where
 $
-  tilde(bold(x))(bold(z)) = sum_i phi_i (bold(z)) q_i bold(x)_i,
+  tilde(bold(x))(bold(z)) = sum_i phi_i (bold(z)) p_i bold(x)_i,
   quad quad
-  tilde(q)(bold(z)) = sum_i phi_i (bold(z)) q_i.
+  tilde(p)(bold(z)) = sum_i phi_i (bold(z)) p_i.
 $
 
 Similarly, for $macron(bold(y))$, we have
 $
   macron(bold(y))
   &=
-  sum_(i j) w_(i j) q_i p_j bold(y)_j \
+  sum_(i j) w_(i j) p_i q_j bold(y)_j \
   &approx
-  (sum_(i j) phi_(i k_j) q_i p_j bold(y)_j) / (sum_(i j) q_i p_j phi_(i k_j)) \
+  (sum_(i j) phi_(i k_j) p_i q_j bold(y)_j) / (sum_(i j) p_i q_j phi_(i k_j)) \
   &=
-  (sum_j p_j bold(y)_j sum_i phi_(i k_j) q_i) / (sum_j p_j tilde(q)_k_j)
+  (sum_j q_j bold(y)_j sum_i phi_(i k_j) p_i) / (sum_j q_j tilde(p)_k_j)
   =
-  (sum_j p_j tilde(q)_k_j bold(y)_j) / (sum_j p_j tilde(q)_k_j)
+  (sum_j q_j tilde(p)(bold(y)'_j) bold(y)_j) / (sum_j q_j tilde(p)(bold(y)'_j))
   .
 $
 
@@ -123,15 +98,36 @@ does not matter for finding the rotation):
 $
   bold(S)
   &=
-  sum_(i j) w_(i j) q_i p_j (bold(x)_i - macron(bold(x))) (bold(y)_j - macron(bold(y)))^trp \
-  & prop^approx
-  sum_(i j) phi_(i k_j) q_i p_j (bold(x)_i - macron(bold(x))) (bold(y)_j - macron(bold(y)))^trp \
+  sum_(i j) w_(i j) p_i q_j (bold(x)_i - macron(bold(x))) (bold(y)_j - macron(bold(y)))^trp \
   &=
-  sum_j p_j (sum_i q_i phi_(i k_j) (bold(x)_i - macron(bold(x)))) (bold(y)_j - macron(bold(y)))^trp \
+  sum_(i j) w_(i j) p_i q_j bold(x)_i bold(y)_j^trp
+  - sum_(i j) w_(i j) p_i q_j bold(x)_i macron(bold(y))^trp
+  - sum_(i j) w_(i j) p_i q_j macron(bold(x)) bold(y)_j^trp
+  + sum_(i j) w_(i j) p_i q_j macron(bold(x)) macron(bold(y))^trp
+  \
   &=
-  sum_j p_j (sum_i q_i phi_(i k_j) bold(x)_i - macron(bold(x)) sum_i q_i phi_(i k_j)) (bold(y)_j - macron(bold(y)))^trp \
+  sum_(i j) w_(i j) p_i q_j bold(x)_i bold(y)_j^trp
+  - (sum_(i j) w_(i j) p_i q_j bold(x)_i) macron(bold(y))^trp
+  - ((sum_(i j) w_(i j) p_i q_j bold(y)_j) macron(bold(x))^trp)^trp
+  + (sum_(i j) w_(i j) p_i q_j) macron(bold(x)) macron(bold(y))^trp
+  \
   &=
-  sum_j p_j (tilde(bold(x))_k_j - tilde(q)_k_j macron(bold(x))) (bold(y)_j - macron(bold(y)))^trp \
+  sum_(i j) w_(i j) p_i q_j bold(x)_i bold(y)_j^trp
+  - kappa macron(bold(x)) macron(bold(y))^trp
+  - (kappa macron(bold(y)) macron(bold(x))^trp)^trp
+  + kappa macron(bold(x)) macron(bold(y))^trp
+  \
+  &=
+  sum_(i j) w_(i j) p_i q_j bold(x)_i bold(y)_j^trp
+  - kappa macron(bold(x)) macron(bold(y))^trp
+  \
+  &=
+  sum_j q_j (sum_i w_(i j) p_i bold(x)_i) bold(y)_j^trp
+  - kappa macron(bold(x)) macron(bold(y))^trp
+  \
+  &approx
+  sum_j q_j tilde(bold(x))(bold(y)'_j) bold(y)_j^trp
+  - kappa macron(bold(x)) macron(bold(y))^trp
 $
 
 === On computing $tilde(bold(x))$ and $tilde(q)$
@@ -149,20 +145,19 @@ Precompute $tilde(bold(x))$ and $tilde(q)$ as KDEs (via FFT).
 Then, in every MM-iteration (repeat until no $k_j$ changes):
 + Compute $k_j$ by placing every $bold(R) bold(y)_j + bold(t)$ on $cal(G)$.
 + Compute
-  $macron(bold(x)) = sum_j p_j tilde(bold(x))_k_j$,
-  $macron(bold(y)) = sum_j p_j tilde(q)_k_j bold(y)_j$, and
-  $kappa = sum_j p_j tilde(q)_k_j$.
-+ Divide $macron(bold(x))$ and $macron(bold(y))$ by $kappa$.
+  $kappa macron(bold(x)) = sum_j q_j tilde(bold(x))_k_j$,
+  $kappa macron(bold(y)) = sum_j q_j tilde(p)_k_j bold(y)_j$, and
+  $kappa = sum_j q_j tilde(p)_k_j$.
+// + Divide $macron(bold(x))$ and $macron(bold(y))$ by $kappa$.
 + Compute
   $
-    bold(S) = sum_j p_j (tilde(bold(x))_k_j - tilde(q)_k_j macron(bold(x))) (bold(y)_j - macron(bold(y)))^trp
+    bold(S) = 1 / kappa sum_j q_j tilde(bold(x))(bold(y)'_j) bold(y)_j^trp
+    - macron(bold(x)) macron(bold(y))^trp
   $
 + Find new $bold(R)$ and $bold(t)$ based on $bold(S)$, $bold(macron(x))$, and
   $bold(macron(y))$.
 
-Note that the first two steps can be performed in a single pass over all source
-points.
-A second pass is then needed for $bold(S)$.
+Note that all steps can be performed in a single pass over all source points.
 
 
 
