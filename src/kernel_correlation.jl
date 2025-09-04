@@ -1,3 +1,8 @@
+# For a kernel with standard deviation σ, we want a grid cell width of σ/4 and
+# a margin around the point cloud's bounding box of 3σ.
+const GRID_CELLS_PER_STD = 4
+const GRID_MARGIN_PER_STD = 3
+
 struct Grid{N, T}
     lo::SVector{N, T}
     hi::SVector{N, T}
@@ -123,12 +128,24 @@ end
 
 # KDE without FFT
 
+function _compute_gaussians(::Type{T <: Real}) where {T}
+    steps = 1:(GRID_CELLS_PER_STD * GRID_MARGIN_PER_STD)
+    half = exp.(steps .^ 2 ./ (-2)) .|> T
+    [reverse(half); one(T); half]
+end
+
+const GAUSSIANS_F64 = _compute_gaussians(Float64)
+const GAUSSIANS_F32 = _compute_gaussians(Float32)
+
+compute_gaussians(::Type{T <: Real}) where {T} = _compute_gaussians(T)
+compute_gaussians(::Type{Float64}) = GAUSSIANS_F64
+compute_gaussians(::Type{Float32}) = GAUSSIANS_F32
+
 struct SetsOfSlices{N, Tpl <: Tuple}
     sets::Tpl
 
-    function SetsOfSlices(sets) 
+    function SetsOfSlices(sets::Tuple)
         Tpl = typeof(sets)
-        @assert Tpl <: Tuple
         N = length(Tpl.parameters)
         new{N, Tpl}(sets)
     end
@@ -155,7 +172,7 @@ end
 function SetsOfSlices(idcs::Vector{CartesianIndex{N}}) where {N}
     sets = _make_sets(Val(N))
     Ms = ntuple(Val, Val(N))
-               
+
     for idx in idcs
         map(sets, Ms) do set, M
             push!(set, _replace_front_with_colons(Tuple(idx), M))
@@ -165,15 +182,30 @@ function SetsOfSlices(idcs::Vector{CartesianIndex{N}}) where {N}
     SetsOfSlices(map(collect, sets))
 end
 
-
-
-struct KdeComputationWithoutFFT{N, T <: Real, SOS <: SetsOfSlices{N}, B <: AbstractArray{T, N}}
+struct KdeComputationWithoutFFT{N, T <: Real, SOS <: SetsOfSlices{N}}
     grid::Grid{N, T}
     grid_idcs::Vector{CartesianIndex{N}}
     sets_of_slices::SOS
-    buffer1::B
-    buffer2::B
+    buffer1::Array{T, N}
+    buffer2::Array{T, N}
     gaussian::Vector{T}
+
+    function KdeComputationWithoutFFT(
+        points::VecOfSVec{N, T},
+        grid::Grid{N, T},
+        sqsigma::T,
+    ) where {N, T}
+        grid_idcs = idx_on_grid.(points, (grid,))
+        sets_of_slices = SetsOfSlices(grid_idcs)
+        new{N, T, typeof(sets_of_slices)}(
+            grid,
+            grid_idcs,
+            sets_of_slices,
+            Array{T, N}(undef, size(grid)),
+            Array{T, N}(undef, size(grid)),
+            compute_gaussians(T),
+        )
+    end
 end
 
 function convolve!(convd, data, filter)
@@ -197,7 +229,8 @@ function convolve!(convd, data, filter)
 end
 
 function convolve_all_along_last_dim!(convd, data, filter)
-    CartesianIndices(convd) == CartesianIndices(data) || error("buffers have different indices")
+    CartesianIndices(convd) == CartesianIndices(data) ||
+        error("buffers have different indices")
     for front_idx in front_idcs(CartesianIndices(data))
         idx = (Tuple(front_idx)..., :)
         convd_1dim = view(convd, idx...)
@@ -212,7 +245,7 @@ function (kdecomp!::KdeComputationWithoutFFT{N, T})(
     res::AbstractArray{T, N},
     weights::AbstractVector{<:Real},
 ) where {N, T}
-    (; grid, grid_idcs, sets_of_slices, buffer1, buffer2, gaussian ) = kdecomp!
+    (; grid, grid_idcs, sets_of_slices, buffer1, buffer2, gaussian) = kdecomp!
     fill!(buffer1, zero(eltype(buffer1)))
     for (idx, weight) in zip(grid_idcs, weights)
         buffer1[idx] += weight
@@ -223,7 +256,7 @@ function (kdecomp!::KdeComputationWithoutFFT{N, T})(
             convolve_all_along_last_dim!(
                 view(buffer2, slice_idcs...),
                 view(buffer1, slice_idcs...),
-                gaussian
+                gaussian,
             )
         end
         buffer1, buffer2 = buffer2, buffer1
@@ -260,9 +293,13 @@ function AnnealingLevel(
     weighted_target_points,
     sqscale,
 ) where {N}
-    target_lo, target_hi = target_bbox
-    sigma = sqrt(sqscale)
-    grid = Grid(target_lo .- 3sigma, target_hi .+ 3sigma, sigma / 4)
+    grid = let
+        target_lo, target_hi = target_bbox
+        sigma = sqrt(sqscale)
+        grid_lo = target_lo .- GRID_MARGIN_PER_STD * sigma
+        grid_hi = target_hi .+ GRID_MARGIN_PER_STD * sigma
+        Grid(grid_lo, grid_hi, sigma / GRID_CELLS_PER_STD)
+    end
     convd_target = reinterpret(
         reshape,
         SVector{N, eltype(target)},
