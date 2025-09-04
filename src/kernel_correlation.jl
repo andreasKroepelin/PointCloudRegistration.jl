@@ -121,6 +121,116 @@ function (kdecomp!::KdeComputation{N, T})(
     map!(real, res, buffer_space)
 end
 
+# KDE without FFT
+
+struct SetsOfSlices{N, Tpl <: Tuple}
+    sets::Tpl
+
+    function SetsOfSlices(sets) 
+        Tpl = typeof(sets)
+        @assert Tpl <: Tuple
+        N = length(Tpl.parameters)
+        new{N, Tpl}(sets)
+    end
+end
+
+function _replace_front_with_colons(tpl::Tuple, ::Val{M}) where {M}
+    ntuple(Val(length(tpl))) do i
+        if i <= M
+            (:)
+        else
+            tpl[i]
+        end
+    end
+end
+
+function _make_sets(::Val{N}) where {N}
+    ntuple(Val(N)) do M
+        repr_tpl = ntuple(_ -> 1, Val(N))
+        T = typeof(_replace_front_with_colons(repr_tpl, Val(M)))
+        Set{T}()
+    end
+end
+
+function SetsOfSlices(idcs::Vector{CartesianIndex{N}}) where {N}
+    sets = _make_sets(Val(N))
+    Ms = ntuple(Val, Val(N))
+               
+    for idx in idcs
+        map(sets, Ms) do set, M
+            push!(set, _replace_front_with_colons(Tuple(idx), M))
+        end
+    end
+
+    SetsOfSlices(map(collect, sets))
+end
+
+
+
+struct KdeComputationWithoutFFT{N, T <: Real, SOS <: SetsOfSlices{N}, B <: AbstractArray{T, N}}
+    grid::Grid{N, T}
+    grid_idcs::Vector{CartesianIndex{N}}
+    sets_of_slices::SOS
+    buffer1::B
+    buffer2::B
+    gaussian::Vector{T}
+end
+
+function convolve!(convd, data, filter)
+    idcs = eachindex(convd, data)
+    step(idcs) == 1 || error("convolve! assumes 1-step indices")
+    center = (firstindex(filter) + lastindex(filter)) ÷ 2
+    below = center - firstindex(filter)
+    above = lastindex(filter) - center
+    for i in idcs
+        lo_data = max(first(idcs), i - below)
+        hi_data = min(last(idcs), i + above)
+        lo_filter = center - (i - lo_data)
+        hi_filter = center + (hi_data - i)
+
+        c = zero(eltype(convd))
+        for (j, k) in zip(lo_data:hi_data, lo_filter:hi_filter)
+            c += data[j] * filter[k]
+        end
+        convd[i] = c
+    end
+end
+
+function convolve_all_along_last_dim!(convd, data, filter)
+    CartesianIndices(convd) == CartesianIndices(data) || error("buffers have different indices")
+    for front_idx in front_idcs(CartesianIndices(data))
+        idx = (Tuple(front_idx)..., :)
+        convd_1dim = view(convd, idx...)
+        data_1dim = view(data, idx...)
+        convolve!(convd_1dim, data_1dim, filter)
+    end
+end
+
+front_idcs(ci::CartesianIndices) = CartesianIndices(Base.front(ci.indices))
+
+function (kdecomp!::KdeComputationWithoutFFT{N, T})(
+    res::AbstractArray{T, N},
+    weights::AbstractVector{<:Real},
+) where {N, T}
+    (; grid, grid_idcs, sets_of_slices, buffer1, buffer2, gaussian ) = kdecomp!
+    fill!(buffer1, zero(eltype(buffer1)))
+    for (idx, weight) in zip(grid_idcs, weights)
+        buffer1[idx] += weight
+    end
+
+    for set_of_slices in sets_of_slices.sets
+        for slice_idcs in set_of_slices
+            convolve_all_along_last_dim!(
+                view(buffer2, slice_idcs...),
+                view(buffer1, slice_idcs...),
+                gaussian
+            )
+        end
+        buffer1, buffer2 = buffer2, buffer1
+    end
+    copyto!(res, buffer1)
+end
+
 struct AnnealingLevel{
     N,
     T,
