@@ -75,5 +75,3 @@ function result(at::AllTransformations, lm::LinearMap)
         end
     end
 end
-
-

@@ -18,9 +18,9 @@ end
 let
     fig = Figure()
     ax = Axis3(fig[1, 1]; aspect = :data)
-    sl = Slider(fig[2, 1]; range = 0:.01:1)
+    sl = Slider(fig[2, 1]; range = 0:0.01:1)
     Y_tr = @lift (partial_transformation(T, $(sl.value)))(Y)
-    meshscatter!(ax, X, markersize = 2)
-    meshscatter!(ax, Y_tr, markersize = 2)
+    meshscatter!(ax, X; markersize = 2)
+    meshscatter!(ax, Y_tr; markersize = 2)
     fig
 end

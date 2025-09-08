@@ -8,9 +8,9 @@ X_raw = rand(3, 2000)
 @btime PointCloud($X_raw);
 @btime PointCloud{3}($X_raw);
 X = PointCloud(X_raw)
-@btime prepare_target_kc($X, scale = .1);
+@btime prepare_target_kc($X, scale = 0.1);
 Profile.clear()
-@pprof prepare_target_kc(X, scale = .1)
+@pprof prepare_target_kc(X, scale = 0.1)
 
 X_prepd =
     PointCloudRegistration.prepare_source_cpd(X; regularizer_lengthscale = 0.1)
