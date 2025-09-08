@@ -128,16 +128,16 @@ end
 
 # KDE without FFT
 
-function _compute_gaussians(::Type{T <: Real}) where {T}
+function _compute_gaussians(::Type{T}) where {T <: Real}
     steps = 1:(GRID_CELLS_PER_STD * GRID_MARGIN_PER_STD)
-    half = exp.(steps .^ 2 ./ (-2)) .|> T
+    half = exp.(steps .^ 2 ./ (-2 * GRID_CELLS_PER_STD ^ 2)) .|> T
     [reverse(half); one(T); half]
 end
 
 const GAUSSIANS_F64 = _compute_gaussians(Float64)
 const GAUSSIANS_F32 = _compute_gaussians(Float32)
 
-compute_gaussians(::Type{T <: Real}) where {T} = _compute_gaussians(T)
+compute_gaussians(::Type{T}) where {T <: Real} = _compute_gaussians(T)
 compute_gaussians(::Type{Float64}) = GAUSSIANS_F64
 compute_gaussians(::Type{Float32}) = GAUSSIANS_F32
 
@@ -151,12 +151,13 @@ struct SetsOfSlices{N, Tpl <: Tuple}
     end
 end
 
-function _replace_front_with_colons(tpl::Tuple, ::Val{M}) where {M}
+function _replace_tail_with_colons(tpl::Tuple, ::Val{M}) where {M}
+    N = length(tpl) - M
     ntuple(Val(length(tpl))) do i
-        if i <= M
-            (:)
-        else
+        if i <= N
             tpl[i]
+        else
+            (:)
         end
     end
 end
@@ -164,7 +165,7 @@ end
 function _make_sets(::Val{N}) where {N}
     ntuple(Val(N)) do M
         repr_tpl = ntuple(_ -> 1, Val(N))
-        T = typeof(_replace_front_with_colons(repr_tpl, Val(M)))
+        T = typeof(_replace_tail_with_colons(repr_tpl, Val(M)))
         Set{T}()
     end
 end
@@ -175,7 +176,7 @@ function SetsOfSlices(idcs::Vector{CartesianIndex{N}}) where {N}
 
     for idx in idcs
         map(sets, Ms) do set, M
-            push!(set, _replace_front_with_colons(Tuple(idx), M))
+            push!(set, _replace_tail_with_colons(Tuple(idx), M))
         end
     end
 
@@ -222,46 +223,57 @@ function convolve!(convd, data, filter)
 
         c = zero(eltype(convd))
         for (j, k) in zip(lo_data:hi_data, lo_filter:hi_filter)
-            c += data[j] * filter[k]
+            @inbounds c += data[j] * filter[k]
         end
-        convd[i] = c
+        @inbounds convd[i] = c
     end
 end
 
-function convolve_all_along_last_dim!(convd, data, filter)
+function convolve_all_along_first_dim!(convd, data, filter)
     CartesianIndices(convd) == CartesianIndices(data) ||
         error("buffers have different indices")
-    for front_idx in front_idcs(CartesianIndices(data))
-        idx = (Tuple(front_idx)..., :)
+    for tail_idx in tail_idcs(CartesianIndices(data))
+        idx = (:, Tuple(tail_idx)...)
         convd_1dim = view(convd, idx...)
         data_1dim = view(data, idx...)
         convolve!(convd_1dim, data_1dim, filter)
     end
 end
 
-front_idcs(ci::CartesianIndices) = CartesianIndices(Base.front(ci.indices))
+tail_idcs(ci::CartesianIndices) = CartesianIndices(Base.tail(ci.indices))
 
-function (kdecomp!::KdeComputationWithoutFFT{N, T})(
+@generated function (kdecomp!::KdeComputationWithoutFFT{N, T})(
     res::AbstractArray{T, N},
     weights::AbstractVector{<:Real},
 ) where {N, T}
-    (; grid, grid_idcs, sets_of_slices, buffer1, buffer2, gaussian) = kdecomp!
-    fill!(buffer1, zero(eltype(buffer1)))
-    for (idx, weight) in zip(grid_idcs, weights)
-        buffer1[idx] += weight
+    init = quote
+        (; grid, grid_idcs, sets_of_slices, buffer1, buffer2, gaussian) =
+            kdecomp!
+        fill!(buffer1, zero(T))
+        fill!(buffer2, zero(T))
+        for (idx, weight) in zip(grid_idcs, weights)
+            buffer1[idx] += weight
+        end
     end
 
-    for set_of_slices in sets_of_slices.sets
-        for slice_idcs in set_of_slices
-            convolve_all_along_last_dim!(
-                view(buffer2, slice_idcs...),
-                view(buffer1, slice_idcs...),
-                gaussian,
-            )
-        end
-        buffer1, buffer2 = buffer2, buffer1
+    directions = [
+        quote
+            for slice_idcs in sets_of_slices.sets[$i]
+                convolve_all_along_first_dim!(
+                    view(buffer2, slice_idcs...),
+                    view(buffer1, slice_idcs...),
+                    gaussian,
+                )
+            end
+            buffer1, buffer2 = buffer2, buffer1
+        end for i in 1:N
+    ]
+
+    quote
+        $init
+        $(directions...)
+        copyto!(res, buffer1)
     end
-    copyto!(res, buffer1)
 end
 
 struct AnnealingLevel{
@@ -306,7 +318,9 @@ function AnnealingLevel(
         zeros(eltype(target), N, size(grid)...),
     )
     convd_weights_target = zeros(eltype(target), size(grid)...)
-    kde! = KdeComputation(target.points, grid, sqscale)
+    # kde! = KdeComputation(target.points, grid, sqscale)
+    kde! = KdeComputationWithoutFFT(target.points, grid, sqscale)
+
     kde!(convd_weights_target, target.weights)
     kde!.(
         eachslice(parent(convd_target); dims = 1),
