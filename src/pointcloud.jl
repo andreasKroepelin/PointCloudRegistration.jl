@@ -120,7 +120,7 @@ PointCloud{N}(points_mat::AbstractMatrix, weights::AbstractVector) where {N} =
 PointCloud(pc::PointCloud) = pc
 
 Base.size(pc::PointCloud{N}) where {N} = (N, length(pc.points))
-StaticArrays.Size(pc::PointCloud{N}) where {N} = Size(N, length(pc.points))
+StaticArrays.Size(pc::PointCloud{N}) where {N} = Size(N, StaticArrays.Dynamic())
 Base.@propagate_inbounds Base.getindex(pc::PointCloud, i, j) =
     getindex(getindex(pc.points, j), i)
 Base.@propagate_inbounds function Base.getindex(
@@ -129,10 +129,18 @@ Base.@propagate_inbounds function Base.getindex(
 )
     PointCloud(pc.points[idcs], pc.weights[idcs])
 end
-Base.axes(pc::PointCloud{N}, i) where {N} =
-    ifelse(i == 1, SOneTo(N), eachindex(pc.points))
+Base.axes(pc::PointCloud{N}) where {N} = (SOneTo(N), eachindex(pc.points))
 
-nrows(pcs::PointCloud{N}) where {N} = N
+function bbox(xs::VecOfSVec)
+    lo = hi = first(xs)
+    for point in xs
+        lo = min.(point, lo)
+        hi = max.(point, hi)
+    end
+    lo, hi
+end
+
+bbox(pc::PointCloud) = bbox(pc.points)
 
 (m::AffineMap)(pc::PointCloud) = PointCloud(
     m.(pc.points),

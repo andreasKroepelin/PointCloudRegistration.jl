@@ -1,22 +1,18 @@
 module PointCloudRegistration
 
 using StaticArrays
-using HybridArrays
 using FillArrays
-using MappedArrays
 using Accessors
 using CoordinateTransformations
 using Rotations
 using Distances
 using NearestNeighbors
 using LinearAlgebra
-using FFTW
 using Random
 using Logging
 using Statistics
 using StatsBase
 using PrecompileTools: @compile_workload
-using ProgressLogging
 
 export PointCloud,
     register_rmsd,
@@ -34,24 +30,26 @@ public VecOfSVec
 
 include("pointcloud.jl")
 include("common.jl")
-include("kabsch.jl")
+include("annealing.jl")
 include("transformation_utils.jl")
+include("accumulation.jl")
+include("kabsch.jl")
 include("robust.jl")
 include("kernel_correlation.jl")
 include("coherent_point_drift.jl")
 include("guess_correspondences.jl")
 
-#=
 @compile_workload begin
     X2 = rand(2, 10)
     X3 = rand(3, 10)
+    Y2 = PointCloud(rand(2, 10), rand(10))
+    Y3 = PointCloud(rand(3, 10), rand(10))
 
-    for X in (X2, X3)
-        register_rmsd(X, X)
-        register_gmc(X, X)
-        register_kc(X, X)
+    for (Y, X) in ((Y2, X2), (Y3, X3))
+        register_rmsd(Y, X)
+        register_gmc(Y, X)
+        register_kc(Y, X)
     end
 end
-=#
 
 end # module PointCloudRegistration
