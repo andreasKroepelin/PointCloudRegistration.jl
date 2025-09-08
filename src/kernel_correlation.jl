@@ -28,106 +28,6 @@ extent(grid::Grid) = grid.hi - grid.lo
 Base.size(grid::Grid) = grid.size
 domains(grid::Grid) = range.(grid.lo, grid.hi, grid.size)
 
-struct FftGaussian{N, T} <: AbstractArray{T, N}
-    size::NTuple{N, Int}
-    characteristic_functions::NTuple{N, Vector{T}}
-
-    function FftGaussian(grid::Grid{N, T}, sqsigma) where {N, T}
-        freq_steps = -2pi ./ Tuple(extent(grid))
-        cfs = map(freq_steps, size(grid)) do freq_step, s
-            lo = 0
-            hi = s ÷ 2
-            exp.(-sqsigma ./ 2 .* (freq_step .* (lo:hi)) .^ 2)
-        end
-        new{N, T}(size(grid), cfs)
-    end
-end
-
-Base.size(fg::FftGaussian) = fg.size
-
-function Base.getindex(fg::FftGaussian{N}, idcs::Vararg{Int, N}) where {N}
-    @boundscheck all(0 .< idcs .<= fg.size)
-
-    pos = idcs .- 1
-    pos = min.(pos, fg.size .- pos)
-    factors = map((cf, p) -> cf[p + 1], fg.characteristic_functions, pos)
-    prod(factors)
-end
-
-struct KdeComputation{
-    N,
-    T,
-    B <: AbstractArray{Complex{T}, N},
-    Pl <: FFTW.AbstractFFTs.Plan{Complex{T}},
-    Pli <: FFTW.AbstractFFTs.Plan{Complex{T}},
-}
-    grid::Grid{N, T}
-    grid_idcs::Vector{CartesianIndex{N}}
-    sqsigma::T
-    buffer_space::B
-    buffer_freq::B
-    fft_plan::Pl
-    ifft_plan::Pli
-    fft_gaussian::FftGaussian{N, T}
-
-    function KdeComputation(
-        points::VecOfSVec{N, T},
-        grid::Grid{N, T},
-        sqsigma::T,
-    ) where {N, T}
-        grid_idcs = idx_on_grid.(points, (grid,))
-        buffer_space = Array{complex(T), N}(undef, size(grid))
-        buffer_freq = Array{complex(T), N}(undef, size(grid))
-        fft_plan = plan_fft(buffer_space)
-        ifft_plan = plan_ifft(buffer_freq)
-        fft_gaussian = FftGaussian(grid, sqsigma)
-        new{N, T, typeof(buffer_space), typeof(fft_plan), typeof(ifft_plan)}(
-            grid,
-            grid_idcs,
-            sqsigma,
-            buffer_space,
-            buffer_freq,
-            fft_plan,
-            ifft_plan,
-            fft_gaussian,
-        )
-    end
-end
-
-function (kdecomp!::KdeComputation{N, T})(
-    res::AbstractArray{T, N},
-    weights::AbstractVector{<:Real},
-) where {N, T}
-    (;
-        grid,
-        grid_idcs,
-        sqsigma,
-        buffer_space,
-        buffer_freq,
-        fft_plan,
-        ifft_plan,
-        fft_gaussian,
-    ) = kdecomp!
-    fill!(buffer_space, zero(eltype(buffer_space)))
-    for (idx, weight) in zip(grid_idcs, weights)
-        buffer_space[idx] += weight
-    end
-
-    mul!(buffer_freq, fft_plan, buffer_space)
-    buffer_freq .*= fft_gaussian
-    mul!(buffer_space, ifft_plan, buffer_freq)
-
-    # broadcasting leads to enourmous allocations for some reason, so let's use
-    # map!...
-    # res .= real.(buffer_space)
-    # for i in eachindex(res, buffer_space)
-    #     res[i] = real(buffer_space[i])
-    # end
-    map!(real, res, buffer_space)
-end
-
-# KDE without FFT
-
 function _compute_gaussians(::Type{T}) where {T <: Real}
     steps = 1:(GRID_CELLS_PER_STD * GRID_MARGIN_PER_STD)
     half = exp.(steps .^ 2 ./ (-2 * GRID_CELLS_PER_STD ^ 2)) .|> T
@@ -183,7 +83,7 @@ function SetsOfSlices(idcs::Vector{CartesianIndex{N}}) where {N}
     SetsOfSlices(map(collect, sets))
 end
 
-struct KdeComputationWithoutFFT{N, T <: Real, SOS <: SetsOfSlices{N}}
+struct KdeComputation{N, T <: Real, SOS <: SetsOfSlices{N}}
     grid::Grid{N, T}
     grid_idcs::Vector{CartesianIndex{N}}
     sets_of_slices::SOS
@@ -191,7 +91,7 @@ struct KdeComputationWithoutFFT{N, T <: Real, SOS <: SetsOfSlices{N}}
     buffer2::Array{T, N}
     gaussian::Vector{T}
 
-    function KdeComputationWithoutFFT(
+    function KdeComputation(
         points::VecOfSVec{N, T},
         grid::Grid{N, T},
         sqsigma::T,
@@ -242,13 +142,12 @@ end
 
 tail_idcs(ci::CartesianIndices) = CartesianIndices(Base.tail(ci.indices))
 
-@generated function (kdecomp!::KdeComputationWithoutFFT{N, T})(
+@generated function (kde!::KdeComputation{N, T})(
     res::AbstractArray{T, N},
     weights::AbstractVector{<:Real},
 ) where {N, T}
     init = quote
-        (; grid, grid_idcs, sets_of_slices, buffer1, buffer2, gaussian) =
-            kdecomp!
+        (; grid, grid_idcs, sets_of_slices, buffer1, buffer2, gaussian) = kde!
         fill!(buffer1, zero(T))
         fill!(buffer2, zero(T))
         for (idx, weight) in zip(grid_idcs, weights)
@@ -318,8 +217,7 @@ function AnnealingLevel(
         zeros(eltype(target), N, size(grid)...),
     )
     convd_weights_target = zeros(eltype(target), size(grid)...)
-    # kde! = KdeComputation(target.points, grid, sqscale)
-    kde! = KdeComputationWithoutFFT(target.points, grid, sqscale)
+    kde! = KdeComputation(target.points, grid, sqscale)
 
     kde!(convd_weights_target, target.weights)
     kde!.(
@@ -332,11 +230,6 @@ function AnnealingLevel(
             ),
         ),
     )
-    # for (a, b) in zip(each1slice(convd_target), eachrow(weighted_target_points))
-    #     kde!(a, b)
-    # end
-    # display(@code_typed kde!.(each1slice(convd_target), eachrow(weighted_target_points)))
-    # println("\n"^5)
     AnnealingLevel(grid, convd_target, convd_weights_target)
 end
 
