@@ -1,33 +1,22 @@
-struct PreparedSourceCPD{N, T, PC <: PointCloud{N, T}, IGEVL, GEVT}
+struct PreparedSourceCPD{N, T, PC <: PointCloud{N, T}}
     source::PC
     gram::Matrix{T}
-    inv_gram_eigvalues::IGEVL
-    gram_eigvectors::GEVT
 end
 
 function prepare_source_cpd(
     source::PointCloud{N, T};
     regularizer_lengthscale,
 ) where {N, T}
-    _prepare_source_cpd(source, regularizer_lengthscale)
-end
-
-function _prepare_source_cpd(
-    source::PointCloud{N, T},
-    regularizer_lengthscale,
-) where {N, T}
     neginv2sqregscale = -inv(2 * regularizer_lengthscale^2)
     G = pairwise(sqeuclidean, source.points)
     G .= exp.(neginv2sqregscale .* G)
-    eig = eigen(Symmetric(G))
-    # rk = floor(Int, length(source.points) ^ (1 / 3))
-    rk = 2 * length(source.points) ÷ 3
-    PreparedSourceCPD(
-        source,
-        G,
-        inv.(eig.values[(end - rk):end]),
-        permutedims(eig.vectors[:, (end - rk):end]),
-    )
+    PreparedSourceCPD(source, G)
+end
+
+@kwdef struct CpdResult{N, T}
+    displacement::Vector{SVector{N, T}}
+    correspondences::Matrix{T}
+    target_representatives::Vector{SVector{N, T}}
 end
 
 function register_cpd(
@@ -38,7 +27,7 @@ function register_cpd(
     regularizer_strength,
     regularizer_lengthscale,
 ) where {N, T}
-    prepd_source = _prepare_source_cpd(source, regularizer_lengthscale)
+    prepd_source = prepare_source_cpd(source; regularizer_lengthscale)
     _register_cpd(
         prepd_source,
         target,
@@ -86,16 +75,13 @@ function _register_cpd(
     P = zeros(T, length(target.points), length(source.points))
     P_rowsums = zeros(T, length(target.points), 1)
     P_colsums = zeros(T, 1, length(source.points))
-    QP = similar(prepd_source.gram_eigvectors)
-    rk = size(prepd_source.gram_eigvectors, 1)
-    QPQ = similar(prepd_source.gram_eigvectors, rk, rk)
-    small_inv_QP =
-        similar(prepd_source.gram_eigvectors, rk, length(source.points))
-    prior_matrix = similar(prepd_source.gram)
-    # prior_coeffs = similar(prepd_source.gram_eigvectors, rk)
+    GP = similar(prepd_source.gram)
+    w = similar(prepd_source.gram, length(source.points))
+    d = similar(prepd_source.gram, length(source.points))
     neginv2sqscale = -inv(2 * sqscale)
+    regularizer_strength_sqscale = regularizer_strength * sqscale
 
-    for iter in 1:1000
+    for iter in 1:10_000
         for j in eachindex(source.points)
             src = source.points[j]
             coeffs = @view prepd_source.gram[:, j]
@@ -125,42 +111,27 @@ function _register_cpd(
             break
         end
 
-        P_colsums ./= regularizer_strength * sqscale
-        # small_inv = inv(Diagonal(prepd_source.inv_gram_eigvalues) + prepd_source.gram_eigvectors * Diagonal(vec(P_colsums)) * prepd_source.gram_eigvectors')
-        # prior_matrix = Diagonal(vec(P_colsums)) - Diagonal(vec(P_colsums)) * prepd_source.gram_eigvectors' * small_inv * prepd_source.gram_eigvectors * Diagonal(vec(P_colsums))
-        mul!(QP, prepd_source.gram_eigvectors, Diagonal(vec(P_colsums)))
-        mul!(QPQ, QP, prepd_source.gram_eigvectors')
-        QPQ .+= Diagonal(prepd_source.inv_gram_eigvalues)
-        lu_QPQ = lu!(QPQ)
-        ldiv!(small_inv_QP, lu_QPQ, QP)
-        mul!(prior_matrix, QP', small_inv_QP)
-        # small_inv = inv(QPQ)
-        # prior_matrix =
-        #     inv(prepd_source.gram + inv(Diagonal(vec(P_colsums))))
-
-        # @info "for prior" extrema(inv, P_colsums) extrema(prior_matrix)
-        for j in eachindex(source.points)
-            # mul!(prior_coeffs, small_inv, view(QP, :, j))
-            coeffs = @view prior_matrix[:, j]
-            displacement_spanning_set[j] =
-                P_colsums[j] * ideal_displacement[j] -
-                wsum(ideal_displacement, coeffs)
-            # P_colsums[j] * ideal_displacement[j] - wsum(ideal_displacement, prior_coeffs)
+        p = vec(P_colsums)
+        copyto!(GP, prepd_source.gram)
+        GP[diagind(GP)] .+= regularizer_strength_sqscale ./ p
+        chol = cholesky!(Symmetric(GP))
+        W = reinterpret(reshape, T, displacement_spanning_set)
+        D = reinterpret(reshape, T, ideal_displacement)
+        for (D_row, W_row) in zip(eachrow(D), eachrow(W))
+            # Need to go via extra vectors because `ldiv( , ::Cholesky, )`
+            # expects continuous arrays whereas `D_row` and `W_row` have stride
+            # `N`.
+            copyto!(d, D_row)
+            ldiv!(w, chol, d)
+            copyto!(W_row, w)
         end
     end
 
-    V = map(eachcol(prepd_source.gram)) do coeffs
-        wsum(displacement_spanning_set, coeffs)
-    end
-    # V = ideal_displacement
-    V, P, target_representatives
-
-    #=
-    function(y)
-        coeffs = map(source.points) do src
-            exp(neginv2sqregscale * sqeuclidean(y, src))
-        end
-        wsum(displacement_spanning_set, coeffs)
-    end
-    =#
+    CpdResult(;
+        displacement = map(eachcol(prepd_source.gram)) do coeffs
+            wsum(displacement_spanning_set, coeffs)
+        end,
+        correspondences = P,
+        target_representatives,
+    )
 end
