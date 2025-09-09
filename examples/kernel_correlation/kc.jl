@@ -1,10 +1,8 @@
 using Revise
-using HybridArrays
-using HybridArrays.StaticArrays
 using BenchmarkTools
 using Random
 using LinearAlgebra
-using Makie, GLMakie
+using GLMakie
 using ProgressMeter
 # using The2DShapeStructureDataset
 using BioStructures
