@@ -8,10 +8,12 @@ default_config() = (;
     scale = TargetScales(),
     restarts = 5,
     rng = Random.default_rng(),
-    accumulator = BestTransformation,
     axisalign = true,
-    features = 100,
+    report_iteration = no_report,
+    report_restart = no_report,
 )
+
+@inline no_report(; kwargs...) = nothing
 
 wsum(points, weights) = wsum(identity, points, weights)
 

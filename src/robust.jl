@@ -42,7 +42,8 @@ function register_gmc(
     restarts::Int = default_config().restarts,
     iterations::Int = default_config().iterations,
     rng = default_config().rng,
-    accumulator::Type{<: AbstractTransformationAccumulator} = default_config().accumulator,
+    report_iteration = default_config().report_iteration,
+    report_restart = default_config().report_restart,
 )
     pc_source = PointCloud(source)
     pc_target = PointCloud(target)
@@ -54,7 +55,8 @@ function register_gmc(
         restarts,
         iterations,
         rng,
-        accumulator,
+        report_iteration,
+        report_restart,
     )
 end
 
@@ -65,12 +67,13 @@ function _register_gmc(
     restarts,
     iterations,
     rng,
-    accumulator_type,
+    report_iteration,
+    report_restart,
 ) where {N, TS, TT}
     check_sizes(source, target)
     T = promote_type(TS, TT)
 
-    accumulator = accumulator_type(transformation_type(Val(N), T))
+    best = worst(transformation_type(Val(N), T))
     gm_cost = zero(T)
     transformation = simple_transformation(source, target)
     for restart in 0:restarts
@@ -114,14 +117,24 @@ function _register_gmc(
                     source_mean,
                     target_mean,
                 )
-                isapprox(transformation, prev_transformation) && break
+
+                report_iteration(;
+                    iter,
+                    annealing_level = sqscale,
+                    cost = gm_cost,
+                    transformation,
+                )
+
+                if iter > 1 && isapprox(transformation, prev_transformation)
+                    break
+                end
                 prev_transformation = transformation
             end
         end
-        accumulator =
-            update(accumulator, TransformationWithCost(gm_cost, transformation))
+        best = better(best, TransformationWithCost(gm_cost, transformation))
+        report_restart(; restart, cost = gm_cost, transformation)
         transformation = rand_transformation(rng, source, target)
     end
 
-    result(accumulator)
+    return best.transformation
 end

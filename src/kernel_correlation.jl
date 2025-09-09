@@ -349,7 +349,8 @@ function register_kc(
     restarts::Int = default_config().restarts,
     iterations::Int = default_config().iterations,
     rng = default_config().rng,
-    accumulator::Type{<: AbstractTransformationAccumulator} = default_config().accumulator,
+    report_iteration = default_config().report_iteration,
+    report_restart = default_config().report_restart,
 )
     prepared_target = prepare_target_kc(target; scale, axisalign)
 
@@ -359,7 +360,8 @@ function register_kc(
         restarts,
         iterations,
         rng,
-        accumulator,
+        report_iteration,
+        report_restart,
     )
 end
 
@@ -378,7 +380,8 @@ function register_kc(
     restarts::Int = default_config().restarts,
     iterations::Int = default_config().iterations,
     rng = default_config().rng,
-    accumulator::Type{<: AbstractTransformationAccumulator} = default_config().accumulator,
+    report_iteration = default_config().report_iteration,
+    report_restart = default_config().report_restart,
 )
     _register_kc(
         PointCloud(source),
@@ -386,7 +389,8 @@ function register_kc(
         restarts,
         iterations,
         rng,
-        accumulator,
+        report_iteration,
+        report_restart,
     )
 end
 
@@ -396,12 +400,13 @@ function _register_kc(
     restarts,
     iterations,
     rng,
-    accumulator_type,
+    report_iteration,
+    report_restart,
 ) where {N, TS, TT}
     T = promote_type(TS, TT)
     (; annealing_levels, target, axis_aligning_rotation) = prepared_target
 
-    accumulator = accumulator_type(transformation_type(Val(N), T))
+    best = worst(transformation_type(Val(N), T))
     transformation = simple_transformation(source, target)
     kc = zero(T)
     for restart in 0:restarts
@@ -441,14 +446,23 @@ function _register_kc(
                     target_mean,
                 )
 
-                isapprox(transformation, prev_transformation) && break
+                report_iteration(;
+                    iter,
+                    annealing_level,
+                    cost = -kc,
+                    transformation,
+                )
+
+                if iter > 1 && isapprox(transformation, prev_transformation)
+                    break
+                end
                 prev_transformation = transformation
             end
         end
-        accumulator =
-            update(accumulator, TransformationWithCost(-kc, transformation))
+        best = better(best, TransformationWithCost(-kc, transformation))
+        report_restart(; restart, cost = -kc, transformation)
         transformation = rand_transformation(rng, source, target)
     end
 
-    result(accumulator, LinearMap(axis_aligning_rotation'))
+    return LinearMap(axis_aligning_rotation') ∘ best.transformation
 end
