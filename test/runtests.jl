@@ -85,12 +85,10 @@ end
 end
 
 @testset "transformation_type" begin
-    for T in (Float32, Float64)
-        for N in 2:4
-            mat = zeros(T, N, 10)
-            pc = PointCloud(mat)
-            @test PCR.transformation_type(pc, pc) ==
-                  AffineMap{SMatrix{N, N, T, N * N}, SVector{N, T}}
-        end
+    for T in (Float32, Float64), N in 2:4
+        mat = zeros(T, N, 10)
+        pc = PointCloud(mat)
+        @test PCR.transformation_type(pc, pc) ==
+              AffineMap{SMatrix{N, N, T, N * N}, SVector{N, T}}
     end
 end
