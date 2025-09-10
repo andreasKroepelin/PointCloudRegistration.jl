@@ -1,6 +1,11 @@
 # Point Cloud Registration
 
 <video src="examples/animations/register-julia-logo.mp4"></video>
+
+<video width="300" height="200" controls>
+  <source src="examples/animations/register-julia-logo.mp4" type="video/mp4">
+</video>
+
 ![animation of Julia logo](examples/animations/register-julia-logo.mp4)
 
 This package provides the function `register(source, target)` to find an
