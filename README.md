@@ -1,32 +1,30 @@
-# Point Cloud Registration
+# `PointCloudRegistration.jl`
 
-
-<video src="PointCloudRegistration/raw/branch/main/examples/animations/register-julia-logo.mp4" type="video/mp4" width="300" height="200" controls>
+<video src="PointCloudRegistration/raw/branch/main/examples/animations/register-julia-logo.mp4" type="video/mp4" width="600" height="400" controls>
 </video>
 
-This package provides the function `register(source, target)` to find an
-`AffineMap` consisting of a rotation and a translation that maps a point cloud
-`source` to a point cloud `target`.
+**PointCloudRegistration** is a Julia package for registering two point clouds.
+This is also known as aligning or superimposing.
 
-`source` and `target` are expected to be matrices with the same number of rows,
-such that each column represents one point.
+Given two point clouds `source` and `target, this package can perform
+* **rigid registration**, i.e. rotate and translate `source` such that it
+  matches `target`, or
+* **nonrigid registration**, i.e. shift the points in `source` individually but
+  coherently to match `target`.
 
-`register` has an optional keyword argument `correspondences` with the following
-possible values:
-- `Val(:unknown)` (the default):
-  You know nothing about what point in the source corresponds to what point in
-  the target.
-  It is not even assumed that there is a one-to-one correspondence.
-  Registration happens by maximizing the _kernel correlation_ between the two
-  point clouds.
-- `Val(:known)`:
-  Both point clouds have the same number of points (columns) and you are sure
-  that the `i`-th column in `source` corresponds to the `i`-th column in
-  `target`.
-  Registration happens by minimizing the RMSD via the Kabsch algorithm.
-- `Val(:unsure)`:
-  Both point clouds have the same number of points (columns) and you assume that
-  the `i`-th column in `source` corresponds to the `i`-th column in `target` but
-  some of those correspondences might be wrong.
-  Registration happens by minimizing the Gelman-McClure loss between the two
-  point clouds.
+Currently, the following four methods are implemented:
+* **`register_rmsd`:**
+  Rigid registration that minimizes the *root mean square deviation* between
+  `source` and `target`; assumes that equal-index points correspond to each
+  other and that all pairs of points are equally relevant.
+* **`register_gmc`:**
+  Rigid registration that minimizes the *Geman-McClure loss* between `source`
+  and `target`; assumes that equal-index points correspond to each
+  other but caps the influence of far apart pairs of points (outliers).
+* **`register_kc`:**
+  Rigid registration that maximizes the *kernel correlation* between `source`
+  and `target`; assumes no correspondences and is robust against outliers.
+* **`register_cpd`:**
+  Nonrigid registration that estimates a *coherent point drift* from `source`
+  to `target`; internally estimates correspondences and is configurable to
+  account for outliers.
