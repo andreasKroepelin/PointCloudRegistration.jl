@@ -1,11 +1,8 @@
 # Point Cloud Registration
 
-<video src="examples/animations/register-julia-logo.mp4"></video>
 
 <video src="PointCloudRegistration/raw/branch/main/examples/animations/register-julia-logo.mp4" type="video/mp4" width="300" height="200" controls>
 </video>
-
-![animation of Julia logo](examples/animations/register-julia-logo.mp4)
 
 This package provides the function `register(source, target)` to find an
 `AffineMap` consisting of a rotation and a translation that maps a point cloud
