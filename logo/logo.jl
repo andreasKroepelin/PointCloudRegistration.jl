@@ -3,7 +3,12 @@ using CairoMakie
 using Rotations
 using Statistics
 
-whiten(col) = range(Makie.to_color(col), Makie.to_color(:white))[60]
+whiten(col, deg) =
+    range(Makie.to_color(col), Makie.to_color((:gray80, 1)))[clamp(
+        round(Int, deg * 100),
+        1,
+        100,
+    )]
 
 angles = range(0, 2pi; length = 4)[1:3]
 centers = map(c -> 0.5 .* c, sincos.(angles))
@@ -17,7 +22,7 @@ coords = hcat(
     ]...,
 )
 base_colors = collect(GLMakie.Colors.JULIA_LOGO_COLORS[(:green, :purple, :red)])
-tcolors = Makie.to_color.(tuple.(base_colors, 0.7))
+tcolors = Makie.to_color.(tuple.(base_colors, 0.5))
 colors = repeat(base_colors; inner = n);
 
 let
@@ -54,5 +59,59 @@ let
         )
     end
     scatter!(ax, coords; color = colors, common_marker_args...)
+    save("logo_.png", fig)
+end
+
+let
+    CairoMakie.activate!(; px_per_unit = 1)
+    fig = Figure(; size = (512, 512), backgroundcolor = :transparent)
+    ax = Axis(fig[1, 1]; autolimitaspect = 1, backgroundcolor = :transparent)
+    hidedecorations!(ax)
+    hidespines!(ax)
+    scatter!(
+        ax,
+        coords;
+        color = colors,
+        strokecolor = (:black, 0.2),
+        strokewidth = 4,
+        markersize = 0.2,
+        markerspace = :data,
+    )
+    save("logo2_.png", fig)
+end
+
+let
+    CairoMakie.activate!(; px_per_unit = 1)
+    # GLMakie.activate!()
+    # fig = Figure(; size = (512, 512))
+    # ax = Axis(fig[1, 1]; autolimitaspect = 1)
+    fig = Figure(; size = (512, 512), backgroundcolor = :transparent)
+    ax = Axis(fig[1, 1]; autolimitaspect = 1, backgroundcolor = :transparent)
+    hidedecorations!(ax)
+    hidespines!(ax)
+    points = stack(tuple.(1:3, 0))
+    rot = Angle2d(deg2rad(-45))
+    tlt = [-1.0, -1.0]
+    for t in range(1, 0.1; length = 10)
+        t = t^1.7
+        scatter!(
+            ax,
+            rot^t * points .+ t * tlt;
+            color = whiten.(base_colors, t),
+            markersize = 1,
+            markerspace = :data,
+            strokecolor = :gray90,
+            strokewidth = 3,
+        )
+    end
+    scatter!(
+        ax,
+        points;
+        color = base_colors,
+        markersize = 1,
+        markerspace = :data,
+        strokecolor = :gray90,
+        strokewidth = 3,
+    )
     save("logo.png", fig)
 end
