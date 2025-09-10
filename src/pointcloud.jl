@@ -21,6 +21,7 @@ containing the entries of each column of `mat`.
 The number of rows of `mat` must be `N`.
 """
 function VecOfSVec{N}(mat::AbstractMatrix) where {N}
+    @argcheck N > 1 "can only handle two- and higher dimensional points"
     T = eltype(mat)
     reinterpret(reshape, SVector{N, T}, mat)
 end

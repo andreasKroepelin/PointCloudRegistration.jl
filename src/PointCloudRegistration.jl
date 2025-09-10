@@ -13,6 +13,7 @@ using Logging
 using Statistics
 using StatsBase
 using PrecompileTools: @compile_workload
+using ArgCheck
 
 export PointCloud,
     register_rmsd,
