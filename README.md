@@ -1,4 +1,4 @@
-# `PointCloudRegistration.jl`
+# ![logo](logo/logo.png) `PointCloudRegistration.jl`
 
 <video src="PointCloudRegistration/raw/branch/main/examples/animations/register-julia-logo.mp4" type="video/mp4" width="600" height="400" controls>
 </video>
