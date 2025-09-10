@@ -31,6 +31,9 @@ Currently, the following four methods are implemented:
   to `target`; internally estimates correspondences and is configurable to
   account for outliers.
 
+The package handles 2D, 3D and any higher dimensional point clouds, as well as
+point clouds with varyingly weighted points.
+
 ## Quickstart
 
 ```julia
