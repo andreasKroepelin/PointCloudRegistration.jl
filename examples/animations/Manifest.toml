@@ -2,7 +2,7 @@
 
 julia_version = "1.11.6"
 manifest_format = "2.0"
-project_hash = "7cf91c769db62f66c0a8f77c26f1d8adc01c2019"
+project_hash = "3aac064fa9fcf91e28e419dfdd42fb01e8517ad5"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -1119,7 +1119,7 @@ uuid = "995b91a9-d308-5afd-9ec6-746e21dbc043"
 version = "1.4.3"
 
 [[deps.PointCloudRegistration]]
-deps = ["Accessors", "CoordinateTransformations", "Distances", "FillArrays", "LinearAlgebra", "Logging", "NearestNeighbors", "PrecompileTools", "Random", "Rotations", "StaticArrays", "Statistics", "StatsBase"]
+deps = ["Accessors", "ArgCheck", "CoordinateTransformations", "Distances", "FillArrays", "LinearAlgebra", "Logging", "NearestNeighbors", "PrecompileTools", "Random", "Rotations", "StaticArrays", "Statistics", "StatsBase"]
 path = "../.."
 uuid = "afb9b67c-ae14-49fb-afbe-36d52467eca1"
 version = "0.1.0"
