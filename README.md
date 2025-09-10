@@ -1,5 +1,5 @@
-# ![logo](logo/logo.png) `PointCloudRegistration.jl`
-
+<img src="logo/logo.png" width="3em"></img>
+# `PointCloudRegistration.jl`
 <video src="PointCloudRegistration/raw/branch/main/examples/animations/register-julia-logo.mp4" type="video/mp4" width="600" height="400" controls>
 </video>
 
