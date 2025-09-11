@@ -53,6 +53,16 @@ end
     @test all(k -> any(p -> p[k] == hi[k], pc_1ake.points), 1:N)
 end
 
+@testset "PointCloud indexing" begin
+    N = 2
+    T = Float64
+    pc = PointCloud(zeros(T, N, 5))
+    i = 4
+    x = pc[:, i]
+    @test x == pc.points[i]
+    @test x isa SVector{N, T}
+end
+
 @testset "mapping PointCloud" begin
     pc_1ake = PointCloud(readdlm("../assets/ake/1ake.csv", ','))
     rotation = qr(randn(SMatrix{3, 3, Float64})).Q
