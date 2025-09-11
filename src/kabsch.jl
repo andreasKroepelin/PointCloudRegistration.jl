@@ -40,14 +40,18 @@ Use this function if you do not expect outliers or wrong correspondences and
 you need maximum speed.
 """
 function register_rmsd(source, target)
-    _register_rmsd(PointCloud(source), PointCloud(target))
+    pc_source = PointCloud(source)
+    pc_target = PointCloud(target)
+    @argcheck size(pc_source) == size(pc_target)
+
+    _register_rmsd(pc_source, pc_target)
 end
 
 function _register_rmsd(
     source::PointCloud{N, TS},
     target::PointCloud{N, TT},
 ) where {N, TS, TT}
-    check_sizes(source, target)
+    @argcheck length(source.points) == length(target.points)
     T = promote_type(TS, TT)
     covariance = zero(SMatrix{N, N, T})
     for i in eachindex(source.points)

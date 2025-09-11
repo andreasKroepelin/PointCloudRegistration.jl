@@ -262,6 +262,8 @@ function eval_kernel_correlation(
     kc
 end
 
+default_axisalign() = false
+
 function axisalign_target(target)
     axisaligner = target.coveigvecs'
     if det(axisaligner) < 0
@@ -284,6 +286,8 @@ end
 
 Base.eltype(::PreparedTarget{N, T}) where {N, T} = T
 
+dimension(::PreparedTarget{N}) where {N} = N
+
 """
     prepare_target_kc(target[; scale, axisalign])
 
@@ -303,9 +307,9 @@ T2 = register_kc(prepd_X, Y2) # this is fast
 ```
 """
 function prepare_target_kc(
-    target::AbstractMatrix;
-    scale::ScaleType = default_config().scale,
-    axisalign::Bool = default_config().axisalign,
+    target;
+    scale::ScaleType = default_scale(),
+    axisalign::Bool = default_axisalign(),
 )
     _prepare_target(PointCloud(target), scale, axisalign)
 end
@@ -343,19 +347,26 @@ Use this function if you do not know correspondences.
 """
 function register_kc(
     source,
-    target::AbstractMatrix;
-    scale::ScaleType = default_config().scale,
-    axisalign::Bool = default_config().axisalign,
-    restarts::Int = default_config().restarts,
-    iterations::Int = default_config().iterations,
-    rng = default_config().rng,
-    report_iteration = default_config().report_iteration,
-    report_restart = default_config().report_restart,
+    target;
+    scale::ScaleType = default_scale(),
+    axisalign::Bool = default_axisalign(),
+    restarts::Int = default_restarts(),
+    iterations::Int = default_iterations(),
+    rng = Random.default_rng(),
+    report_iteration = no_report,
+    report_restart = no_report,
 )
-    prepared_target = prepare_target_kc(target; scale, axisalign)
+    @argcheck restarts >= 0
+    @argcheck iterations >= 1
+
+    pc_source = PointCloud(source)
+    pc_target = PointCloud(target)
+    @argcheck dimension(pc_source) == dimension(pc_target)
+
+    prepared_target = prepare_target_kc(pc_target; scale, axisalign)
 
     _register_kc(
-        PointCloud(source),
+        pc_source,
         prepared_target,
         restarts,
         iterations,
@@ -377,14 +388,20 @@ Use this function if you plan to register multiple sources to the same target.
 function register_kc(
     source,
     prepared_target::PreparedTarget;
-    restarts::Int = default_config().restarts,
-    iterations::Int = default_config().iterations,
-    rng = default_config().rng,
-    report_iteration = default_config().report_iteration,
-    report_restart = default_config().report_restart,
+    restarts::Int = default_restarts(),
+    iterations::Int = default_iterations(),
+    rng = Random.default_rng(),
+    report_iteration = no_report,
+    report_restart = no_report,
 )
+    @argcheck restarts >= 0
+    @argcheck iterations >= 1
+
+    pc_source = PointCloud(source)
+    @argcheck dimension(pc_source) == dimension(prepared_target)
+
     _register_kc(
-        PointCloud(source),
+        pc_source,
         prepared_target,
         restarts,
         iterations,

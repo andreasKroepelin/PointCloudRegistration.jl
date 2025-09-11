@@ -5,31 +5,43 @@ Abbreviation for an `AbstractVector` of `SVectors` of length `N` and eltype `T`
 """
 const VecOfSVec{N, T} = AbstractVector{<:SVector{N, T}}
 
-"""
-    VecOfSVec(::AbstractMatrix)
-
-Potentially type unstable version of `VecOfSVec{N}(::AbstractMatrix)` when
-the number of rows is not inferrable from the given matrix type
-"""
-VecOfSVec(mat::AbstractMatrix) = VecOfSVec{_size_1(mat)}(mat)
-
-"""
-    VecOfSVec{N}(mat::AbstractMatrix)
-
-Returns a view of the given matrix as a vector of `SVector{N, eltype(mat)}`,
-containing the entries of each column of `mat`.
-The number of rows of `mat` must be `N`.
-"""
-function VecOfSVec{N}(mat::AbstractMatrix) where {N}
+function to_vec_of_svec(
+    mat::AbstractMatrix{T},
+    ::Val{N},
+)::VecOfSVec{N, T} where {T, N}
     @argcheck N > 1 "can only handle two- and higher dimensional points"
-    T = eltype(mat)
+    @argcheck N == size(mat, 1) "matrix must have given number of rows $N"
     reinterpret(reshape, SVector{N, T}, mat)
 end
 
+# mainly a workaround for HybridMatrix since `size(::HybridMatrix{N, ...}, 1)`
+# does not *statically* return `N` (works for `StaticMatrix` though)
 _size_1(mat::AbstractMatrix) = _size_1(Size(mat), mat)
 _size_1(::Size{Sz}, mat) where {Sz} = _size_1(first(Sz), mat)
 _size_1(i::Int, mat) = i
 _size_1(::StaticArrays.Dynamic, mat) = size(mat, 1)
+
+to_vec_of_svec(mat::AbstractMatrix) = to_vec_of_svec(mat, Val(_size_1(mat)))
+
+function to_vec_of_svec(
+    vecs::AbstractVector{<: AbstractVector{T}},
+    ::Val{N},
+)::VecOfSVec{N, T} where {T, N}
+    @argcheck allequal(length, vecs) "all points must have same dimension"
+    @argcheck N == length(first(vecs)) "points must have given dimension $N"
+
+    map(SVector{N, T}, vecs)
+end
+
+to_vec_of_svec(vecs::AbstractVector{<: AbstractVector}) =
+    to_vec_of_svec(vecs, Val(length(first(vecs))))
+
+to_vec_of_svec(vecs::VecOfSVec{N}, ::Val{N}) where {N} = vecs
+
+to_vec_of_svec(vecs::VecOfSVec) = vecs
+
+to_vec_of_svec(arg::Any) =
+    throw(ArgumentError("don't know how to interpret $arg as a list of points"))
 
 function mean_cov_sumw(points, weights)
     sum_w = zero(eltype(eltype(points)))
@@ -110,13 +122,12 @@ matrix, if not, this might not be type stable.
 A vector of weights can be given explicitly, otherwise implicit unit weights are
 used.
 """
-PointCloud(points_mat::AbstractMatrix) = PointCloud(VecOfSVec(points_mat))
-PointCloud(points_mat::AbstractMatrix, weights::AbstractVector) =
-    PointCloud(VecOfSVec(points_mat), weights)
-PointCloud{N}(points_mat::AbstractMatrix) where {N} =
-    PointCloud(VecOfSVec{N}(points_mat))
-PointCloud{N}(points_mat::AbstractMatrix, weights::AbstractVector) where {N} =
-    PointCloud(VecOfSVec{N}(points_mat), weights)
+PointCloud(points) = PointCloud(to_vec_of_svec(points))
+PointCloud(points, weights::AbstractVector) =
+    PointCloud(to_vec_of_svec(points), weights)
+PointCloud{N}(points) where {N} = PointCloud(to_vec_of_svec(points, Val(N)))
+PointCloud{N}(points, weights::AbstractVector) where {N} =
+    PointCloud(to_vec_of_svec(points, Val(N)), weights)
 
 PointCloud(pc::PointCloud) = pc
 
@@ -131,6 +142,7 @@ Base.@propagate_inbounds function Base.getindex(
     PointCloud(pc.points[idcs], pc.weights[idcs])
 end
 Base.axes(pc::PointCloud{N}) where {N} = (SOneTo(N), eachindex(pc.points))
+dimension(::PointCloud{N}) where {N} = N
 
 function bbox(xs::VecOfSVec)
     lo = hi = first(xs)

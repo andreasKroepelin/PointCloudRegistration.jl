@@ -38,15 +38,20 @@ Use this function if you expect outliers or wrong correspondences.
 function register_gmc(
     source,
     target;
-    scale::ScaleType = default_config().scale,
-    restarts::Int = default_config().restarts,
-    iterations::Int = default_config().iterations,
-    rng = default_config().rng,
-    report_iteration = default_config().report_iteration,
-    report_restart = default_config().report_restart,
+    scale::ScaleType = default_scale(),
+    restarts::Int = default_restarts(),
+    iterations::Int = default_iterations(),
+    rng = Random.default_rng(),
+    report_iteration = no_report,
+    report_restart = no_report,
 )
+    @argcheck restarts >= 0
+    @argcheck iterations >= 1
+
     pc_source = PointCloud(source)
     pc_target = PointCloud(target)
+    @argcheck size(pc_source) == size(pc_target)
+
     sqscales = annealing_plan(pc_target, scale)
     _register_gmc(
         pc_source,
@@ -70,7 +75,6 @@ function _register_gmc(
     report_iteration,
     report_restart,
 ) where {N, TS, TT}
-    check_sizes(source, target)
     T = promote_type(TS, TT)
 
     best = worst(transformation_type(Val(N), T))

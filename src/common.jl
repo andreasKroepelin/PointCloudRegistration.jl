@@ -1,17 +1,6 @@
-function check_sizes(pointclouds...)
-    allequal(size, pointclouds) ||
-        throw(ArgumentError("point clouds must have same size"))
-end
-
-default_config() = (;
-    iterations = 50,
-    scale = TargetScales(),
-    restarts = 5,
-    rng = Random.default_rng(),
-    axisalign = true,
-    report_iteration = no_report,
-    report_restart = no_report,
-)
+default_iterations() = 50
+default_restarts() = 5
+default_scale() = TargetScales()
 
 @inline no_report(; kwargs...) = nothing
 
