@@ -11,6 +11,7 @@ Given two point clouds `source` and `target`, this package can perform
   matches `target`, or
 * **nonrigid registration**, i.e. shift the points in `source` individually but
   coherently to match `target`.
+
 The animation above shows first a rigid and then a nonrigid registration of the
 blue and green point clouds.
 
