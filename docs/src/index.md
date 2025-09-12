@@ -20,14 +20,23 @@ column is one point.
 
 Let us create two point clouds `source` and `target` where `target` is a
 rotated and shifted version of `source`:
-```@repl
+```@repl 1
 using PointCloudRegistration
-source = [1.0:5.0 zeros(5)]'
+source = cumsum(randn(2, 100), dims = 2)
 angle = deg2rad(20)
 rotation = [cos(angle) -sin(angle); sin(angle) cos(angle)]
 translation = [13., 42.]
-target = rotation * coords .+ translation
+target = rotation * source .+ translation
 ```
+
+```@eval 1
+using GLMakie # hide
+import GLMakie.Makie.SpecApi as S #hide
+S.Axis(plots = [S.Scatter(source), S.Scatter(target)]) |> S.GridLayout |> plot
+# TODO: save to png, then convert to base64 and use as src:data string
+# save("source-target.png", S.Axis(plots = [S.Scatter(source), S.Scatter(target)]) |> S.GridLayout); # hide
+```
+
 
 How can we recover `rotation` and `translation` from `source` and `target`?
 
