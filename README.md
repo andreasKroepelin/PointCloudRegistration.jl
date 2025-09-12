@@ -1,7 +1,7 @@
 # <img src="logo/logo.png" width="100"></img> PointCloudRegistration.jl
 
 
-[![docs badge](https://img.shields.io/badge/documentation-4063d8)](http://a5s.eu/PointCloudRegistration.jl)
+[![docs badge](https://img.shields.io/badge/docs-main-4063d8)](http://a5s.eu/PointCloudRegistration.jl/main)
 
 <video src="PointCloudRegistration/raw/branch/main/examples/animations/register-julia-logo.mp4" type="video/mp4" width="600" height="400" controls>
 </video>
