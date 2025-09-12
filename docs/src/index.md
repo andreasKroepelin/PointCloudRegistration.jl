@@ -1,9 +1,45 @@
 # PointCloudRegistration.jl
 
+**PointCloudRegistration.jl** is a package for performing rigid and nonrigid
+registration of point clouds, also known as *superimposing* or *aligning*.
+
+## Point clouds
+
+By point cloud, we refer to a set of points, i.e. a subset of ``\mathbb{R}^N``
+for some integer ``N``.
+We then also say that it is *``N``-dimensional*.
+A point cloud can represent the atom coordinates of a molecule, the surface of
+a 3D object, or many other things.
+
+Computationally, we can store them as lists of vectors of equal length.
+In fact, this package represents point clouds as a subtype of
+`AbstractVector{SVector{N, T}}` via its [`PointCloud`](@ref) type that can
+optionally also have weights for the points.
+It is often convenient to construct a `PointCloud` from a matrix where every
+column is one point.
+
+Let us create two point clouds `source` and `target` where `target` is a
+rotated and shifted version of `source`:
+```@repl
+using PointCloudRegistration
+coords = [1.0:5.0 zeros(5)]'
+source = PointCloud(coords)
+angle = deg2rad(20)
+rotation = [cos(angle) -sin(angle); sin(angle) cos(angle)]
+translation = [13., 42.]
+target = PointCloud(rotation * coords .+ translation)
+```
+
+How can we recover `rotation` and `translation` from `source` and `target`?
+
+
 ## API
 
 ```@docs
 PointCloud
+PointCloud(points::Any)
+PointCloud(points::Any, weights::AbstractVector)
+PointCloud(::PointCloud)
 register_rmsd
 register_gmc
 register_kc
@@ -60,15 +96,3 @@ restart.
 You can specify this keyword argument to ensure reproducible initializations.
 
 
-### `accumulator`
-Default: `PointCloudRegistration.BestTransformation`
-
-How to accumulate the results of the individual restarts.
-This affects the return type of the registration functions.
-`accumulator` expects a subtype of
-`PointCloudRegistration.AbstractTransformationAccumulator`.
-The following two subtypes are provided:
-```@docs
-PointCloudRegistration.BestTransformation
-PointCloudRegistration.AllTransformations
-```
