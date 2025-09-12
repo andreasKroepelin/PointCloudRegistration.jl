@@ -22,12 +22,11 @@ Let us create two point clouds `source` and `target` where `target` is a
 rotated and shifted version of `source`:
 ```@repl
 using PointCloudRegistration
-coords = [1.0:5.0 zeros(5)]'
-source = PointCloud(coords)
+source = [1.0:5.0 zeros(5)]'
 angle = deg2rad(20)
 rotation = [cos(angle) -sin(angle); sin(angle) cos(angle)]
 translation = [13., 42.]
-target = PointCloud(rotation * coords .+ translation)
+target = rotation * coords .+ translation
 ```
 
 How can we recover `rotation` and `translation` from `source` and `target`?
