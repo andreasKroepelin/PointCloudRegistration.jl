@@ -59,7 +59,7 @@ function _register_rmsd(
         trg = target.points[i] - target.mean
         w_src = source.weights[i]
         w_trg = target.weights[i]
-        covariance += w_src * w_trg * src * trg'
+        covariance += w_trg * w_src * trg * src'
     end
     transformation_from_moments(covariance, source.mean, target.mean)
 end

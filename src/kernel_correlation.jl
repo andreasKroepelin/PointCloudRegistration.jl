@@ -15,14 +15,14 @@ struct Grid{N, T}
             lo,
             hi,
             invΔ,
-            Tuple(round.(Int, (hi - lo) * invΔ)),
+            Tuple(round.(Int, (hi - lo) * invΔ) .+ 1),
         )
     end
 end
 
 idx_on_grid(x, grid::Grid{N}) where {N} = idx_on_grid(SVector{N}(x), grid)
 idx_on_grid(x::SVector{N}, grid::Grid{N}) where {N} =
-    CartesianIndex(round.(Int, (x - grid.lo) * grid.invΔ)...)
+    CartesianIndex((round.(Int, (x - grid.lo) * grid.invΔ) .+ 1)...)
 
 extent(grid::Grid) = grid.hi - grid.lo
 Base.size(grid::Grid) = grid.size

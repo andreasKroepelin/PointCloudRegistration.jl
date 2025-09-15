@@ -1,18 +1,23 @@
 using Test
 using InteractiveUtils
 using PointCloudRegistration
-import PointCloudRegistration as PCR
+import PointCloudRegistration as PCReg
 using PointCloudRegistration.StaticArrays
 using PointCloudRegistration.CoordinateTransformations
+using PointCloudRegistration.Distances
 using DelimitedFiles
 using LinearAlgebra
+using Random
+using Base.Iterators
+
+load_1ake() = PointCloud(readdlm("../assets/ake/1ake.csv", ','))
 
 @testset "VecOfSVec" begin
-    @test_throws ArgumentError PCR.VecOfSVec(zeros(1, 10))
+    @test_throws ArgumentError PCReg.to_vec_of_svec(zeros(1, 10))
 
     for N in 2:4
         mat = zeros(N, 10)
-        vecofsvec = PCR.VecOfSVec(mat)
+        vecofsvec = PCReg.to_vec_of_svec(mat)
         @test vecofsvec isa AbstractVector
         T = eltype(vecofsvec)
         @test T <: SVector
@@ -27,21 +32,21 @@ end
     n = 100_000
     points = [sqrtcov * randn(SVector{3, Float64}) + m for _ in 1:n]
     weights = ones(n)
-    m_, cov_, sumw_ = PCR.mean_cov_sumw(points, weights)
+    m_, cov_, sumw_ = PCReg.mean_cov_sumw(points, weights)
     @test isapprox(m, m_; atol = 1e-1)
     @test isapprox(cov, cov_; atol = 1e-1)
     @test sumw_ == n
 
     function alloc_counter(points, weights)
-        @allocations PCR.mean_cov_sumw(points, weights)
+        @allocations PCReg.mean_cov_sumw(points, weights)
     end
     alloc_counter(points, weights) # precompile
     @test alloc_counter(points, weights) == 0
 end
 
 @testset "bbox" begin
-    pc_1ake = PointCloud(readdlm("../assets/ake/1ake.csv", ','))
-    lo, hi = PCR.bbox(pc_1ake)
+    pc_1ake = load_1ake()
+    lo, hi = PCReg.bbox(pc_1ake)
 
     # proper lower/upper bound?
     @test all(>=(lo), pc_1ake.points)
@@ -64,7 +69,7 @@ end
 end
 
 @testset "mapping PointCloud" begin
-    pc_1ake = PointCloud(readdlm("../assets/ake/1ake.csv", ','))
+    pc_1ake = load_1ake()
     rotation = qr(randn(SMatrix{3, 3, Float64})).Q
     translation = randn(SVector{3, Float64})
     transformation = AffineMap(rotation, translation)
@@ -86,7 +91,7 @@ end
     target() = nothing
     function experiment(x, xs)
         y = 2x
-        PCR.no_report(; y, a = -x, b = xs)
+        PCReg.no_report(; y, a = -x, b = xs)
     end
 
     target_code = (@code_typed target())[1].code
@@ -98,7 +103,144 @@ end
     for T in (Float32, Float64), N in 2:4
         mat = zeros(T, N, 10)
         pc = PointCloud(mat)
-        @test PCR.transformation_type(pc, pc) ==
+        @test PCReg.transformation_type(pc, pc) ==
               AffineMap{SMatrix{N, N, T, N * N}, SVector{N, T}}
     end
+end
+
+@testset "transformation_from_moments" begin
+    for N in 2:3, _ in 1:10
+        source_mean = randn(SVector{N, Float64})
+        target_mean = randn(SVector{N, Float64})
+        cov = randn(SMatrix{N, N, Float64}) |> (A -> A' * A)
+        T = PCReg.transformation_from_moments(cov, source_mean, target_mean)
+
+        @test det(T.linear) > .5 # should not only be slightly positive
+        @test isapprox(T.linear' * T.linear, one(T.linear))
+        @test isapprox(T(source_mean), target_mean)
+    end
+end
+
+@testset "negative_last_column" begin
+    A = SA[1 2  3; 4 5  6; 7 8  9]
+    B = SA[1 2 -3; 4 5 -6; 7 8 -9]
+    @test PCReg.negative_last_column(A) == B
+end
+
+@testset "register_rmsd" begin
+    @test_throws ArgumentError register_rmsd(zeros(2, 5), zeros(2, 6))
+
+    pc_1ake = load_1ake()
+    rng = Random.Xoshiro(136)
+    for _ in 1:10
+        T_true = PCReg.rand_transformation(rng, pc_1ake, pc_1ake)
+        T = register_rmsd(pc_1ake, T_true(pc_1ake))
+        @test isapprox(T_true, T)
+    end
+end
+
+@testset "TargetScales" begin
+    pc_1ake = load_1ake()
+    min_dist, max_dist = extrema(
+        splat(sqeuclidean),
+        Iterators.product(pc_1ake.points, pc_1ake.points)
+    )
+    sqscales = PCReg.annealing_plan(pc_1ake, TargetScales())
+    @test all(sqscale -> min_dist <= sqscale <= max_dist, sqscales)
+end
+
+@testset "register_gmc" begin
+    @test_throws ArgumentError register_gmc(zeros(2, 5), zeros(2, 6))
+
+    pc_1ake = load_1ake()
+    rng = Random.Xoshiro(136)
+    for _ in 1:10
+        T_true = PCReg.rand_transformation(rng, pc_1ake, pc_1ake)
+        T = register_gmc(pc_1ake, T_true(pc_1ake); scale = 1.)
+        @test isapprox(T_true, T)
+    end
+
+    function alloc_wrapper(pc)
+        @allocations register_gmc(pc, pc; scale = 1.)
+    end
+    alloc_wrapper(pc_1ake)
+    @test alloc_wrapper(pc_1ake) == 0
+end
+
+@testset "compute_gaussians" begin
+    # test that `compute_gaussians` only performs a look-up
+    for T in (Float32, Float64)
+        codeinfo, ret = @code_typed PCReg.compute_gaussians(T)
+        code = codeinfo.code
+        @test ret <: Vector{T}
+        @test length(code) == 1
+        @test code[1] isa Core.ReturnNode
+        @test code[1].val isa Core.GlobalRef
+
+        function alloc_wrapper(T)
+            @allocations PCReg.compute_gaussians(T)
+        end
+        alloc_wrapper(T)
+        @test alloc_wrapper(T) == 0
+    end
+end
+
+@testset "Grid" begin
+    for N in 2:3
+        lo = rand(SVector{N, Float64})
+        hi = rand(SVector{N, Float64}) .+ 3
+        grid = PCReg.Grid(lo, hi, .1)
+        @test PCReg.idx_on_grid(lo, grid) == CartesianIndex(ones(Int, N)...)
+        @test PCReg.idx_on_grid(hi, grid) == CartesianIndex(size(grid))
+
+        ranges = PCReg.domains(grid)
+        @info "extrema" Tuple(lo) Tuple(hi) Tuple(getindex.(ranges, tuple(ones(Int, N)...))) Tuple(getindex.(ranges, size(grid)))
+        
+        for _ in 1:10
+            # `ts` is elementwise between 0 and 1 so `probe` is inside the grid
+            ts = rand(SVector{N, Float64})
+            probe = lo .+ ts .* (hi .- lo)
+            grid_idx = PCReg.idx_on_grid(probe, grid)
+            grid_node = getindex.(ranges, Tuple(grid_idx))
+            dist = sqeuclidean(probe, grid_node)
+            closest = argmin(Iterators.product(ranges...)) do node
+                sqeuclidean(SVector(node), probe)
+            end
+            @info "grid test" N Tuple(probe) grid_idx Tuple(grid_node) closest Tuple((probe .- lo) ./ .1)
+            min_dist = minimum(Iterators.product(ranges...)) do node
+                sqeuclidean(SVector(node), probe)
+            end
+            @test isapprox(dist, min_dist)
+        end
+    end
+end
+
+@testset "_replace_tail_with_colons" begin
+    @test PCReg._replace_tail_with_colons((1, 2, 3), Val(1)) == (1, 2, :)
+    @test PCReg._replace_tail_with_colons((1, 2, 3), Val(2)) == (1, :, :)
+    @test PCReg._replace_tail_with_colons((1, 2, 3), Val(3)) == (:, :, :)
+
+    @test Core.Compiler.return_type(PCReg._replace_tail_with_colons, Tuple{Tuple{Int, Int, Int}, Val{2}}) == Tuple{Int, Colon, Colon}
+end
+
+@testset "_make_sets" begin
+    prototype = (Set([(1, 2, :)]), Set([(1, :, :)]), Set([(:, :, :)]))
+    @test typeof(PCReg._make_sets(Val(3))) == typeof(prototype)
+end
+
+@testset "SetsOfSlices" begin
+    idcs = [
+        CartesianIndex(1, 2, 1),
+        CartesianIndex(1, 2, 2),
+        CartesianIndex(1, 2, 3),
+        CartesianIndex(1, 5, 0),
+        CartesianIndex(1, 5, 6),
+        CartesianIndex(2, 4, 0),
+        CartesianIndex(2, 7, 1),
+    ]
+
+    sos = PCReg.SetsOfSlices(idcs)
+    @test Set(sos.sets[1]) == Set([(1, 2, :), (1, 5, :), (2, 4, :), (2, 7, :)])
+    @test Set(sos.sets[2]) == Set([(1, :, :), (2, :, :)])
+    @test Set(sos.sets[3]) == Set([(:, :, :)])
 end

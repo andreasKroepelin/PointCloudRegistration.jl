@@ -42,9 +42,10 @@ function register_gmc(
     restarts::Int = default_restarts(),
     iterations::Int = default_iterations(),
     rng = Random.default_rng(),
-    report_iteration = no_report,
-    report_restart = no_report,
-)
+    # use type parameters `RI` and `RR` here to force specialization
+    report_iteration::RI = no_report,
+    report_restart::RR = no_report,
+) where {RI, RR}
     @argcheck restarts >= 0
     @argcheck iterations >= 1
 
