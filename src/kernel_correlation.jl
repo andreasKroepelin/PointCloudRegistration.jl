@@ -198,19 +198,19 @@ struct AnnealingLevel{
     end
 end
 
+function kde_grid(lo, hi; sigma)
+    grid_lo = lo .- GRID_MARGIN_PER_STD * sigma
+    grid_hi = hi .+ GRID_MARGIN_PER_STD * sigma
+    Grid(grid_lo, grid_hi, sigma / GRID_CELLS_PER_STD)
+end
+
 function AnnealingLevel(
     target::PointCloud{N},
     target_bbox::NTuple{2},
     weighted_target_points,
     sqscale,
 ) where {N}
-    grid = let
-        target_lo, target_hi = target_bbox
-        sigma = sqrt(sqscale)
-        grid_lo = target_lo .- GRID_MARGIN_PER_STD * sigma
-        grid_hi = target_hi .+ GRID_MARGIN_PER_STD * sigma
-        Grid(grid_lo, grid_hi, sigma / GRID_CELLS_PER_STD)
-    end
+    grid = kde_grid(target_bbox...; sigma = sqrt(sqscale))
     convd_target = reinterpret(
         reshape,
         SVector{N, eltype(target)},
@@ -353,9 +353,9 @@ function register_kc(
     restarts::Int = default_restarts(),
     iterations::Int = default_iterations(),
     rng = Random.default_rng(),
-    report_iteration = no_report,
-    report_restart = no_report,
-)
+    report_iteration::RI = no_report,
+    report_restart::RR = no_report,
+) where {RI, RR}
     @argcheck restarts >= 0
     @argcheck iterations >= 1
 
@@ -391,9 +391,9 @@ function register_kc(
     restarts::Int = default_restarts(),
     iterations::Int = default_iterations(),
     rng = Random.default_rng(),
-    report_iteration = no_report,
-    report_restart = no_report,
-)
+    report_iteration::RI = no_report,
+    report_restart::RR = no_report,
+) where {RI, RR}
     @argcheck restarts >= 0
     @argcheck iterations >= 1
 

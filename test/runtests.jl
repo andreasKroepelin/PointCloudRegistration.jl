@@ -182,6 +182,8 @@ end
 end
 
 @testset "Grid" begin
+    @test_throws ArgumentError PCReg.Grid(SA[1., 1.], SA[0., 1.], .5)
+
     for N in 2:3
         lo = rand(SVector{N, Float64})
         hi = rand(SVector{N, Float64}) .+ 3
@@ -244,4 +246,45 @@ end
     @test Set(sos.sets[1]) == Set([(1, 2, :), (1, 5, :), (2, 4, :), (2, 7, :)])
     @test Set(sos.sets[2]) == Set([(1, :, :), (2, :, :)])
     @test Set(sos.sets[3]) == Set([(:, :, :)])
+end
+
+@testset "KDE" begin
+    # test that our KDE computation is reasonably close to naive computation
+    pc_1ake = load_1ake()
+    sigma = 20.
+    grid = PCReg.kde_grid(PCReg.bbox(pc_1ake)...; sigma)
+    kde! = PCReg.KdeComputation(pc_1ake.points, grid, sigma^2)
+    buffer = zeros(size(grid))
+    kde!(buffer, pc_1ake.weights)
+
+    # this is the smallest number we consider > zero for KDE purposes
+    almost_zero = last(PCReg.compute_gaussians(Float64))
+    atol = length(pc_1ake.points) * almost_zero
+    @info "KDE" size(grid) maximum(buffer) atol
+
+    grid_centers = Iterators.product(PCReg.domains(grid)...)
+    for (ci, center) in zip(CartesianIndices(buffer), grid_centers)
+        rand() < .1 || continue # only test 10 % to save time
+        s = 0.0
+        for (x, w) in zip(pc_1ake.points, pc_1ake.weights)
+            s += w * exp(sqeuclidean(SVector(center), x) / (-2 * sigma^2))
+        end
+        @test buffer[ci] >= 0
+        @test isapprox(buffer[ci], s; atol)
+    end
+end
+
+@testset "register_kc" begin
+    pc_1ake = load_1ake()
+    prep_1ake = prepare_target_kc(pc_1ake)
+    rng = Random.Xoshiro(136)
+    for _ in 1:10
+        T_true = PCReg.rand_transformation(rng, pc_1ake, pc_1ake)
+        T = register_kc(inv(T_true)(pc_1ake), prep_1ake; restarts = 20, rng)
+        @test isapprox(T_true, T, rtol = 5e-2)
+    end
+
+    alloc_wrapper(pc, prep) = @allocations register_kc(pc, prep)
+    alloc_wrapper(pc_1ake, prep_1ake)
+    @test alloc_wrapper(pc_1ake, prep_1ake) == 0
 end
