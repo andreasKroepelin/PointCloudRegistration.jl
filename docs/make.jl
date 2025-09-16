@@ -18,11 +18,9 @@ makedocs(;
     sitename = "PointCloudRegistration.jl",
     remotes = nothing,
     plugins = [links],
-    format = Documenter.HTMLWriter.HTML(
+    format = Documenter.HTMLWriter.HTML(;
         canonical = "a5s.eu/PointCloudRegistration.jl/",
         repolink = "https://codeberg.org/andreas-k/PointCloudRegistration.jl",
-        assets = [
-            asset("assets/logo.png", islocal = true, class = :ico)
-        ],
+        assets = [asset("assets/logo.png"; islocal = true, class = :ico)],
     ),
 )

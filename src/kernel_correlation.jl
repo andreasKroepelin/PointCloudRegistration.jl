@@ -16,7 +16,7 @@ struct Grid{N, T}
         # make sure that each grid edge length is actually a multiple of Δ
         adjusted_hi = lo .+ sz .* Δ
         T = promote_type(eltype(lo), eltype(adjusted_hi), typeof(invΔ))
-        new{N, T}( lo, adjusted_hi, invΔ, Tuple(sz) .+ 1, )
+        new{N, T}(lo, adjusted_hi, invΔ, Tuple(sz) .+ 1)
     end
 end
 

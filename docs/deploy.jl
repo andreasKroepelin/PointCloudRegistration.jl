@@ -3,22 +3,18 @@ using Documenter
 pseudo_remote = abspath(".pseudo_remote")
 if !isdir(pseudo_remote)
     mkdir(pseudo_remote)
-    cd(pseudo_remote) do 
+    cd(pseudo_remote) do
         run(`$(Documenter.git()) init --bare`)
     end
 end
 
 struct LocalDeploy <: Documenter.DeployConfig end
-Documenter.deploy_folder(::LocalDeploy; repo, branch, kwargs...) = Documenter.DeployDecision(;
-    all_ok = true,
-    branch,
-    repo,
-    subfolder = "main",
-)
+Documenter.deploy_folder(::LocalDeploy; repo, branch, kwargs...) =
+    Documenter.DeployDecision(; all_ok = true, branch, repo, subfolder = "main")
 Documenter.authentication_method(::LocalDeploy) = Documenter.HTTPS
 Documenter.authenticated_repo_url(::LocalDeploy) = pseudo_remote
 
-deploydocs(
+deploydocs(;
     repo = pseudo_remote,
     branch = "main",
     deploy_config = LocalDeploy(),
@@ -35,4 +31,6 @@ else
 end
 
 items = filter(!endswith(".git"), readdir("public/"; join = true))
-run(`scp -r $items andreask@perseus.uberspace.de:html/PointCloudRegistration.jl`)
+run(
+    `scp -r $items andreask@perseus.uberspace.de:html/PointCloudRegistration.jl`,
+)

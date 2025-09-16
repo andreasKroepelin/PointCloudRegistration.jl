@@ -115,14 +115,14 @@ end
         cov = randn(SMatrix{N, N, Float64}) |> (A -> A' * A)
         T = PCReg.transformation_from_moments(cov, source_mean, target_mean)
 
-        @test det(T.linear) > .5 # should not only be slightly positive
+        @test det(T.linear) > 0.5 # should not only be slightly positive
         @test isapprox(T.linear' * T.linear, one(T.linear))
         @test isapprox(T(source_mean), target_mean)
     end
 end
 
 @testset "negative_last_column" begin
-    A = SA[1 2  3; 4 5  6; 7 8  9]
+    A = SA[1 2 3; 4 5 6; 7 8 9]
     B = SA[1 2 -3; 4 5 -6; 7 8 -9]
     @test PCReg.negative_last_column(A) == B
 end
@@ -143,7 +143,7 @@ end
     pc_1ake = load_1ake()
     min_dist, max_dist = extrema(
         splat(sqeuclidean),
-        Iterators.product(pc_1ake.points, pc_1ake.points)
+        Iterators.product(pc_1ake.points, pc_1ake.points),
     )
     sqscales = PCReg.annealing_plan(pc_1ake, TargetScales())
     @test all(sqscale -> min_dist <= sqscale <= max_dist, sqscales)
@@ -156,13 +156,11 @@ end
     rng = Random.Xoshiro(136)
     for _ in 1:10
         T_true = PCReg.rand_transformation(rng, pc_1ake, pc_1ake)
-        T = register_gmc(pc_1ake, T_true(pc_1ake); scale = 1.)
+        T = register_gmc(pc_1ake, T_true(pc_1ake); scale = 1.0)
         @test isapprox(T_true, T)
     end
 
-    function alloc_wrapper(pc)
-        @allocations register_gmc(pc, pc; scale = 1.)
-    end
+    alloc_wrapper(pc) = @allocations register_gmc(pc, pc; scale = 1.0)
     alloc_wrapper(pc_1ake)
     @test alloc_wrapper(pc_1ake) == 0
 end
@@ -177,9 +175,7 @@ end
         @test code[1] isa Core.ReturnNode
         @test code[1].val isa Core.GlobalRef
 
-        function alloc_wrapper(T)
-            @allocations PCReg.compute_gaussians(T)
-        end
+        alloc_wrapper(T) = @allocations PCReg.compute_gaussians(T)
         alloc_wrapper(T)
         @test alloc_wrapper(T) == 0
     end
@@ -189,7 +185,7 @@ end
     for N in 2:3
         lo = rand(SVector{N, Float64})
         hi = rand(SVector{N, Float64}) .+ 3
-        grid = PCReg.Grid(lo, hi, .1)
+        grid = PCReg.Grid(lo, hi, 0.1)
 
         # test that `grid` contains given bounding box
         @test lo >= grid.lo
@@ -201,7 +197,7 @@ end
             grid_center = getindex.(ranges, Tuple(ci))
             @test ci == PCReg.idx_on_grid(grid_center, grid)
         end
-        
+
         # test that we actually get the closest grid cell for any query
         for _ in 1:100
             # `ts` is elementwise between 0 and 1 so `query` is inside the grid
@@ -222,7 +218,10 @@ end
     @test PCReg._replace_tail_with_colons((1, 2, 3), Val(2)) == (1, :, :)
     @test PCReg._replace_tail_with_colons((1, 2, 3), Val(3)) == (:, :, :)
 
-    @test Core.Compiler.return_type(PCReg._replace_tail_with_colons, Tuple{Tuple{Int, Int, Int}, Val{2}}) == Tuple{Int, Colon, Colon}
+    @test Core.Compiler.return_type(
+        PCReg._replace_tail_with_colons,
+        Tuple{Tuple{Int, Int, Int}, Val{2}},
+    ) == Tuple{Int, Colon, Colon}
 end
 
 @testset "_make_sets" begin
