@@ -190,27 +190,29 @@ end
         lo = rand(SVector{N, Float64})
         hi = rand(SVector{N, Float64}) .+ 3
         grid = PCReg.Grid(lo, hi, .1)
-        @test PCReg.idx_on_grid(lo, grid) == CartesianIndex(ones(Int, N)...)
-        @test PCReg.idx_on_grid(hi, grid) == CartesianIndex(size(grid))
+
+        # test that `grid` contains given bounding box
+        @test lo >= grid.lo
+        @test hi <= grid.hi
 
         ranges = PCReg.domains(grid)
-        @info "extrema" Tuple(lo) Tuple(hi) Tuple(getindex.(ranges, tuple(ones(Int, N)...))) Tuple(getindex.(ranges, size(grid)))
+        # test that grid centers are matched with themselves
+        for ci in CartesianIndices(size(grid))
+            grid_center = getindex.(ranges, Tuple(ci))
+            @test ci == PCReg.idx_on_grid(grid_center, grid)
+        end
         
-        for _ in 1:10
-            # `ts` is elementwise between 0 and 1 so `probe` is inside the grid
+        # test that we actually get the closest grid cell for any query
+        for _ in 1:100
+            # `ts` is elementwise between 0 and 1 so `query` is inside the grid
             ts = rand(SVector{N, Float64})
-            probe = lo .+ ts .* (hi .- lo)
-            grid_idx = PCReg.idx_on_grid(probe, grid)
-            grid_node = getindex.(ranges, Tuple(grid_idx))
-            dist = sqeuclidean(probe, grid_node)
-            closest = argmin(Iterators.product(ranges...)) do node
-                sqeuclidean(SVector(node), probe)
+            query = lo .+ ts .* (hi .- lo)
+            grid_idx = PCReg.idx_on_grid(query, grid)
+            grid_center = getindex.(ranges, Tuple(grid_idx))
+            dist = sqeuclidean(query, grid_center)
+            @test all(Iterators.product(ranges...)) do center
+                sqeuclidean(SVector(center), query) >= dist - eps(dist)
             end
-            @info "grid test" N Tuple(probe) grid_idx Tuple(grid_node) closest Tuple((probe .- lo) ./ .1)
-            min_dist = minimum(Iterators.product(ranges...)) do node
-                sqeuclidean(SVector(node), probe)
-            end
-            @test isapprox(dist, min_dist)
         end
     end
 end

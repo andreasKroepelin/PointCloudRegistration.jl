@@ -10,13 +10,13 @@ struct Grid{N, T}
     size::NTuple{N, Int}
 
     function Grid(lo::SVector{N}, hi::SVector{N}, Δ) where {N}
+        @argcheck all(hi .>= lo)
         invΔ = inv(Δ)
-        new{N, promote_type(eltype(lo), eltype(hi), typeof(invΔ))}(
-            lo,
-            hi,
-            invΔ,
-            Tuple(round.(Int, (hi - lo) * invΔ) .+ 1),
-        )
+        sz = ceil.(Int, (hi - lo) * invΔ)
+        # make sure that each grid edge length is actually a multiple of Δ
+        adjusted_hi = lo .+ sz .* Δ
+        T = promote_type(eltype(lo), eltype(adjusted_hi), typeof(invΔ))
+        new{N, T}( lo, adjusted_hi, invΔ, Tuple(sz) .+ 1, )
     end
 end
 
