@@ -40,8 +40,11 @@ to_vec_of_svec(vecs::VecOfSVec{N}, ::Val{N}) where {N} = vecs
 
 to_vec_of_svec(vecs::VecOfSVec) = vecs
 
-to_vec_of_svec(arg::Any) =
-    throw(ArgumentError("don't know how to interpret $(summary(arg)) as a list of points"))
+to_vec_of_svec(arg::Any) = throw(
+    ArgumentError(
+        "don't know how to interpret $(summary(arg)) as a list of points",
+    ),
+)
 
 function mean_cov_sumw(points, weights)
     sum_w = zero(eltype(eltype(points)))

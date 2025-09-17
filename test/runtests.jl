@@ -182,7 +182,7 @@ end
 end
 
 @testset "Grid" begin
-    @test_throws ArgumentError PCReg.Grid(SA[1., 1.], SA[0., 1.], .5)
+    @test_throws ArgumentError PCReg.Grid(SA[1.0, 1.0], SA[0.0, 1.0], 0.5)
 
     for N in 2:3
         lo = rand(SVector{N, Float64})
@@ -251,7 +251,7 @@ end
 @testset "KDE" begin
     # test that our KDE computation is reasonably close to naive computation
     pc_1ake = load_1ake()
-    sigma = 20.
+    sigma = 20.0
     grid = PCReg.kde_grid(PCReg.bbox(pc_1ake)...; sigma)
     kde! = PCReg.KdeComputation(pc_1ake.points, grid, sigma^2)
     buffer = zeros(size(grid))
@@ -264,7 +264,7 @@ end
 
     grid_centers = Iterators.product(PCReg.domains(grid)...)
     for (ci, center) in zip(CartesianIndices(buffer), grid_centers)
-        rand() < .1 || continue # only test 10 % to save time
+        rand() < 0.1 || continue # only test 10 % to save time
         s = 0.0
         for (x, w) in zip(pc_1ake.points, pc_1ake.weights)
             s += w * exp(sqeuclidean(SVector(center), x) / (-2 * sigma^2))
