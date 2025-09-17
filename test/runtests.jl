@@ -11,6 +11,7 @@ using Random
 using Base.Iterators
 
 load_1ake() = PointCloud(readdlm("../assets/ake/1ake.csv", ','))
+load_4ake() = PointCloud(readdlm("../assets/ake/4ake.csv", ','))
 
 @testset "VecOfSVec" begin
     @test_throws ArgumentError PCReg.to_vec_of_svec(zeros(1, 10))
@@ -84,6 +85,20 @@ end
     manual_mapping = PointCloud(linear.(pc_1ake.points), pc_1ake.weights)
     clever_mapping = linear(pc_1ake)
     @test manual_mapping == clever_mapping
+end
+
+@testset "weighted PointCloud" begin
+    points = load_1ake().points
+    weights = rand(0:10, length(points))
+    weighted_pc = PointCloud(points, weights)
+
+    repeated_points = mapreduce(fill, vcat, points, weights)
+    repeated_pc = PointCloud(repeated_points)
+
+    @test isapprox(weighted_pc.sum_of_weights, repeated_pc.sum_of_weights)
+    @test isapprox(weighted_pc.mean, repeated_pc.mean)
+    @test isapprox(weighted_pc.coveigvecs, repeated_pc.coveigvecs)
+    @test isapprox(weighted_pc.coveigvals, repeated_pc.coveigvals)
 end
 
 @testset "no_report" begin
