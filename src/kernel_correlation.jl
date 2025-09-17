@@ -350,13 +350,11 @@ function register_kc(
     target;
     scale::ScaleType = default_scale(),
     axisalign::Bool = default_axisalign(),
-    restarts::Int = default_restarts(),
+    restarts::AbstractRestarts = default_restarts(),
     iterations::Int = default_iterations(),
-    rng = Random.default_rng(),
     report_iteration::RI = no_report,
     report_restart::RR = no_report,
 ) where {RI, RR}
-    @argcheck restarts >= 0
     @argcheck iterations >= 1
 
     pc_source = PointCloud(source)
@@ -370,7 +368,6 @@ function register_kc(
         prepared_target,
         restarts,
         iterations,
-        rng,
         report_iteration,
         report_restart,
     )
@@ -388,13 +385,11 @@ Use this function if you plan to register multiple sources to the same target.
 function register_kc(
     source,
     prepared_target::PreparedTarget;
-    restarts::Int = default_restarts(),
+    restarts::AbstractRestarts = default_restarts(),
     iterations::Int = default_iterations(),
-    rng = Random.default_rng(),
     report_iteration::RI = no_report,
     report_restart::RR = no_report,
 ) where {RI, RR}
-    @argcheck restarts >= 0
     @argcheck iterations >= 1
 
     pc_source = PointCloud(source)
@@ -405,7 +400,6 @@ function register_kc(
         prepared_target,
         restarts,
         iterations,
-        rng,
         report_iteration,
         report_restart,
     )
@@ -416,7 +410,6 @@ function _register_kc(
     prepared_target::PreparedTarget{N, TT},
     restarts,
     iterations,
-    rng,
     report_iteration,
     report_restart,
 ) where {N, TS, TT}
@@ -426,7 +419,8 @@ function _register_kc(
     best = worst(transformation_type(Val(N), T))
     transformation = simple_transformation(source, target)
     kc = zero(T)
-    for restart in 0:restarts
+    restarts_iter = restarts_iterator(source, target, restarts)
+    for (restart, transformation) in enumerate(restarts_iter)
         for annealing_level in annealing_levels
             (; grid, convd_target, convd_weights_target) = annealing_level
             valid_idcs = CartesianIndices(size(grid))
@@ -478,7 +472,6 @@ function _register_kc(
         end
         best = better(best, TransformationWithCost(-kc, transformation))
         report_restart(; restart, cost = -kc, transformation)
-        transformation = rand_transformation(rng, source, target)
     end
 
     return LinearMap(axis_aligning_rotation') ∘ best.transformation

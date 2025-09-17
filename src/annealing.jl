@@ -36,9 +36,9 @@ DownTo(scale) = DownTo(scale, 5)
 const ScaleType =
     Union{T, <: AbstractVector{T}, TargetScales, DownTo{T}} where {T <: Real}
 
-annealing_plan(_, scale::Number) = tuple(scale^2)
+annealing_plan(::PointCloud{N, T}, scale::Number) where {N, T} = tuple(T(scale)^2)
 
-annealing_plan(_, scales::AbstractVector) = scales .^ 2
+annealing_plan(::PointCloud{N, T}, scales::AbstractVector) where {N, T} = T.(scales) .^ 2
 
 function annealing_plan(target, ann::TargetScales)
     hi = maximum(target.coveigvals)
@@ -46,8 +46,8 @@ function annealing_plan(target, ann::TargetScales)
     logrange(hi, lo; length = ann.steps)
 end
 
-function annealing_plan(target, ann::DownTo)
+function annealing_plan(target::PointCloud{N, T}, ann::DownTo) where {N, T}
     hi = maximum(target.coveigvals)
-    lo = ann.scale ^ 2
+    lo = T(ann.scale) ^ 2
     logrange(hi, lo; length = ann.steps)
 end
