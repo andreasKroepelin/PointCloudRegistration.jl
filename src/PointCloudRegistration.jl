@@ -9,7 +9,6 @@ using Distances
 using NearestNeighbors
 using LinearAlgebra
 using Random
-using Logging
 using Statistics
 using StatsBase
 using PrecompileTools: @compile_workload
