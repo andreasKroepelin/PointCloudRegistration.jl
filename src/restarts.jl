@@ -13,7 +13,11 @@ end
 RandomRestarts(n::Int) = RandomRestarts(n, Random.default_rng())
 RandomRestarts() = RandomRestarts(5)
 
-struct RandomRestartIterator{PS <: PointCloud, PT <: PointCloud, RR <: RandomRestarts}
+struct RandomRestartIterator{
+    PS <: PointCloud,
+    PT <: PointCloud,
+    RR <: RandomRestarts,
+}
     source::PS
     target::PT
     random_restarts::RR
@@ -38,6 +42,4 @@ function restarts_iterator(source, target, rr::RandomRestarts)
     RandomRestartIterator(source, target, rr)
 end
 
-function restarts_iterator(_source, _target, fr::FixedRestarts)
-    fr.transformations
-end
+restarts_iterator(_source, _target, fr::FixedRestarts) = fr.transformations

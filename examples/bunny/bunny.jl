@@ -26,8 +26,7 @@ pointclouds = Dict([
     let
         key = basename(chopsuffix(filename, ".ply"))
         key => pc_from_ply(filename)
-    end
-    for filename in plys
+    end for filename in plys
 ])
 
 # successes:
@@ -37,18 +36,22 @@ pointclouds = Dict([
 target_key = "bun045"
 target = pointclouds[target_key]
 source_keys = filter(!=(target_key), keys(pointclouds))
-prepd_target = prepare_target_kc(target; scale = DownTo(.001));
+prepd_target = prepare_target_kc(target; scale = DownTo(0.001));
 
 Ts = Dict([
     let
         @info "registering $key"
         source = pointclouds[key]
-        T = register_kc(source, prepd_target; restarts = PCReg.RandomRestarts(20))
+        T = register_kc(
+            source,
+            prepd_target;
+            restarts = PCReg.RandomRestarts(20),
+        )
         key => T
-    end
-    for key in source_keys
+    end for key in source_keys
 ])
-aligned_sources = Dict([key => Ts[key](pointclouds[key]) for key in source_keys])
+aligned_sources =
+    Dict([key => Ts[key](pointclouds[key]) for key in source_keys])
 
 let
     fig = Figure()
@@ -75,10 +78,15 @@ let source = pointclouds["top3"]
         deg2rad($(sg.sliders[2].value)),
         deg2rad($(sg.sliders[3].value)),
     )
-    initT = map(rot -> AffineMap(rot, target.mean - rot * source.mean), rotation)
+    initT =
+        map(rot -> AffineMap(rot, target.mean - rot * source.mean), rotation)
     T_source = Observable{PointCloud{3, Float32}}(source)
     on(btn.clicks) do _
-        T = register_kc(source, prepd_target; restarts = PCReg.FixedRestarts([initT[]]))
+        T = register_kc(
+            source,
+            prepd_target;
+            restarts = PCReg.FixedRestarts([initT[]]),
+        )
         T_source[] = T(source)
     end
     on(initT) do T
@@ -91,14 +99,17 @@ let source = pointclouds["top3"]
     fig
 end
 
-full_bunny = pc_from_ply(joinpath(bunny_dir, "bunny", "reconstruction", "bun_zipper.ply"))
+full_bunny = pc_from_ply(
+    joinpath(bunny_dir, "bunny", "reconstruction", "bun_zipper.ply"),
+)
 
 max_radius = sqrt(maximum(full_bunny.coveigvals))
 sections = map(1:100) do _
     center = rand(full_bunny.points)
-    sqradius = .1 * max_radius # (max_radius * rand(.2:.001:1.))^2
+    sqradius = 0.1 * max_radius # (max_radius * rand(.2:.001:1.))^2
     @info "radius" sqrt(sqradius)
-    selected_points = [p for p in full_bunny.points if sqeuclidean(p, center) <= sqradius]
+    selected_points =
+        [p for p in full_bunny.points if sqeuclidean(p, center) <= sqradius]
     PointCloud(selected_points)
 end
 
@@ -113,7 +124,14 @@ end
 let source = pointclouds["bun090"]
     features_source = PCReg.nn_features(source; nfeatures = 900)
     features_target = PCReg.nn_features(target; nfeatures = 900)
-    idcs_source, idcs_target = guess_correspondences(source, target, features_source, features_target; compatibility_deviation = .01, compatibility_coverage = 500)
+    idcs_source, idcs_target = guess_correspondences(
+        source,
+        target,
+        features_source,
+        features_target;
+        compatibility_deviation = 0.01,
+        compatibility_coverage = 500,
+    )
     source_sel = source[idcs_source]
     target_sel = target[idcs_target]
     @info "selected" source_sel target_sel
