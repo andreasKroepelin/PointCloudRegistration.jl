@@ -39,14 +39,12 @@ function register_gmc(
     source,
     target;
     scale::ScaleType = default_scale(),
-    restarts::Int = default_restarts(),
+    restarts::AbstractRestarts = default_restarts(),
     iterations::Int = default_iterations(),
-    rng = Random.default_rng(),
     # use type parameters `RI` and `RR` here to force specialization
     report_iteration::RI = no_report,
     report_restart::RR = no_report,
 ) where {RI, RR}
-    @argcheck restarts >= 0
     @argcheck iterations >= 1
 
     pc_source = PointCloud(source)
@@ -60,7 +58,6 @@ function register_gmc(
         sqscales,
         restarts,
         iterations,
-        rng,
         report_iteration,
         report_restart,
     )
@@ -72,7 +69,6 @@ function _register_gmc(
     sqscales,
     restarts,
     iterations,
-    rng,
     report_iteration,
     report_restart,
 ) where {N, TS, TT}
@@ -80,8 +76,8 @@ function _register_gmc(
 
     best = worst(transformation_type(Val(N), T))
     gm_cost = zero(T)
-    transformation = simple_transformation(source, target)
-    for restart in 0:restarts
+    restarts_iter = restarts_iterator(source, target, restarts)
+    for (restart, transformation) in enumerate(restarts_iter)
         for sqscale in sqscales
             # double `sqscale` such that the loss function has the same
             # quadratic behavior for small distances as the kernel correlation
@@ -138,7 +134,6 @@ function _register_gmc(
         end
         best = better(best, TransformationWithCost(gm_cost, transformation))
         report_restart(; restart, cost = gm_cost, transformation)
-        transformation = rand_transformation(rng, source, target)
     end
 
     return best.transformation

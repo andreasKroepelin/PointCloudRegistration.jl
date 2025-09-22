@@ -1,5 +1,5 @@
 default_iterations() = 50
-default_restarts() = 5
+default_restarts() = RandomRestarts(5)
 default_scale() = TargetScales()
 
 @inline no_report(; kwargs...) = nothing
