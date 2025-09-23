@@ -24,7 +24,6 @@ id_X = "1ig9_A"
 # id_Y = "1ysy_A"
 # id_X = "2ahm_D"
 
-
 pdb_Y = retrievepdb(split(id_Y, "_")[1]; dir = tempdir())[split(id_Y, "_")[2]]
 pdb_X = retrievepdb(split(id_X, "_")[1]; dir = tempdir())[split(id_X, "_")[2]]
 Y, X = aligned_atoms(pdb_Y, pdb_X, notwaterselector)
@@ -61,20 +60,34 @@ arrows3d(Y.points, X.points .- Ts.kc(Y).points; markerscale = 5)
 
 norms = map(T -> norm.(X.points .- T(Y).points), Ts)
 maxnorm = maximum(maximum, norms)
-edges = range(0, maxnorm, length = 50)
+edges = range(0, maxnorm; length = 50)
 norm_hists = map(ns -> fit(Histogram, ns, edges), norms)
 
-mids(es) = es[begin:end - 1] .+ diff(es) ./ 2
+mids(es) = es[begin:(end - 1)] .+ diff(es) ./ 2
 
 let
     fig = Figure()
     methods = [:gmc, :rmsd, :kc]
-    offsets = cumsum([-.5 * maximum(norm_hists[m].weights) for m in methods])
-    ax = Axis(fig[1, 1], title = "$id_Y \u2194 $id_X", yticks = offsets, yticklabelsvisible = false, ylabel = "frequency", xlabel = "distance of corresponding atoms [Å]")
+    offsets = cumsum([-0.5 * maximum(norm_hists[m].weights) for m in methods])
+    ax = Axis(
+        fig[1, 1];
+        title = "$id_Y \u2194 $id_X",
+        yticks = offsets,
+        yticklabelsvisible = false,
+        ylabel = "frequency",
+        xlabel = "distance of corresponding atoms [Å]",
+    )
     for (i, method) in enumerate(methods)
         offset = offsets[i]
         xs = mids(norm_hists[method].edges...) # .* 0.1u"nm"
-        band!(ax, xs, offset, offset .+ norm_hists[method].weights; alpha = .8, label = string(method))
+        band!(
+            ax,
+            xs,
+            offset,
+            offset .+ norm_hists[method].weights;
+            alpha = 0.8,
+            label = string(method),
+        )
         lines!(ax, xs, offset .+ norm_hists[method].weights; linewidth = 3)
     end
     axislegend(ax)
