@@ -24,7 +24,9 @@ export PointCloud,
     BestTransformation,
     AllTransformations,
     DownTo,
-    TargetScales
+    TargetScales,
+    RandomRestarts,
+    FixedRestarts
 
 public VecOfSVec
 
