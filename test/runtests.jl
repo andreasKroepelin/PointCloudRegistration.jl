@@ -295,7 +295,11 @@ end
     rng = Random.Xoshiro(136)
     for _ in 1:10
         T_true = PCReg.rand_transformation(rng, pc_1ake, pc_1ake)
-        T = register_kc(inv(T_true)(pc_1ake), prep_1ake; restarts = 20, rng)
+        T = register_kc(
+            inv(T_true)(pc_1ake),
+            prep_1ake;
+            restarts = RandomRestarts(20, rng),
+        )
         @test isapprox(T_true, T, rtol = 5e-2)
     end
 
