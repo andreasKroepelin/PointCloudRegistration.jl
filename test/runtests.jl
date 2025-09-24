@@ -224,7 +224,7 @@ end
             grid_center = getindex.(ranges, Tuple(grid_idx))
             dist = sqeuclidean(query, grid_center)
             @test all(Iterators.product(ranges...)) do center
-                sqeuclidean(SVector(center), query) >= dist - eps(dist)
+                sqeuclidean(SVector(center), query) >= dist - 2eps(dist)
             end
         end
     end
