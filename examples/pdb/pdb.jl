@@ -3,6 +3,7 @@ using BioStructures
 using BioSequences
 using BioAlignments
 using StatsBase
+using LinearAlgebra
 using PointCloudRegistration
 using GLMakie
 using GLMakie.Makie.Unitful
@@ -32,6 +33,7 @@ Ts = (
     rmsd = register_rmsd(Y, X),
     gmc = register_gmc(Y, X),
     kc = register_kc(Y, X; restarts = RandomRestarts(100)),
+    icp = register_icp(Y, X; restarts = RandomRestarts(1000)),
 )
 
 function show_both(X, Y)
@@ -55,8 +57,9 @@ end
 show_both(X, Ts.rmsd(Y))
 show_both(X, Ts.gmc(Y))
 show_both(X, Ts.kc(Y))
+show_both(X, Ts.icp(Y))
 
-arrows3d(Y.points, X.points .- Ts.kc(Y).points; markerscale = 5)
+arrows3d(Y.points, X.points .- Ts.icp(Y).points; markerscale = 5)
 
 norms = map(T -> norm.(X.points .- T(Y).points), Ts)
 maxnorm = maximum(maximum, norms)
@@ -67,7 +70,7 @@ mids(es) = es[begin:(end - 1)] .+ diff(es) ./ 2
 
 let
     fig = Figure()
-    methods = [:gmc, :rmsd, :kc]
+    methods = [:gmc, :rmsd, :kc, :icp]
     offsets = cumsum([-0.5 * maximum(norm_hists[m].weights) for m in methods])
     ax = Axis(
         fig[1, 1];
