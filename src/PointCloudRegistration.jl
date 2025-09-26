@@ -18,6 +18,7 @@ export PointCloud,
     register_rmsd,
     register_gmc,
     register_kc,
+    register_icp,
     register_cpd,
     prepare_target_kc,
     guess_correspondences,
@@ -39,6 +40,7 @@ include("accumulation.jl")
 include("kabsch.jl")
 include("robust.jl")
 include("kernel_correlation.jl")
+include("iterative_closest_point.jl")
 include("coherent_point_drift.jl")
 include("guess_correspondences.jl")
 
