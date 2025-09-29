@@ -4,14 +4,19 @@ using BioSequences
 using BioAlignments
 using StatsBase
 using LinearAlgebra
+using Random
 using PointCloudRegistration
+using PointCloudRegistration.Rotations
+import PointCloudRegistration as PCReg
+using DataFrames
 using GLMakie
 using GLMakie.Makie.Unitful
+using ProgressMeter
 
 includet("alignment.jl")
 
-id_Y = "1ih7_A"
-id_X = "1ig9_A"
+# id_Y = "1ih7_A"
+# id_X = "1ig9_A"
 
 # id_Y = "1q9y_A"
 # id_X = "1q9x_B"
@@ -19,8 +24,8 @@ id_X = "1ig9_A"
 # id_Y = "1su4_A"
 # id_X = "1iwo_A"
 
-# id_Y = "1ake_A"
-# id_X = "4ake_A"
+id_Y = "1ake_A"
+id_X = "4ake_A"
 
 # id_Y = "1ysy_A"
 # id_X = "2ahm_D"
@@ -54,6 +59,7 @@ function show_both(X, Y)
     fig
 end
 
+show_both(X, Y)
 show_both(X, Ts.rmsd(Y))
 show_both(X, Ts.gmc(Y))
 show_both(X, Ts.kc(Y))
@@ -94,5 +100,73 @@ let
         lines!(ax, xs, offset .+ norm_hists[method].weights; linewidth = 3)
     end
     axislegend(ax)
+    fig
+end
+
+data = let # X = PCReg.rand_transformation(Xoshiro(-2), Y, X)(X)
+    scale = DownTo(PCReg.avg_nn_dist(X))
+    prepd_X = prepare_target_kc(X)
+    Ts_global = (
+        gmc = register_gmc(Y, X; scale, restarts = RandomRestarts(10_000)),
+        kc = register_kc(Y, prepd_X; restarts = RandomRestarts(10_000)),
+        icp = register_icp(Y, X; restarts = RandomRestarts(10_000)),
+    )
+    inv_Ts_global = map(inv, Ts_global)
+    rows = []
+    @showprogress for nr in round.(Int, logrange(1, 10_000, length = 20))
+        seeds = min(10_000 ÷ nr, 100)
+        for seed in 1:seeds
+            rng = Xoshiro(seed)
+            inits = [PCReg.rand_transformation(rng, Y, X) for _ in 1:nr]
+            restarts = FixedRestarts(Vector{typeof(first(Ts_global))}(inits))
+            Ts = (;
+                gmc = register_gmc(Y, X; scale, restarts),
+                kc = register_kc(Y, prepd_X; restarts),
+                icp = register_icp(Y, X; restarts),
+            )
+            diff_Ts = map(∘, Ts, inv_Ts_global)
+            angles = map(rad2deg ∘ rotation_angle ∘ RotMatrix ∘ (T -> T.linear), diff_Ts)
+            norms = map(norm ∘ (T -> T.translation), diff_Ts)
+            frobs = map(Ts, Ts_global) do T, T_global
+                norm(vec(T.linear .- T_global.linear)) + norm(T.translation - T_global.translation)
+            end
+            for method in keys(Ts)
+                push!(rows, (;
+                    angle = angles[method],
+                    norm = norms[method],
+                    frob = frobs[method],
+                    method,
+                    restarts = nr,
+                ))
+            end
+        end
+    end
+    DataFrame(rows)
+end
+
+grouped = groupby(data, [:restarts, :method])
+stats = combine(
+    grouped,
+    :angle => mean,
+    :angle => std,
+    :angle => maximum,
+    :norm => mean,
+    :norm => std,
+    :norm => maximum,
+    :frob => mean,
+    :frob => std,
+    :frob => maximum,
+    # :angle => quartile1,
+    # :angle => quartile3,
+)
+
+let
+    fig = Figure()
+    ax = Axis(fig[1, 1])
+    for method in (:gmc, :kc, :icp)
+        # TODO: plot per method
+        scatterlines!(ax, stats.restarts, stats.angle_mean)
+        band!(ax, stats.restarts, stats.angle_mean .- stats.angle_std, stats.angle_mean .+ stats.angle_std)
+    end
     fig
 end
