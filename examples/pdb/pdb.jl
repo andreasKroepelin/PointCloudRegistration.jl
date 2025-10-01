@@ -21,11 +21,11 @@ includet("alignment.jl")
 # id_Y = "1q9y_A"
 # id_X = "1q9x_B"
 
-# id_Y = "1su4_A"
-# id_X = "1iwo_A"
+id_Y = "1su4_A"
+id_X = "1iwo_A"
 
-id_Y = "1ake_A"
-id_X = "4ake_A"
+# id_Y = "1ake_A"
+# id_X = "4ake_A"
 
 # id_Y = "1ysy_A"
 # id_X = "2ahm_D"
@@ -106,10 +106,11 @@ end
 data = let # X = PCReg.rand_transformation(Xoshiro(-2), Y, X)(X)
     scale = DownTo(PCReg.avg_nn_dist(X))
     prepd_X = prepare_target_kc(X)
+    rr() = RandomRestarts(100_000, Xoshiro(1))
     Ts_global = (
-        gmc = register_gmc(Y, X; scale, restarts = RandomRestarts(10_000)),
-        kc = register_kc(Y, prepd_X; restarts = RandomRestarts(10_000)),
-        icp = register_icp(Y, X; restarts = RandomRestarts(10_000)),
+        gmc = register_gmc(Y, X; scale, restarts = rr()),
+        kc = register_kc(Y, prepd_X; restarts = rr()),
+        icp = register_icp(Y, X; restarts = rr()),
     )
     inv_Ts_global = map(inv, Ts_global)
     rows = []
@@ -118,31 +119,42 @@ data = let # X = PCReg.rand_transformation(Xoshiro(-2), Y, X)(X)
         for seed in 1:seeds
             rng = Xoshiro(seed)
             inits = [PCReg.rand_transformation(rng, Y, X) for _ in 1:nr]
-            restarts = FixedRestarts(Vector{typeof(first(Ts_global))}(inits))
+            restarts =
+                FixedRestarts(Vector{typeof(first(Ts_global))}(inits))
             Ts = (;
                 gmc = register_gmc(Y, X; scale, restarts),
                 kc = register_kc(Y, prepd_X; restarts),
                 icp = register_icp(Y, X; restarts),
             )
             diff_Ts = map(∘, Ts, inv_Ts_global)
-            angles = map(rad2deg ∘ rotation_angle ∘ RotMatrix ∘ (T -> T.linear), diff_Ts)
+            angles = map(
+                rad2deg ∘ rotation_angle ∘ RotMatrix ∘ (T -> T.linear),
+                diff_Ts,
+            )
             norms = map(norm ∘ (T -> T.translation), diff_Ts)
             frobs = map(Ts, Ts_global) do T, T_global
-                norm(vec(T.linear .- T_global.linear)) + norm(T.translation - T_global.translation)
+                norm(vec(T.linear .- T_global.linear)) +
+                norm(T.translation - T_global.translation)
             end
             for method in keys(Ts)
-                push!(rows, (;
-                    angle = angles[method],
-                    norm = norms[method],
-                    frob = frobs[method],
-                    method,
-                    restarts = nr,
-                ))
+                push!(
+                    rows,
+                    (;
+                        angle = angles[method],
+                        norm = norms[method],
+                        frob = frobs[method],
+                        method,
+                        restarts = nr,
+                    ),
+                )
             end
         end
     end
     DataFrame(rows)
 end
+
+quartile1(x) = quantile(x, 1//4)
+quartile3(x) = quantile(x, 3//4)
 
 grouped = groupby(data, [:restarts, :method])
 stats = combine(
@@ -156,17 +168,24 @@ stats = combine(
     :frob => mean,
     :frob => std,
     :frob => maximum,
-    # :angle => quartile1,
-    # :angle => quartile3,
+    :angle => quartile1,
+    :angle => quartile3,
+    :angle => median,
+    :angle => minimum,
 )
 
 let
     fig = Figure()
-    ax = Axis(fig[1, 1])
-    for method in (:gmc, :kc, :icp)
-        # TODO: plot per method
-        scatterlines!(ax, stats.restarts, stats.angle_mean)
-        band!(ax, stats.restarts, stats.angle_mean .- stats.angle_std, stats.angle_mean .+ stats.angle_std)
+    ax = Axis(fig[1, 1]; xscale = log10, title = "$id_Y \u2194 $id_X")
+    methods = (:gmc, :kc, :icp)
+    stats_method = map(methods) do method
+        subset(stats, :method => (m -> m .== method))
     end
+    for (i, method) in enumerate(methods)
+        s = stats_method[i]
+        band!(ax, s.restarts, s.angle_quartile1, s.angle_quartile3; alpha = .5)
+        scatterlines!(ax, s.restarts, s.angle_median, label = string(method))
+    end
+    axislegend(ax)
     fig
 end
