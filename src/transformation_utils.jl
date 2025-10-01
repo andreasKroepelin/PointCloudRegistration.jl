@@ -23,7 +23,11 @@ function transformation_type(a, b)
     AffineMap{rotation_type(a, b), translation_type(a, b)}
 end
 
-function rand_rotation(rng, source::PointCloud{N}, target::PointCloud{N}) where {N}
+function rand_rotation(
+    rng,
+    source::PointCloud{N},
+    target::PointCloud{N},
+) where {N}
     rand_rotation(rng, rotation_type(source, target))
 end
 

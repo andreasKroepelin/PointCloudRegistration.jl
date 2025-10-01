@@ -1,6 +1,6 @@
-struct PreparedSourceCPD{N, T, PC <: PointCloud{N, T}}
+struct PreparedSourceCPD{N, T, PC <: PointCloud{N, T}, G <: Matrix}
     source::PC
-    gram::Matrix{T}
+    gram::G
 end
 
 function prepare_source_cpd(
@@ -8,8 +8,13 @@ function prepare_source_cpd(
     regularizer_lengthscale,
 ) where {N, T}
     neginv2sqregscale = -inv(2 * regularizer_lengthscale^2)
-    G = pairwise(sqeuclidean, source.points)
-    G .= exp.(neginv2sqregscale .* G)
+    # GT = exp(neginv2sqregscale * sqeuclidean())
+    G = map(Iterators.product(source.points, source.points)) do (x, y)
+        exp(neginv2sqregscale * sqeuclidean(x, y))
+    end
+    # G = Matrix{}
+    # sqdists = pairwise(sqeuclidean, source.points)
+    # G = exp.(neginv2sqregscale .* sqdists)
     PreparedSourceCPD(source, G)
 end
 
@@ -60,6 +65,7 @@ function _register_cpd(
     outlier_proportion,
     regularizer_strength,
 ) where {N, T}
+    T1 = typeof(one(T))
     source = prepd_source.source
     displacement_spanning_set = [zero(src) for src in source.points]
     displaced_source = [zero(src) for src in source.points]
@@ -71,10 +77,11 @@ function _register_cpd(
         sqrt(2pi * sqscale) ^ N *
         length(source.points) / length(target.points)
     )
+    @info "type" outlier_term
 
-    P = zeros(T, length(target.points), length(source.points))
-    P_rowsums = zeros(T, length(target.points), 1)
-    P_colsums = zeros(T, 1, length(source.points))
+    P = zeros(T1, length(target.points), length(source.points))
+    P_rowsums = zeros(T1, length(target.points), 1)
+    P_colsums = zeros(T1, 1, length(source.points))
     GP = similar(prepd_source.gram)
     w = similar(prepd_source.gram, length(source.points))
     d = similar(prepd_source.gram, length(source.points))
@@ -87,8 +94,16 @@ function _register_cpd(
             coeffs = @view prepd_source.gram[:, j]
             displaced_source[j] = src + wsum(displacement_spanning_set, coeffs)
         end
-        pairwise!(P, sqeuclidean, target.points, displaced_source)
-        P .= exp.(neginv2sqscale .* P)
+        for ci in CartesianIndices(P)
+            i, j = Tuple(ci)
+            sqdist = sqeuclidean(target.points[i], displaced_source[j])
+            P[ci] = exp(neginv2sqscale * sqdist)
+        end
+        # map!(P, Iterators.product(target.points, displaced_source)) do (x, y)
+        #                                     exp(neginv2sqscale * sqeuclidean(x, y))
+        #                                                     end
+        # pairwise!(P, sqeuclidean, target.points, displaced_source)
+        # P .= exp.(neginv2sqscale .* P)
         sum!(P_rowsums, P)
         P ./= P_rowsums .+ outlier_term
 

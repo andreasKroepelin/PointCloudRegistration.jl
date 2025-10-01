@@ -169,7 +169,6 @@ function PointCloud(points::VecOfSVec, weights::AbstractVector)
     @argcheck all(>=(0), weights) "weights must be non-negative"
     mean, cov, sum_of_weights = mean_cov_sumw(points, weights)
     @argcheck sum_of_weights > 0 "weights cannot all be zero"
-    @info "found mean and cov" mean cov
     unit = oneunit(eltype(cov))
     coveig = eigen(cov ./ unit)
     PointCloud(

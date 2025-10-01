@@ -4,7 +4,8 @@ end
 
 mm_weight(gm::GemanMcclure, x::AbstractVector, y::AbstractVector) =
     mm_weight(gm, sqeuclidean(x, y))
-mm_weight(gm::GemanMcclure, sqdist::Number) = gm.sqscale / (gm.sqscale + sqdist)^2
+mm_weight(gm::GemanMcclure, sqdist::Number) =
+    gm.sqscale / (gm.sqscale + sqdist)^2
 
 function mm_weight_type(gm::GemanMcclure, Y::PointCloud, X::PointCloud)
     typeof(mm_weight(gm, first(Y.points), first(X.points)))
@@ -14,7 +15,8 @@ cost(gm::GemanMcclure, x::AbstractVector, y::AbstractVector) =
     cost(gm, sqeuclidean(x, y))
 cost(gm::GemanMcclure, sqdist::Number) = sqdist / (gm.sqscale + sqdist)
 
-cost_type(gm::GemanMcclure, Y::PointCloud, X::PointCloud) = typeof(cost(gm, first(Y.points), first(X.points)))
+cost_type(gm::GemanMcclure, Y::PointCloud, X::PointCloud) =
+    typeof(cost(gm, first(Y.points), first(X.points)))
 
 """
     register_gmc(source, target[; scale, restarts, iterations, rng, accumulator])
@@ -70,18 +72,21 @@ function register_gmc(
 end
 
 function _register_gmc(
-    source::PointCloud{N, TS},
-    target::PointCloud{N, TT},
+    source::PointCloud{N},
+    target::PointCloud{N},
     sqscales,
     restarts,
     iterations,
     report_iteration,
     report_restart,
-) where {N, TS, TT}
-    T = promote_type(TS, TT)
-
-    best = worst(transformation_type(source, target))
-    gm_cost = zero(T)
+) where {N}
+    gm = GemanMcclure(oneunit(eltype(sqscales)))
+    SrcT = eltype(source.points)
+    TrgT = eltype(target.points)
+    CostT = cost_type(gm, source, target)
+    WeightT = mm_weight_type(gm, source, target)
+    best = worst(CostT, transformation_type(source, target))
+    gm_cost = zero(CostT)
     restarts_iter = restarts_iterator(source, target, restarts)
     for (restart, transformation) in enumerate(restarts_iter)
         for sqscale in sqscales
@@ -91,11 +96,11 @@ function _register_gmc(
             gm = GemanMcclure(2sqscale)
             prev_transformation = identity_transformation(transformation)
             for iter in 1:iterations
-                sum_w = zero(mm_weight_type(gm, source, target))
-                source_mean = sum_w * zero(eltype(source.points))
-                target_mean = sum_w * zero(eltype(target.points))
-                covariance = zero(rotation_type(source, target))
-                gm_cost = zero(cost_type(gm, source, target))
+                sum_w = zero(WeightT)
+                source_mean = sum_w * zero(SrcT)
+                target_mean = sum_w * zero(TrgT)
+                covariance = sum_w * zero(TrgT) * zero(SrcT)'
+                gm_cost = zero(CostT)
 
                 correspondences = zip(
                     source.points,

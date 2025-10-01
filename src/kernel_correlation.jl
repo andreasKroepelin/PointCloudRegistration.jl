@@ -3,10 +3,10 @@
 const GRID_CELLS_PER_STD = 4
 const GRID_MARGIN_PER_STD = 3
 
-struct Grid{N, T}
+struct Grid{N, T, InvT}
     lo::SVector{N, T}
     hi::SVector{N, T}
-    invΔ::T
+    invΔ::InvT
     size::NTuple{N, Int}
 
     function Grid(lo::SVector{N}, hi::SVector{N}, Δ) where {N}
@@ -15,8 +15,9 @@ struct Grid{N, T}
         sz = ceil.(Int, (hi - lo) * invΔ)
         # make sure that each grid edge length is actually a multiple of Δ
         adjusted_hi = lo .+ sz .* Δ
-        T = promote_type(eltype(lo), eltype(adjusted_hi), typeof(invΔ))
-        new{N, T}(lo, adjusted_hi, invΔ, Tuple(sz) .+ 1)
+        T = promote_type(eltype(lo), eltype(adjusted_hi))
+        InvT = typeof(invΔ)
+        new{N, T, InvT}(lo, adjusted_hi, invΔ, Tuple(sz) .+ 1)
     end
 end
 
@@ -83,28 +84,35 @@ function SetsOfSlices(idcs::Vector{CartesianIndex{N}}) where {N}
     SetsOfSlices(map(collect, sets))
 end
 
-struct KdeComputation{N, T <: Real, SOS <: SetsOfSlices{N}}
-    grid::Grid{N, T}
+struct KdeComputation{
+    N,
+    T <: Number,
+    G <: Grid{N},
+    SOS <: SetsOfSlices{N},
+    Gau <: Vector{<: Number},
+}
+    grid::G
     grid_idcs::Vector{CartesianIndex{N}}
     sets_of_slices::SOS
     buffer1::Array{T, N}
     buffer2::Array{T, N}
-    gaussian::Vector{T}
+    gaussian::Gau
 
     function KdeComputation(
-        points::VecOfSVec{N, T},
-        grid::Grid{N, T},
-        sqsigma::T,
-    ) where {N, T}
+        points::VecOfSVec{N, TU},
+        grid::Grid{N, TU},
+        T::Type{<: Number},
+    ) where {N, TU}
         grid_idcs = idx_on_grid.(points, (grid,))
         sets_of_slices = SetsOfSlices(grid_idcs)
-        new{N, T, typeof(sets_of_slices)}(
+        gaussian = compute_gaussians(typeof(one(T)))
+        new{N, T, typeof(grid), typeof(sets_of_slices), typeof(gaussian)}(
             grid,
             grid_idcs,
             sets_of_slices,
             Array{T, N}(undef, size(grid)),
             Array{T, N}(undef, size(grid)),
-            compute_gaussians(T),
+            gaussian,
         )
     end
 end
@@ -144,7 +152,7 @@ tail_idcs(ci::CartesianIndices) = CartesianIndices(Base.tail(ci.indices))
 
 @generated function (kde!::KdeComputation{N, T})(
     res::AbstractArray{T, N},
-    weights::AbstractVector{<:Real},
+    weights::AbstractVector{<:Number},
 ) where {N, T}
     init = quote
         (; grid, grid_idcs, sets_of_slices, buffer1, buffer2, gaussian) = kde!
@@ -177,20 +185,20 @@ end
 
 struct AnnealingLevel{
     N,
-    T,
-    CT <: AbstractArray{<:SVector{N, T}, N},
-    CWT <: AbstractArray{T, N},
+    G <: Grid{N},
+    CT <: AbstractArray{<:SVector{N, <: Number}, N},
+    CWT <: AbstractArray{<: Number, N},
 }
-    grid::Grid{N, T}
+    grid::G
     convd_target::CT
     convd_weights_target::CWT
 
     function AnnealingLevel(
-        grid::Grid{N, T},
+        grid::Grid{N},
         convd_target,
         convd_weights_target,
-    ) where {N, T}
-        new{N, T, typeof(convd_target), typeof(convd_weights_target)}(
+    ) where {N}
+        new{N, typeof(grid), typeof(convd_target), typeof(convd_weights_target)}(
             grid,
             convd_target,
             convd_weights_target,
@@ -216,11 +224,14 @@ function AnnealingLevel(
         SVector{N, eltype(target)},
         zeros(eltype(target), N, size(grid)...),
     )
-    convd_weights_target = zeros(eltype(target), size(grid)...)
-    kde! = KdeComputation(target.points, grid, sqscale)
+    convd_weights_target = zeros(typeof(one(eltype(target))), size(grid)...)
+    kde_convd_weights_target! =
+        KdeComputation(target.points, grid, eltype(convd_weights_target))
+    kde_convd_target! =
+        KdeComputation(target.points, grid, eltype(parent(convd_target)))
 
-    kde!(convd_weights_target, target.weights)
-    kde!.(
+    kde_convd_weights_target!(convd_weights_target, target.weights)
+    kde_convd_target!.(
         eachslice(parent(convd_target); dims = 1),
         eachrow(
             reinterpret(
@@ -249,7 +260,7 @@ function eval_kernel_correlation(
     transformation,
 )
     valid_idcs = CartesianIndices(size(al.grid))
-    kc = zero(eltype(source))
+    kc = zero(eltype(source.weights)) * zero(eltype(al.convd_weights_target))
     for j in eachindex(source.points, source.weights)
         src = source.points[j]
         w_src = source.weights[j]
@@ -275,7 +286,7 @@ end
 struct PreparedTarget{
     N,
     T,
-    R <: SMatrix{N, N, T},
+    R <: SMatrix{N, N},
     Al <: AnnealingLevel,
     PC <: PointCloud{N, T},
 }
@@ -406,19 +417,25 @@ function register_kc(
 end
 
 function _register_kc(
-    source::PointCloud{N, TS},
-    prepared_target::PreparedTarget{N, TT},
+    source::PointCloud{N},
+    prepared_target::PreparedTarget{N},
     restarts,
     iterations,
     report_iteration,
     report_restart,
-) where {N, TS, TT}
-    T = promote_type(TS, TT)
+) where {N}
     (; annealing_levels, target, axis_aligning_rotation) = prepared_target
 
-    best = worst(transformation_type(Val(N), T))
-    transformation = simple_transformation(source, target)
-    kc = zero(T)
+    SrcT = eltype(source.points)
+    TrgT = eltype(target.points)
+    SrcWT = eltype(source.weights)
+    TrgWT = eltype(target.weights)
+    CostT = typeof(
+        zero(SrcWT) *
+        zero(eltype(first(annealing_levels).convd_weights_target)),
+    )
+    best = worst(CostT, transformation_type(source, target))
+    kc = zero(CostT)
     restarts_iter = restarts_iterator(source, target, restarts)
     for (restart, transformation) in enumerate(restarts_iter)
         for annealing_level in annealing_levels
@@ -429,8 +446,8 @@ function _register_kc(
             for iter in 1:iterations
                 target_mean = zero(eltype(target.points))
                 source_mean = zero(eltype(source.points))
-                covariance = zero(rotation_type(source, target))
-                kc = zero(T)
+                covariance = target_mean * source_mean'
+                kc = zero(CostT)
                 for j in eachindex(source.points)
                     src = source.points[j]
                     transformed_src = transformation(src)

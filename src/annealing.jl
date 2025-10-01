@@ -55,5 +55,5 @@ _logrange(start::Real, stop::Real; length) = logrange(start, stop; length)
 # Fallback for types not covered by stdlib logrange
 function _logrange(start::Number, stop::Number; length)
     factor = (stop / start)^inv(length - 1)
-    start .* factor .^ (0:length - 1)
+    start .* factor .^ (0:(length - 1))
 end

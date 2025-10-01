@@ -1,4 +1,4 @@
-struct TransformationWithCost{T <: Real, A <: AffineMap}
+struct TransformationWithCost{T <: Number, A <: AffineMap}
     cost::T
     transformation::A
 end
@@ -14,8 +14,6 @@ function better(
     end
 end
 
-function worst(
-    A::Type{<:AffineMap{<:AbstractMatrix{TL}, <:AbstractVector{TT}}},
-) where {TL, TT}
-    TransformationWithCost(typemax(TL), identity_transformation(A))
+function worst(C::Type{<: Number}, A::Type{<:AffineMap})
+    TransformationWithCost(typemax(C), identity_transformation(A))
 end
