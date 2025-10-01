@@ -13,13 +13,10 @@ end
 function report_iteration(; iter, cost, kwargs...)
     global correspondences
     global distances
-    push!(correspondence_collection, (;
-        restart = current_restart,
-        iter,
-        cost,
-        correspondences,
-        distances
-    ))
+    push!(
+        correspondence_collection,
+        (; restart = current_restart, iter, cost, correspondences, distances),
+    )
     correspondences = Tuple{Int, Int}[]
     distances = Float64[]
 end
@@ -34,7 +31,15 @@ correspondence_collection = []
 correspondences = Tuple{Int, Int}[]
 distances = Float64[]
 current_restart = 0
-register_icp(pc_1ake, pc_4ake; dist_cutoff = 3., restarts = FixedRestarts([good_T]), report_pair, report_iteration, report_restart)
+register_icp(
+    pc_1ake,
+    pc_4ake;
+    dist_cutoff = 3.0,
+    restarts = FixedRestarts([good_T]),
+    report_pair,
+    report_iteration,
+    report_restart,
+)
 
 correspondence_collection
 
@@ -43,7 +48,14 @@ let
     sl = Slider(fig[2, 1]; range = eachindex(correspondence_collection))
     title = map(sl.value) do idx
         cc = correspondence_collection[idx]
-        string("restart: ", cc.restart, " iteration: ", cc.iter, " cost: ", cc.cost)
+        string(
+            "restart: ",
+            cc.restart,
+            " iteration: ",
+            cc.iter,
+            " cost: ",
+            cc.cost,
+        )
     end
     ax = Axis(fig[1, 1]; autolimitaspect = 1, title)
     to_plot = @lift correspondence_collection[$(sl.value)].correspondences
