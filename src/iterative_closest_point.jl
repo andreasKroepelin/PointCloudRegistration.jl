@@ -70,7 +70,7 @@ function _register_icp(
                 sum_w += w
                 cost += dist^2
 
-                report_pair(; source_idx=j,target_idx=i,dist)
+                report_pair(; source_idx = j, target_idx = i, dist)
             end
             source_mean /= sum_w
             target_mean /= sum_w
