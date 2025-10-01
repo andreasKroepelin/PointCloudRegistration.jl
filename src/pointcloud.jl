@@ -47,7 +47,7 @@ to_vec_of_svec(arg::Any) = throw(
 )
 
 function mean_cov_sumw(points, weights)
-    sum_w = zero(eltype(eltype(points)))
+    sum_w = zero(one(eltype(eltype(points))))
     mean = zero(eltype(points))
     cov = mean * mean'
 
@@ -148,14 +148,15 @@ struct PointCloud{
     P <: VecOfSVec{N, T},
     WT,
     W <: AbstractVector,
-    EV <: SMatrix{N, N, T},
+    EVL <: SMatrix{N, N},
+    EVC <: SVector{N},
 } <: AbstractMatrix{T}
     points::P
     weights::W
     sum_of_weights::WT
     mean::SVector{N, T}
-    coveigvecs::EV
-    coveigvals::SVector{N, T}
+    coveigvecs::EVL
+    coveigvals::EVC
 end
 
 """
@@ -168,14 +169,16 @@ function PointCloud(points::VecOfSVec, weights::AbstractVector)
     @argcheck all(>=(0), weights) "weights must be non-negative"
     mean, cov, sum_of_weights = mean_cov_sumw(points, weights)
     @argcheck sum_of_weights > 0 "weights cannot all be zero"
-    coveig = eigen(cov)
+    @info "found mean and cov" mean cov
+    unit = oneunit(eltype(cov))
+    coveig = eigen(cov ./ unit)
     PointCloud(
         points,
         weights,
         sum_of_weights,
         mean,
         coveig.vectors,
-        coveig.values,
+        coveig.values .* unit,
     )
 end
 

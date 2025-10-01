@@ -1,5 +1,5 @@
 function transformation_from_moments(covariance, source_mean, target_mean)
-    (; U, Vt) = svd(covariance)
+    (; U, Vt) = svd(covariance ./ oneunit(eltype(covariance)))
     if xor(det(U) < 0, det(Vt) < 0)
         U = negative_last_column(U)
     end
@@ -53,7 +53,7 @@ function _register_rmsd(
 ) where {N, TS, TT}
     @argcheck length(source.points) == length(target.points)
     T = promote_type(TS, TT)
-    covariance = zero(SMatrix{N, N, T})
+    covariance = zero_cov(source, target)
     for i in eachindex(source.points)
         src = source.points[i] - source.mean
         trg = target.points[i] - target.mean

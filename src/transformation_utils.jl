@@ -3,7 +3,8 @@ function rotation_type(
     target::PointCloud{N, TT},
 ) where {N, TS, TT}
     T = promote_type(TS, TT)
-    rotation_type(Val(N), T)
+    T1 = typeof(one(T))
+    rotation_type(Val(N), T1)
 end
 
 rotation_type(::Val{N}, ::Type{T}) where {N, T} = SMatrix{N, N, T, N * N}
@@ -22,8 +23,12 @@ function transformation_type(a, b)
     AffineMap{rotation_type(a, b), translation_type(a, b)}
 end
 
-function rand_rotation(rng, ::PointCloud{N, T}, ::PointCloud{N, T}) where {N, T}
-    rand_rotation(rng, Val(N), T)
+function rand_rotation(rng, source::PointCloud{N}, target::PointCloud{N}) where {N}
+    rand_rotation(rng, rotation_type(source, target))
+end
+
+function rand_rotation(rng, SM::Type{<: SMatrix{N, N, T}}) where {N, T}
+    rand(rng, RotMatrix{N, T}) |> SM
 end
 
 function rand_rotation(rng, ::Val{N}, ::Type{T}) where {N, T}
@@ -45,10 +50,10 @@ function rand_transformation(
 end
 
 function simple_transformation(
-    source::PointCloud{N, T},
-    target::PointCloud{N, T},
-) where {N, T}
-    rotation = one(rotation_type(Val(N), T))
+    source::PointCloud{N},
+    target::PointCloud{N},
+) where {N}
+    rotation = one(rotation_type(source, target))
     translation = target.mean - rotation * source.mean
     AffineMap(rotation, translation)::transformation_type(source, target)
 end

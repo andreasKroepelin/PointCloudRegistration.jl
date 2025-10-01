@@ -14,6 +14,12 @@ function wsum(f, points::VecOfSVec, weights)
     s
 end
 
+function zero_cov(source::PointCloud{N}, target::PointCloud{N}) where {N}
+    a = zero(eltype(target.points))
+    b = zero(eltype(source.points))
+    zero(a * b')
+end
+
 const REGISTER_DOCS_START = """
 Find a [`CoordinateTransformations.AffineMap`](@extref) that rotates and
 translates `source` in a way that """

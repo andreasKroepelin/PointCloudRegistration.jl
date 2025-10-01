@@ -15,7 +15,7 @@ function better(
 end
 
 function worst(
-    A::Type{<:AffineMap{<:AbstractMatrix{T}, <:AbstractVector{T}}},
-) where {T}
-    TransformationWithCost(typemax(T), identity_transformation(A))
+    A::Type{<:AffineMap{<:AbstractMatrix{TL}, <:AbstractVector{TT}}},
+) where {TL, TT}
+    TransformationWithCost(typemax(TL), identity_transformation(A))
 end

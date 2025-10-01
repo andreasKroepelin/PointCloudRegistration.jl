@@ -4,11 +4,17 @@ end
 
 mm_weight(gm::GemanMcclure, x::AbstractVector, y::AbstractVector) =
     mm_weight(gm, sqeuclidean(x, y))
-mm_weight(gm::GemanMcclure, sqdist::Real) = gm.sqscale / (gm.sqscale + sqdist)^2
+mm_weight(gm::GemanMcclure, sqdist::Number) = gm.sqscale / (gm.sqscale + sqdist)^2
+
+function mm_weight_type(gm::GemanMcclure, Y::PointCloud, X::PointCloud)
+    typeof(mm_weight(gm, first(Y.points), first(X.points)))
+end
 
 cost(gm::GemanMcclure, x::AbstractVector, y::AbstractVector) =
     cost(gm, sqeuclidean(x, y))
-cost(gm::GemanMcclure, sqdist::Real) = sqdist / (gm.sqscale + sqdist)
+cost(gm::GemanMcclure, sqdist::Number) = sqdist / (gm.sqscale + sqdist)
+
+cost_type(gm::GemanMcclure, Y::PointCloud, X::PointCloud) = typeof(cost(gm, first(Y.points), first(X.points)))
 
 """
     register_gmc(source, target[; scale, restarts, iterations, rng, accumulator])
@@ -74,7 +80,7 @@ function _register_gmc(
 ) where {N, TS, TT}
     T = promote_type(TS, TT)
 
-    best = worst(transformation_type(Val(N), T))
+    best = worst(transformation_type(source, target))
     gm_cost = zero(T)
     restarts_iter = restarts_iterator(source, target, restarts)
     for (restart, transformation) in enumerate(restarts_iter)
@@ -85,11 +91,11 @@ function _register_gmc(
             gm = GemanMcclure(2sqscale)
             prev_transformation = identity_transformation(transformation)
             for iter in 1:iterations
-                source_mean = zero(eltype(source.points))
-                target_mean = zero(eltype(target.points))
+                sum_w = zero(mm_weight_type(gm, source, target))
+                source_mean = sum_w * zero(eltype(source.points))
+                target_mean = sum_w * zero(eltype(target.points))
                 covariance = zero(rotation_type(source, target))
-                sum_w = zero(T)
-                gm_cost = zero(T)
+                gm_cost = zero(cost_type(gm, source, target))
 
                 correspondences = zip(
                     source.points,

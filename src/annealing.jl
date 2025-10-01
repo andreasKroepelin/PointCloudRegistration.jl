@@ -26,7 +26,7 @@ Annealing plan starting from the largest standard deviation of the target point
 cloud in any direction, going down to `scale` in `steps` steps with logarithmic
 progression.
 """
-struct DownTo{T <: Real}
+struct DownTo{T <: Number}
     scale::T
     steps::Int
 end
@@ -34,7 +34,7 @@ end
 DownTo(scale) = DownTo(scale, 5)
 
 const ScaleType =
-    Union{T, <: AbstractVector{T}, TargetScales, DownTo{T}} where {T <: Real}
+    Union{T, <: AbstractVector{T}, TargetScales, DownTo{T}} where {T <: Number}
 
 annealing_plan(::PointCloud{N, T}, scale::Number) where {N, T} =
     tuple(T(scale)^2)
@@ -42,10 +42,18 @@ annealing_plan(::PointCloud{N, T}, scale::Number) where {N, T} =
 annealing_plan(::PointCloud{N, T}, scales::AbstractVector) where {N, T} =
     T.(scales) .^ 2
 
-annealing_plan(target, ann::TargetScales) = annealing_plan(target, DownTo(avg_nn_dist(target), ann.steps))
+annealing_plan(target, ann::TargetScales) =
+    annealing_plan(target, DownTo(avg_nn_dist(target), ann.steps))
 
 function annealing_plan(target::PointCloud{N, T}, ann::DownTo) where {N, T}
     hi = maximum(target.coveigvals)
     lo = T(ann.scale) ^ 2
-    logrange(hi, lo; length = ann.steps)
+    _logrange(hi, lo; length = ann.steps)
+end
+
+_logrange(start::Real, stop::Real; length) = logrange(start, stop; length)
+# Fallback for types not covered by stdlib logrange
+function _logrange(start::Number, stop::Number; length)
+    factor = (stop / start)^inv(length - 1)
+    start .* factor .^ (0:length - 1)
 end
