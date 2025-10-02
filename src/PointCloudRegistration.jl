@@ -27,7 +27,9 @@ export PointCloud,
     DownTo,
     TargetScales,
     RandomRestarts,
-    FixedRestarts
+    FixedRestarts,
+    thin_dpmeans,
+    thin_droplowweight
 
 public VecOfSVec
 
@@ -43,6 +45,7 @@ include("kernel_correlation.jl")
 include("iterative_closest_point.jl")
 include("coherent_point_drift.jl")
 include("guess_correspondences.jl")
+include("thinning.jl")
 
 @compile_workload begin
     X2 = rand(2, 10)

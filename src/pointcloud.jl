@@ -52,6 +52,7 @@ function mean_cov_sumw(points, weights)
     cov = mean * mean'
 
     for (x, w) in zip(points, weights)
+        iszero(w) && continue
         sum_w += w
         diff = x - mean
         mean += w / sum_w * diff
