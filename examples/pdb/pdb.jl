@@ -183,8 +183,8 @@ let
     end
     for (i, method) in enumerate(methods)
         s = stats_method[i]
-        band!(ax, s.restarts, s.angle_quartile1, s.angle_quartile3; alpha = .5)
-        scatterlines!(ax, s.restarts, s.angle_median, label = string(method))
+        band!(ax, s.restarts, s.angle_quartile1, s.angle_quartile3; alpha = 0.5)
+        scatterlines!(ax, s.restarts, s.angle_median; label = string(method))
     end
     axislegend(ax)
     fig
