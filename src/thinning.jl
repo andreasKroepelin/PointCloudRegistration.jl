@@ -1,78 +1,119 @@
-function thin_dpmeans(pc::PointCloud, cutoffdist; iterations = 100)
-    sqcutoffdist = cutoffdist ^ 2
-    centers = [pc.mean]
-    cluster_sumws = [zero(float(eltype(pc.weights)))]
-    nearest_idcs  = [1]
-    dists = [zero(eltype(pc))]
-    indicators = ones(Int, length(pc.points))
+@kwdef struct DpMeansState{Cs, Ws, Tree, T}
+    centers::Cs
+    weightsums::Ws
+    indicators::Vector{Int}
+    permutation::Vector{Int}
+    tree::Ref{Tree}
+    nn_idcs::Vector{Int}
+    nn_dists::Vector{T}
+end
 
-    changed = 0.0
-    for iter in 1:iterations
-        @info "iteration" iter length(centers)
-        changed = 0.0
-        tree = KDTree(copy(centers))
-        for (i, point) in enumerate(pc.points)
-            w = pc.weights[i]
-            iszero(w) && continue
-            # sqdist, j = findmin(Base.Fix2(sqeuclidean, point), centers)
-            # j = only(nearest_idcs)
-            # sqdist = only(dists)^2
-            j, dist = nn(tree, point)
-            sqdist = dist^2
-            if isnan(sqdist)
-                @warn "sqdist is NaN" i length(centers)
-                break
-            end
-            if sqdist <= sqcutoffdist
-                # @info "nn" i j sqrt(sqdist) iter
-                if indicators[i] != j
-                    changed += w
-                    indicators[i] = j
-                end
-            else
-                # @info "nn" i j sqrt(sqdist) iter
-                changed += w
-                push!(centers, point)
-                push!(cluster_sumws, zero(eltype(cluster_sumws)))
-                tree = KDTree(centers)
-                indicators[i] = length(centers)
-            end
-        end
-        @info "proportion changed" changed/pc.sum_of_weights
-        if changed/pc.sum_of_weights < 1e-2
-            @info "converged" iter
-            break
-        end
-        fill!(cluster_sumws, zero(eltype(cluster_sumws)))
-        fill!(centers, zero(eltype(centers)))
-        for i in eachindex(indicators, pc.points, pc.weights)
-            w = pc.weights[i]
-            iszero(w) && continue
-            l = indicators[i]
-            cluster_sumws[l] += w
-            centers[l] += w * pc.points[i]
-        end
-        is_empty = iszero.(cluster_sumws)
-        first_empty_idx = count(!, is_empty)
-        if first_empty_idx > 0
-            perm = sortperm(is_empty)
-            permute!(centers, perm)
-            permute!(cluster_sumws, perm)
-            deleteat!(centers, first_empty_idx:lastindex(centers))
-            deleteat!(cluster_sumws, first_empty_idx:lastindex(cluster_sumws))
+function DpMeansState(pc::PointCloud)
+    DpMeansState(;
+        centers = [pc.mean],
+        weightsums = [pc.sum_of_weights],
+        indicators = ones(Int, length(pc.points)),
+        permutation = [1],
+        tree = Ref(KDTree([pc.mean])),
+        nn_idcs = [1],
+        nn_dists = [euclidean(pc.mean, pc.mean)],
+    )
+end
+
+update_tree!(dp::DpMeansState) = dp.tree[] = KDTree(dp.centers)
+
+function remove_empty!(dp::DpMeansState; relabel::Bool)
+    (; centers, weightsums, indicators, permutation, tree) = dp
+    n = length(centers)
+    first_empty_idx = count(!iszero, weightsums)
+    if first_empty_idx > 0
+        resize!(permutation, n)
+        sortperm!(permutation, weightsums; by = iszero)
+        permute!(centers, permutation)
+        permute!(weightsums, permutation)
+        deleteat!(centers, first_empty_idx:n)
+        deleteat!(weightsums, first_empty_idx:n)
+        if relabel
             for i in eachindex(indicators)
-                indicators[i] = perm[indicators[i]]
+                indicators[i] = permutation[indicators[i]]
             end
         end
-        centers ./= cluster_sumws
+    end
+end
+
+function closest_cluster(dp::DpMeansState, point)
+    knn!(dp.nn_idcs, dp.nn_dists, dp.tree[], point, 1)
+    dp.nn_idcs[1], dp.nn_dists[1]
+end
+
+function setlabel!(dp::DpMeansState, i, j)
+    changed = false
+    if dp.indicators[i] != j
+        changed = true
+        dp.indicators[i] = j
+    end
+    return changed
+end
+
+function newcluster!(dp::DpMeansState{Vector{C}}, i::Int, center::C) where {C}
+    push!(dp.centers, center)
+    newlen = length(dp.centers)
+    resize!(dp.weightsums, newlen)
+    dp.indicators[i] = newlen
+    update_tree!(dp)
+end
+
+function recenter!(dp::DpMeansState, pc::PointCloud)
+    fill!(dp.weightsums, zero(eltype(dp.weightsums)))
+    fill!(dp.centers, zero(eltype(dp.centers)))
+    for i in eachindex(dp.indicators, pc.points, pc.weights)
+        w = pc.weights[i]
+        iszero(w) && continue
+        l = dp.indicators[i]
+        dp.weightsums[l] += w
+        dp.centers[l] += w * pc.points[i]
+    end
+    dp.centers ./= dp.weightsums
+end
+
+numclusters(dp::DpMeansState) = length(dp.centers)
+
+function thin_dpmeans(
+    pc::PointCloud,
+    cutoffdist;
+    iterations = 100,
+    convergence = 1e-2,
+    report_iteration::RI = no_report
+) where {RI}
+    state = DpMeansState(pc)
+    for iteration in 1:iterations
+        change = 0.0
+        additions = 0
+        update_tree!(state)
+        for i in eachindex(pc.points, pc.weights)
+            w = pc.weights[i]
+            iszero(w) && continue
+            point = pc.points[i]
+            j, dist = closest_cluster(state, point)
+
+            if dist <= cutoffdist
+                setlabel!(state, i, j) && (change += w)
+            else
+                newcluster!(state, i, point)
+                additions += 1
+                change += w
+            end
+        end
+        relchange = change/pc.sum_of_weights
+        report_iteration(; iteration, relchange, numclusters = numclusters(state), additions)
+        relchange < convergence && break
+
+        recenter!(state, pc)
+        remove_empty!(state; relabel = true)
     end
 
-    non_empty = cluster_sumws .> 0
-    centers = centers[non_empty]
-    cluster_sumws = cluster_sumws[non_empty]
-    @info "result" centers cluster_sumws
-
-    PointCloud(centers, cluster_sumws)
+    remove_empty!(state; relabel = false)
+    PointCloud(state.centers, state.weightsums)
 end
 
 function thin_droplowweight(pc::PointCloud, p)
