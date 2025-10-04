@@ -1,5 +1,6 @@
 [deps]
 GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 MRCFile = "c18c01d3-0ab9-49c3-bd2d-8f2e64a2b7a5"
+MappedArrays = "dbb5928d-eab1-5f90-85c2-b9b0edb7c900"
 PointCloudRegistration = "afb9b67c-ae14-49fb-afbe-36d52467eca1"
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
