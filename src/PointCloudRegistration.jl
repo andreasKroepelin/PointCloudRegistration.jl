@@ -29,6 +29,7 @@ export PointCloud,
     RandomRestarts,
     FixedRestarts,
     thin_dpmeans,
+    thin_kmeans,
     thin_droplowweight
 
 public VecOfSVec

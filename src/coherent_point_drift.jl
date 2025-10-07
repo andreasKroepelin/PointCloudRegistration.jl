@@ -89,56 +89,70 @@ function _register_cpd(
     regularizer_strength_sqscale = regularizer_strength * sqscale
 
     for iter in 1:10_000
-        for j in eachindex(source.points)
-            src = source.points[j]
-            coeffs = @view prepd_source.gram[:, j]
-            displaced_source[j] = src + wsum(displacement_spanning_set, coeffs)
-        end
-        for ci in CartesianIndices(P)
-            i, j = Tuple(ci)
-            sqdist = sqeuclidean(target.points[i], displaced_source[j])
-            P[ci] = exp(neginv2sqscale * sqdist)
-        end
-        # map!(P, Iterators.product(target.points, displaced_source)) do (x, y)
-        #                                     exp(neginv2sqscale * sqeuclidean(x, y))
-        #                                                     end
-        # pairwise!(P, sqeuclidean, target.points, displaced_source)
-        # P .= exp.(neginv2sqscale .* P)
-        sum!(P_rowsums, P)
-        P ./= P_rowsums .+ outlier_term
-
-        sum!(P_colsums, P)
-        converged = true
-        for j in eachindex(source.points)
-            src = source.points[j]
-            coeffs = @view P[:, j]
-            s = P_colsums[j]
-            iszero(s) && error("No target point contributes to source point $j")
-            tr = wsum(target.points, coeffs) / s
-            if sqeuclidean(tr, target_representatives[j]) > eps(T)
-                converged = false
+        try
+            for j in eachindex(source.points)
+                src = source.points[j]
+                coeffs = @view prepd_source.gram[:, j]
+                displaced_source[j] =
+                    src + wsum(displacement_spanning_set, coeffs)
             end
-            target_representatives[j] = tr
-            ideal_displacement[j] = tr - src
-        end
-        if converged
-            @info "converged" iter
-            break
-        end
+            for ci in CartesianIndices(P)
+                i, j = Tuple(ci)
+                sqdist = sqeuclidean(target.points[i], displaced_source[j])
+                P[ci] = exp(neginv2sqscale * sqdist)
+            end
+            # map!(P, Iterators.product(target.points, displaced_source)) do (x, y)
+            #                                     exp(neginv2sqscale * sqeuclidean(x, y))
+            #                                                     end
+            # pairwise!(P, sqeuclidean, target.points, displaced_source)
+            # P .= exp.(neginv2sqscale .* P)
+            sum!(P_rowsums, P)
+            P ./= P_rowsums .+ outlier_term
 
-        p = vec(P_colsums)
-        copyto!(GP, prepd_source.gram)
-        GP[diagind(GP)] .+= regularizer_strength_sqscale ./ p
-        chol = cholesky!(Symmetric(GP))
-        W = reinterpret(reshape, T, displacement_spanning_set)
-        D = reinterpret(reshape, T, ideal_displacement)
-        for (D_row, W_row) in zip(eachrow(D), eachrow(W))
-            # Need to go via extra vectors because `ldiv( , ::Cholesky, )`
-            # expects continuous arrays whereas `D_row` and `W_row` have stride
-            # `N`.
-            copyto!(d, D_row)
-            ldiv!(w, chol, d)
-            copyto!(W_row, w)
+            sum!(P_colsums, P)
+            converged = true
+            change = sqeuclidean(
+                zero(eltype(target_representatives)),
+                zero(eltype(target_representatives)),
+            )
+            for j in eachindex(source.points)
+                src = source.points[j]
+                coeffs = @view P[:, j]
+                s = P_colsums[j]
+                iszero(s) &&
+                    error("No target point contributes to source point $j")
+                tr = wsum(target.points, coeffs) / s
+                change += sqeuclidean(tr, target_representatives[j])
+                target_representatives[j] = tr
+                ideal_displacement[j] = tr - src
+            end
+            relchange = change / length(source.points)
+            @info "iteration" iter change sqrt(relchange)
+            if relchange < sqscale / 10_000
+                @info "converged" iter
+                break
+            end
+
+            p = vec(P_colsums)
+            copyto!(GP, prepd_source.gram)
+            GP[diagind(GP)] .+= regularizer_strength_sqscale ./ p
+            chol = cholesky!(Symmetric(GP))
+            W = reinterpret(reshape, T, displacement_spanning_set)
+            D = reinterpret(reshape, T, ideal_displacement)
+            for (D_row, W_row) in zip(eachrow(D), eachrow(W))
+                # Need to go via extra vectors because `ldiv( , ::Cholesky, )`
+                # expects continuous arrays whereas `D_row` and `W_row` have stride
+                # `N`.
+                copyto!(d, D_row)
+                ldiv!(w, chol, d)
+                copyto!(W_row, w)
+            end
+        catch e
+            if e isa InterruptException
+                break
+            else
+                throw(e)
+            end
         end
     end
 

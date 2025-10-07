@@ -83,7 +83,7 @@ function thin_dpmeans(
     cutoffdist;
     iterations = 100,
     convergence = 1e-2,
-    report_iteration::RI = no_report
+    report_iteration::RI = no_report,
 ) where {RI}
     state = DpMeansState(pc)
     for iteration in 1:iterations
@@ -105,7 +105,12 @@ function thin_dpmeans(
             end
         end
         relchange = change/pc.sum_of_weights
-        report_iteration(; iteration, relchange, numclusters = numclusters(state), additions)
+        report_iteration(;
+            iteration,
+            relchange,
+            numclusters = numclusters(state),
+            additions,
+        )
         relchange < convergence && break
 
         recenter!(state, pc)
@@ -114,6 +119,50 @@ function thin_dpmeans(
 
     remove_empty!(state; relabel = false)
     PointCloud(state.centers, state.weightsums)
+end
+
+function thin_kmeans(
+    pc::PointCloud,
+    numclusters;
+    iterations = 100,
+    convergence = 1e-2,
+    report_iteration::RI = no_report,
+) where {RI}
+    # state = DpMeansState(pc)
+    centers = sample(pc.points, numclusters; replace = false)
+    weightsums = fill(zero(pc.sum_of_weights), numclusters)
+    indicators = ones(Int, length(pc.points))
+    for iteration in 1:iterations
+        change = 0.0
+        tree = KDTree(centers)
+        for i in eachindex(pc.points, pc.weights, indicators)
+            w = pc.weights[i]
+            iszero(w) && continue
+            point = pc.points[i]
+            j, dist = nn(tree, point)
+
+            if indicators[i] != j
+                indicators[i] = j
+                change += w
+            end
+        end
+        relchange = change/pc.sum_of_weights
+        report_iteration(; iteration, relchange)
+        relchange < convergence && break
+
+        fill!(centers, zero(eltype(centers)))
+        fill!(weightsums, zero(eltype(weightsums)))
+        for i in eachindex(pc.points, pc.weights, indicators)
+            w = pc.weights[i]
+            iszero(w) && continue
+            l = indicators[i]
+            centers[l] += w * pc.points[i]
+            weightsums[l] += w
+        end
+        centers ./= weightsums
+    end
+
+    PointCloud(centers, weightsums)
 end
 
 function thin_droplowweight(pc::PointCloud, p)
