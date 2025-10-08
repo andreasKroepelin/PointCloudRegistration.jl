@@ -110,7 +110,6 @@ function _register_cpd(
             P ./= P_rowsums .+ outlier_term
 
             sum!(P_colsums, P)
-            converged = true
             change = sqeuclidean(
                 zero(eltype(target_representatives)),
                 zero(eltype(target_representatives)),

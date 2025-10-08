@@ -116,10 +116,11 @@ function report_iteration(; iteration, relchange, numclusters, additions)
     )
 end
 
-resolution = 2.0f1
+resolution = 1.5f1
 
-# pcs = map(pc -> thin_dpmeans(pc, resolution; report_iteration), pcs_dense)
-pcs = map(pc -> thin_kmeans(pc, 1000), pcs_dense)
+pcs = map(pc -> thin_dpmeans(pc, resolution; report_iteration), pcs_dense)
+# # pcs = map(pc -> thin_kmeans(pc, 1000), pcs_dense)
+# pcs = map(pc -> thin_kmeans(pc, rand(1000:1500)), pcs_dense)
 showthem(pcs)
 
 source = pcs.VIB
@@ -133,7 +134,7 @@ function flipbook(pcs...; markersize = 2)
     fig = Figure()
     ax = Axis3(fig[1, 1]; aspect = :data)
     i = Observable(1)
-    meshscatter!(ax, @lift(pcs[$i]); markersize)
+    meshscatter!(ax, @lift(pcs[$i]); markersize, color = @lift(eachindex(pcs[$i].points)))
     last_t = -Inf
     on(events(fig).tick) do tick
         if tick.time - last_t > 0.1
@@ -146,180 +147,62 @@ end
 
 T_source = T(source)
 
-flipbook(source, target)
+flipbook(source, target; markersize = 10)
 
+prepd_source = PointCloudRegistration.prepare_source_cpd(T_source; regularizer_lengthscale = 10.0f0)
 cpd = register_cpd(
-    T_source,
+    prepd_source,
     target;
-    scale = resolution,
-    regularizer_lengthscale = 50.0f0,
+    scale = 5resolution,
     outlier_proportion = 0.1,
-    regularizer_strength = 0.0001,
+    regularizer_strength = 1.,
 )
+
+T_source_disp = PointCloud(T_source.points .+ cpd.displacement, T_source.weights)
 
 let
     fig = Figure()
     ax = Axis3(fig[1, 1]; aspect = :data)
-    # scatter!(ax, source.points)
-    # scatter!(ax, target.points)
-    arrows3d!(ax, source.points, cpd.displacement; markerscale = 1)
+    # scatter!(ax, T_source.points; label = "source")
+    scatter!(ax, T_source_disp.points; label = "displaced source")
+    scatter!(ax, cpd.target_representatives; label = "target representatives")
+    # scatter!(ax, target.points; label = "target")
+    # arrows3d!(ax, T_source.points, cpd.displacement; markerscale = .1)
+    axislegend(ax)
     fig
 end
 
-function tsp_idcs(pc)
-    idcs, _ =
-        nearest_neighbor(pairwise(euclidean, pc.points); closepath = false)
-    # pc[idcs]
-    idcs
-end
+heatmap(cpd.correspondences; axis = (; autolimitaspect = 1))
 
-cpd.correspondences[tsp_idcs(target), tsp_idcs(source)]
-
-function diagonalize_permutation!(A)
-    rowidcs, colidcs = axes(A)
-    cumrowperm = collect(rowidcs)
-    cumcolperm = collect(colidcs)
-    rowidxdists = similar(rowidcs)
-    colidxdists = similar(colidcs)
-    roworder = similar(rowidcs)
-    rowperm = similar(rowidcs)
-    colorder = similar(colidcs)
-    colperm = similar(colidcs)
-    for iter in 1:1
-        @info "iteration" iter
-        # for j in colidcs
-        for j in 1:100:lastindex(A, 2)
-            mid = j * size(A, 1) ÷ size(A, 2)
-            @info "j" mid
-            rowidxdists .= .- abs.(rowidcs .- mid)
-            sortperm!(roworder, rowidxdists)
-            sortperm!(rowperm, view(A, cumrowperm, j))
-            cumrowperm[roworder] = cumrowperm[rowperm]
-        end
-        # for i in rowidcs
-        # for i in 1:1
-        #     mid = i * size(A, 2) ÷ size(A, 1)
-        #     @info "i" mid
-        #     colidxdists .= .- abs.(colidcs .- mid)
-        #     sortperm!(colorder, colidxdists)
-        #     sortperm!(colperm, view(A, i, cumcolperm))
-        #     cumcolperm[colorder] = cumcolperm[colperm]
-        # end
-        # for j in reverse(colidcs)
-        #     mid = j * size(A, 1) ÷ size(A, 2)
-        #     rowidxdists .= .- abs.(rowidcs .- mid)
-        #     sortperm!(roworder, rowidxdists)
-        #     sortperm!(rowperm, view(A, cumrowperm, j))
-        #     cumrowperm[roworder] = cumrowperm[rowperm]
-        # end
-        # for i in reverse(rowidcs)
-        #     mid = i * size(A, 2) ÷ size(A, 1)
-        #     colidxdists .= .- abs.(colidcs .- mid)
-        #     sortperm!(colorder, colidxdists)
-        #     sortperm!(colperm, view(A, i, cumcolperm))
-        #     cumcolperm[colorder] = cumcolperm[colperm]
-        # end
-    end
-    A[cumrowperm, cumcolperm]
-end
-
-diagonalize_permutation(A) = diagonalize_permutation!(copy(A))
-
-function minimize_soft_bandwidth_score!(A)
+function minimize_soft_bandwidth_cost(A; iterations = 5)
     rowidcs, colidcs = axes(A)
     weights = map(CartesianIndices(A)) do ci
-        i, j = Tuple(ci)
-        (i * size(A, 2) - j * size(A, 1))^2
+        i, j = Tuple(ci) .- 1
+        m, n = size(A) .- 1
+        (i * n - j * m)^2 |> float
     end
-    rowcosts = map(rowidcs) do i
-        row = view(A, i, :)
-        wrow = view(weights, i, :)
-        mapreduce((w, a) -> w * a^2, +, wrow, row)
+    Asq = A .^ 2
+    rowperm = collect(rowidcs)
+    colperm = collect(colidcs)
+    Lrows = LAWorkspace(Float64, size(A, 1), size(A, 1))
+    Lcols = LAWorkspace(Float64, size(A, 2), size(A, 2))
+    for iter in 1:iterations
+        @info "iteration" iter
+        Asq_perm = view(Asq, rowperm, colperm)
+        rowcosts = [dot(w, a) for w in eachrow(weights), a in eachrow(Asq_perm)]
+        linear_assignment!(Lrows, rowcosts)
+        rowperm = rowperm[Lrows.J]
+        Asq_perm = view(Asq, rowperm, colperm)
+        colcosts = [dot(w, a) for w in eachcol(weights), a in eachcol(Asq_perm)]
+        linear_assignment!(Lcols, colcosts)
+        colperm = colperm[Lcols.J]
     end
-    colcosts = map(colidcs) do j
-        col = view(A, :, j)
-        wcol = view(weights, :, j)
-        mapreduce((w, a) -> w * a^2, +, wcol, col)
-    end
-    cumrowperm = collect(rowidcs)
-    cumcolperm = collect(colidcs)
-    oldscore = Inf
-    for i1 in rowidcs, i2 in rowidcs
-        # i1, i2 = rand(rowidcs), rand(rowidcs)
-        newrowcost2 = let
-            row = view(A, cumrowperm[i1], cumcolperm)
-            wrow = view(weights, i2, :)
-            mapreduce((w, a) -> w * a^2, +, wrow, row)
-        end
-        newrowcost1 = let
-            row = view(A, cumrowperm[i2], cumcolperm)
-            wrow = view(weights, i1, :)
-            mapreduce((w, a) -> w * a^2, +, wrow, row)
-        end
-        if newrowcost1 + newrowcost2 < rowcosts[i1] + rowcosts[i2]
-            # @info "improvement" newrowcost1 newrowcost2 rowcosts[i1] rowcosts[i2]
-            rowcosts[i1] = newrowcost1
-            rowcosts[i2] = newrowcost2
-            cumrowperm[i1], cumrowperm[i2] = cumrowperm[i2], cumrowperm[i1]
-        end
-    end
-    for j1 in colidcs, j2 in colidcs
-        # j1, j2 = rand(colidcs), rand(colidcs)
-        newcolcost2 = let
-            col = view(A, cumcolperm, cumcolperm[j1])
-            wcol = view(weights, :, j2)
-            mapreduce((w, a) -> w * a^2, +, wcol, col)
-        end
-        newcolcost1 = let
-            col = view(A, cumcolperm, cumcolperm[j2])
-            wcol = view(weights, :, j1)
-            mapreduce((w, a) -> w * a^2, +, wcol, col)
-        end
-        if newcolcost1 + newcolcost2 < colcosts[j1] + colcosts[j2]
-            colcosts[j1] = newcolcost1
-            colcosts[j2] = newcolcost2
-            cumcolperm[j1], cumcolperm[j2] = cumcolperm[j2], cumcolperm[j1]
-        end
-    end
-    A[cumrowperm, cumcolperm]
+    rowperm, colperm
 end
 
-minimize_soft_bandwidth_score(A) = minimize_soft_bandwidth_score!(copy(A))
+trg_sorted_idcs, src_sorted_idcs = minimize_soft_bandwidth_cost(cpd.correspondences)
 
-let
-    fig = Figure()
-    ax = Axis(fig[1, 1]; autolimitaspect = 1)
-    Aobs = Observable(copy(cpd.correspondences))
-    heatmap!(ax, Aobs)
-    last_t = -Inf
-    rowbuffer = similar(cpd.correspondences, size(cpd.correspondences, 2))
-    colbuffer = similar(cpd.correspondences, size(cpd.correspondences, 1))
-    old_score = soft_bandwidth_score(cpd.correspondences)
-    B = similar(cpd.correspondences)
-    on(events(fig).tick) do tick
-        tick.time - last_t < 0.001 && return
-        last_t = tick.time
-        A = Aobs[]
-        for _ in 1:100
-            i1 = rand(axes(A, 1))
-            i2 = rand(axes(A, 1))
-            j1 = rand(axes(A, 2))
-            j2 = rand(axes(A, 2))
-            B .= A
-            rowbuffer .= @view A[i1, :]
-            A[i1, :] .= @view A[i2, :]
-            A[i2, :] .= rowbuffer
-            colbuffer .= @view A[:, j1]
-            A[:, j1] .= @view A[:, j2]
-            A[:, j2] .= colbuffer
-            new_score = soft_bandwidth_score(A)
-            if new_score > old_score
-                old_score = new_score
-            else
-                A .= B
-            end
-        end
-        notify(Aobs)
-    end
-    fig
-end
+heatmap(cpd.correspondences[trg_sorted_idcs, src_sorted_idcs]; axis = (; autolimitaspect = 1))
+
+flipbook(T_source[src_sorted_idcs], target[trg_sorted_idcs]; markersize = 10)
+

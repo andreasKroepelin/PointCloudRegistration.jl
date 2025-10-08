@@ -2,7 +2,7 @@
 
 julia_version = "1.11.7"
 manifest_format = "2.0"
-project_hash = "5609b2ae0a8f079a5d4f50cab998239f6c365791"
+project_hash = "1dfd60737bb84c64d63e129ddd60307ea54b3b0a"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -849,6 +849,12 @@ version = "2.41.2+0"
 deps = ["Libdl", "OpenBLAS_jll", "libblastrampoline_jll"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 version = "1.11.0"
+
+[[deps.LinearAssignment]]
+deps = ["SparseArrays", "StaticArrays"]
+git-tree-sha1 = "9f64d3d14082eb7e677b9593c12738e64e420c16"
+uuid = "e04a135d-938e-4d6d-a2bd-80fee3964557"
+version = "0.1.0"
 
 [[deps.LogExpFunctions]]
 deps = ["DocStringExtensions", "IrrationalConstants", "LinearAlgebra"]
