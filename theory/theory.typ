@@ -1,4 +1,6 @@
 #import "@preview/lovelace:0.3.0": *
+#set page(fill: luma(50))
+#set text(fill: luma(230))
 // #set page(margin: 1cm)
 #set text(font: "Gentium", number-type: "old-style")
 // #set text(size: 20pt)
@@ -16,7 +18,7 @@
   2em,
   weight: "bold",
 )[Some theoretical notes on \ implementing rigid registration]
-#line(length: 75%)
+#context line(length: 75%, stroke: text.fill)
 
 = Kernel Correlation
 
@@ -388,3 +390,63 @@ $
   &=
   s
 $
+
+= Sorting correspondences
+We are given a matrix $C in RR^(m times n)_(>= 0)$ of _ soft correspondences_
+between two point clouds.
+This means that $c_(i j)$ expresses "how much" point $i$ in the first point
+cloud corresponds to point $j$ in the second point cloud.
+We now want to sort both point clouds such that points with a similar "relative
+index" correspond to each other more than points with a dissimilar "relative
+index".
+By relative index, we mean $floor(p m)$ and $floor(p n)$, respectively, for a
+$p in [0, 1]$.
+In other words, $c_(i j)$ should be high if $i/m approx j/n$ and low otherwise.
+Let us pin down this "relative index similarity" as $w_(i j) = (i n - j m)^2$
+and use it as a weight of the squared entries in $C$, which gives us our loss
+function:
+$
+  ell(C) = sum_(i j) w_(i j) c_(i j)^2
+$
+We express the sorting as two permutations $pi: [m] -> [m]$ and
+$sigma: [n] -> [n]$ and thus have the optimisation problem
+$
+  min_(pi, sigma) sum_(i j) w_(i j) c_(pi(i) sigma(j))^2
+$
+
+How can we solve this?
+The idea is to alternatingly optimize $pi$ and $sigma$, so let us first fix
+$sigma$:
+$
+  min_pi sum_(i j) w_(i j) c_(pi(i) sigma(j))^2
+$
+Let us reformulate this loss:
+$
+  sum_(i j) w_(i j) c_(pi(i) sigma(j))^2
+  =
+  sum_i underbrace(sum_j w_(i j) c_(pi(i) sigma(j))^2, =: a_(i, pi(i)))
+$
+The optimisation problem
+$
+  min_pi sum_i a_(i, pi(i))
+$
+is a _linear assignment problem_ with cost matrix $A in RR^(m times m)$,
+$a_(k l) = sum_j w_(k j) c_(l, sigma(j))^2$.
+
+A similar situation arises when fixing $pi$ and optimising $sigma$.
+We thus have the following overall algorithm:
+#pseudocode-list[
+  - *input:* correspondence matrix $C in RR^(m times n)$
+  - *output:* permutations $pi: [m] -> [m]$ and $sigma: [n] -> [n]$
+  + initialize $pi equiv id$, $sigma equiv id$
+  + *repeat until* desired quality reached
+    + compute costs $A_(k l) = sum_j w_(k j) c_(l, sigma(j))^2$
+      for all $k, l in [m]$
+    + $pi <-$ solve LAP with costs $A$
+    + compute costs $B_(k l) = sum_i w_(i k) c_(pi(i), l)^2$
+      for all $k, l in [n]$
+    + $sigma <-$ solve LAP with costs $B$
+  + *end*
+]
+
+Unfortunately, computing $A$ and $B$ is very costly (cubic time complexity).
