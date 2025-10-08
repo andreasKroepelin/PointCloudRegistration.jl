@@ -7,7 +7,8 @@ using PointCloudRegistration.Distances
 using MappedArrays
 using Base.Iterators
 using Downloads
-using TravelingSalesmanHeuristics
+using LinearAlgebra
+using LinearAssignment
 
 function emdb_url(id)
     "https://ftp.ebi.ac.uk/pub/databases/emdb/structures/EMD-$id/map/emd_$id.map.gz"
@@ -153,9 +154,9 @@ prepd_source = PointCloudRegistration.prepare_source_cpd(T_source; regularizer_l
 cpd = register_cpd(
     prepd_source,
     target;
-    scale = 5resolution,
+    scale = resolution / 2,
     outlier_proportion = 0.1,
-    regularizer_strength = 1.,
+    regularizer_strength = .001,
 )
 
 T_source_disp = PointCloud(T_source.points .+ cpd.displacement, T_source.weights)
@@ -164,11 +165,11 @@ let
     fig = Figure()
     ax = Axis3(fig[1, 1]; aspect = :data)
     # scatter!(ax, T_source.points; label = "source")
-    scatter!(ax, T_source_disp.points; label = "displaced source")
-    scatter!(ax, cpd.target_representatives; label = "target representatives")
+    # scatter!(ax, T_source_disp.points; label = "displaced source")
+    # scatter!(ax, cpd.target_representatives; label = "target representatives")
     # scatter!(ax, target.points; label = "target")
-    # arrows3d!(ax, T_source.points, cpd.displacement; markerscale = .1)
-    axislegend(ax)
+    arrows3d!(ax, T_source.points, cpd.displacement; markerscale = .1)
+    # axislegend(ax)
     fig
 end
 
