@@ -406,32 +406,32 @@ Let us pin down this "relative index similarity" as $w_(i j) = (i n - j m)^2$
 and use it as a weight of the squared entries in $C$, which gives us our loss
 function:
 $
-  ell(C) = sum_(i j) w_(i j) c_(i j)^2
+  ell(C) = sum_(i j) w_(i j) c_(i j)
 $
 We express the sorting as two permutations $pi: [m] -> [m]$ and
 $sigma: [n] -> [n]$ and thus have the optimisation problem
 $
-  min_(pi, sigma) sum_(i j) w_(i j) c_(pi(i) sigma(j))^2
+  min_(pi, sigma) sum_(i j) w_(i j) c_(pi(i) sigma(j))
 $
 
 How can we solve this?
 The idea is to alternatingly optimize $pi$ and $sigma$, so let us first fix
 $sigma$:
 $
-  min_pi sum_(i j) w_(i j) c_(pi(i) sigma(j))^2
+  min_pi sum_(i j) w_(i j) c_(pi(i) sigma(j))
 $
 Let us reformulate this loss:
 $
-  sum_(i j) w_(i j) c_(pi(i) sigma(j))^2
+  sum_(i j) w_(i j) c_(pi(i) sigma(j))
   =
-  sum_i underbrace(sum_j w_(i j) c_(pi(i) sigma(j))^2, =: a_(i, pi(i)))
+  sum_i underbrace(sum_j w_(i j) c_(pi(i) sigma(j)), =: a_(i, pi(i)))
 $
 The optimisation problem
 $
   min_pi sum_i a_(i, pi(i))
 $
 is a _linear assignment problem_ with cost matrix $A in RR^(m times m)$,
-$a_(k l) = sum_j w_(k j) c_(l, sigma(j))^2$.
+$a_(k l) = sum_j w_(k j) c_(l, sigma(j))$.
 
 A similar situation arises when fixing $pi$ and optimising $sigma$.
 We thus have the following overall algorithm:
@@ -440,13 +440,75 @@ We thus have the following overall algorithm:
   - *output:* permutations $pi: [m] -> [m]$ and $sigma: [n] -> [n]$
   + initialize $pi equiv id$, $sigma equiv id$
   + *repeat until* desired quality reached
-    + compute costs $A_(k l) = sum_j w_(k j) c_(l, sigma(j))^2$
+    + compute costs $A_(k l) = sum_j w_(k j) c_(l, sigma(j))$
       for all $k, l in [m]$
     + $pi <-$ solve LAP with costs $A$
-    + compute costs $B_(k l) = sum_i w_(i k) c_(pi(i), l)^2$
+    + compute costs $B_(k l) = sum_i w_(i k) c_(pi(i), l)$
       for all $k, l in [n]$
     + $sigma <-$ solve LAP with costs $B$
   + *end*
 ]
 
 Unfortunately, computing $A$ and $B$ is very costly (cubic time complexity).
+We can speed this up to quadratic complexity in the following way:
+
+Note that $w_(i j) = (i n - j m)^2 = i^2 n^2 - 2 i j m n + j^2 m^2$.
+We thus have
+$
+  a_(k l)
+  &=
+  sum_j w_(k j) c_(l, sigma(j))
+  \ &=
+  k^2 n^2 sum_j c_(l, sigma(j))
+  - 2 k m n sum_j j c_(l, sigma(j))
+  + m^2 sum_j j^2 c_(l, sigma(j))
+  \ &=
+  k^2 n^2 sum_j c_(l, j)
+  - 2 k m n sum_j sigma^(-1) (j) c_(l, j)
+  + m^2 sum_j sigma^(-1) (j)^2 c_(l, j)
+$
+Note that the first sum does not depend on the permutations so it can be
+computed beforehand as the vector of row sums $a' in RR^m$:
+$
+  a'_l = sum_j c_(l, j)
+$
+We now define
+$
+  alpha(sigma) = vec(sigma^(-1) (1), dots.v, sigma^(-1) (n))
+$
+and $alpha(sigma)^2$ as the elementwise squared $alpha(sigma)$, which have to be
+computed only once for every update of $sigma$ in linear time.
+Additionally, we compute $C alpha$ and $C alpha^2$ each in quadratic time.
+This leads to
+$
+  a_(k l)
+  =
+  k^2 n^2 a'_l
+  - 2 k m n (C alpha(sigma))_l
+  + m^2 (C alpha(sigma)^2)_l
+$
+which needs only constant time for every combination of $k$ and $l$, so
+computing $A$ needs quadratic time.
+
+Similarly for $B$, we have:
+$
+  b_(k l)
+  &=
+  sum_i w_(i k) c_(pi(i), l)
+  \ &=
+  n^2 sum_i i^2 c_(pi(i), l)
+  - 2 k m n sum_i i c_(pi(i), l)
+  + k^2 m^2 sum_i c_(pi(i), l)
+  \ &=
+  n^2 sum_i pi^(-1) (i)^2 c_(i l)
+  - 2 k m n sum_i pi^(-1) (i) c_(i l)
+  + k^2 m^2 sum_i c_(i l)
+  \ &=
+  n^2 (C^trp beta(pi)^2)_l
+  - 2 k m n (C^trp beta(pi))_l
+  + k^2 m^2 b'_l
+$
+where $b'_l = sum_i c_(i l)$ is the vector of column sums computed only once in the
+beginning, $beta(pi) = (pi(1), ..., pi(m))^trp$ and its elementwise squared
+version $beta(pi)^2$ are computed once for every update of $pi$, together with
+$C^trp beta(pi)$ and $C^trp beta(pi)^2$.
