@@ -18,9 +18,9 @@ function prepare_source_cpd(
     PreparedSourceCPD(source, G)
 end
 
-@kwdef struct CpdResult{N, T}
+@kwdef struct CpdResult{N, T, T1}
     displacement::Vector{SVector{N, T}}
-    correspondences::Matrix{T}
+    correspondences::Matrix{T1}
     target_representatives::Vector{SVector{N, T}}
 end
 
@@ -75,18 +75,18 @@ function _register_cpd(
     outlier_term = (
         outlier_proportion / (1 - outlier_proportion) *
         sqrt(2pi * sqscale) ^ N *
-        length(source.points) / length(target.points)
+        length(source.points) / bbox_hypervolume(target)
     )
-    @info "type" outlier_term
 
     P = zeros(T1, length(target.points), length(source.points))
     P_rowsums = zeros(T1, length(target.points), 1)
     P_colsums = zeros(T1, 1, length(source.points))
     GP = similar(prepd_source.gram)
-    w = similar(prepd_source.gram, length(source.points))
-    d = similar(prepd_source.gram, length(source.points))
+    w = zeros(T, length(source.points))
+    d = zeros(T, length(source.points))
     neginv2sqscale = -inv(2 * sqscale)
     regularizer_strength_sqscale = regularizer_strength * sqscale
+    @info "type" outlier_term regularizer_strength_sqscale
 
     for iter in 1:10_000
         try

@@ -269,6 +269,11 @@ end
 
 bbox(pc::PointCloud) = bbox(pc.points)
 
+function bbox_hypervolume(pc::PointCloud)
+    lo, hi = bbox(pc)
+    prod(hi - lo)
+end
+
 (m::AffineMap)(pc::PointCloud) = PointCloud(
     m.(pc.points),
     pc.weights,
