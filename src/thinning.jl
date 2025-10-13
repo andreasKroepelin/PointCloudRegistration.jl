@@ -76,16 +76,34 @@ function recenter!(dp::DpMeansState, pc::PointCloud)
     dp.centers ./= dp.weightsums
 end
 
+function gridinit!(dp::DpMeansState, pc::PointCloud, cutoffdist)
+    lo, hi = bbox(pc)
+    grid = Grid(lo, hi, cutoffdist)
+    linidcs = LinearIndices(size(grid))
+    for (i, p) in enumerate(pc.points)
+        ci = idx_on_grid(p, grid)
+        dp.indicators[i] = linidcs[ci]
+    end
+
+    resize!(dp.weightsums, last(linidcs))
+    resize!(dp.centers, last(linidcs))
+end
+
 numclusters(dp::DpMeansState) = length(dp.centers)
 
 function thin_dpmeans(
-    pc::PointCloud,
+    pc::PointCloud{N},
     cutoffdist;
     iterations = 100,
     convergence = 1e-2,
     report_iteration::RI = no_report,
-) where {RI}
+) where {N, RI}
     state = DpMeansState(pc)
+
+    gridinit!(state, pc, sqrt(N) * cutoffdist)
+    recenter!(state, pc)
+    remove_empty!(state; relabel = true)
+    
     for iteration in 1:iterations
         change = 0.0
         additions = 0
