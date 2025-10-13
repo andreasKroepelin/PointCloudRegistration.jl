@@ -8,7 +8,7 @@ using MappedArrays
 using Base.Iterators
 using Downloads
 using LinearAlgebra
-using LinearAssignment
+using SoftBandwidthMinimization
 
 function emdb_url(id)
     "https://ftp.ebi.ac.uk/pub/databases/emdb/structures/EMD-$id/map/emd_$id.map.gz"
@@ -117,7 +117,7 @@ function report_iteration(; iteration, relchange, numclusters, additions)
     )
 end
 
-resolution = 1.5f1
+resolution = 15f0
 
 pcs = map(pc -> thin_dpmeans(pc, resolution; report_iteration), pcs_dense)
 # # pcs = map(pc -> thin_kmeans(pc, 1000), pcs_dense)
@@ -131,14 +131,14 @@ prepd_target = prepare_target_kc(target);
 
 T = register_kc(source, prepd_target; restarts = RandomRestarts(100))
 
-function flipbook(pcs...; markersize = 2)
+function flipbook(pcs...; markersize = 2, interval = .1)
     fig = Figure()
     ax = Axis3(fig[1, 1]; aspect = :data)
     i = Observable(1)
     meshscatter!(ax, @lift(pcs[$i]); markersize, color = @lift(eachindex(pcs[$i].points)))
     last_t = -Inf
     on(events(fig).tick) do tick
-        if tick.time - last_t > 0.1
+        if tick.time - last_t > interval
             last_t = tick.time
             i[] = mod(i[] + 1, eachindex(pcs))
         end
@@ -148,62 +148,38 @@ end
 
 T_source = T(source)
 
-flipbook(source, target; markersize = 10)
+flipbook(source, target; markersize = 5)
 
-prepd_source = PointCloudRegistration.prepare_source_cpd(T_source; regularizer_lengthscale = 10.0f0)
+prepd_source = PointCloudRegistration.prepare_source_cpd(source; regularizer_lengthscale = 10.0f0)
 cpd = register_cpd(
     prepd_source,
     target;
-    scale = resolution / 2,
+    scale = resolution / 1,
     outlier_proportion = 0.1,
     regularizer_strength = .001,
 )
 
-T_source_disp = PointCloud(T_source.points .+ cpd.displacement, T_source.weights)
+source_disp = PointCloud(source.points .+ cpd.displacement, source.weights)
 
 let
     fig = Figure()
     ax = Axis3(fig[1, 1]; aspect = :data)
-    # scatter!(ax, T_source.points; label = "source")
-    # scatter!(ax, T_source_disp.points; label = "displaced source")
-    # scatter!(ax, cpd.target_representatives; label = "target representatives")
-    # scatter!(ax, target.points; label = "target")
-    arrows3d!(ax, T_source.points, cpd.displacement; markerscale = .1)
-    # axislegend(ax)
+    # scatter!(ax, source.points; label = "source")
+    # scatter!(ax, source_disp.points; label = "displaced source")
+    scatter!(ax, cpd.target_representatives; label = "target representatives")
+    scatter!(ax, target.points; label = "target")
+    arrows3d!(ax, source.points, cpd.displacement; markerscale = .1)
+    axislegend(ax)
     fig
 end
 
-heatmap(cpd.correspondences; axis = (; autolimitaspect = 1))
+cmap = range(colorant"#0074d900", colorant"#0074d9ff");
 
-function minimize_soft_bandwidth_cost(A; iterations = 5)
-    rowidcs, colidcs = axes(A)
-    weights = map(CartesianIndices(A)) do ci
-        i, j = Tuple(ci) .- 1
-        m, n = size(A) .- 1
-        (i * n - j * m)^2 |> float
-    end
-    Asq = A .^ 2
-    rowperm = collect(rowidcs)
-    colperm = collect(colidcs)
-    Lrows = LAWorkspace(Float64, size(A, 1), size(A, 1))
-    Lcols = LAWorkspace(Float64, size(A, 2), size(A, 2))
-    for iter in 1:iterations
-        @info "iteration" iter
-        Asq_perm = view(Asq, rowperm, colperm)
-        rowcosts = [dot(w, a) for w in eachrow(weights), a in eachrow(Asq_perm)]
-        linear_assignment!(Lrows, rowcosts)
-        rowperm = rowperm[Lrows.J]
-        Asq_perm = view(Asq, rowperm, colperm)
-        colcosts = [dot(w, a) for w in eachcol(weights), a in eachcol(Asq_perm)]
-        linear_assignment!(Lcols, colcosts)
-        colperm = colperm[Lcols.J]
-    end
-    rowperm, colperm
-end
+heatmap(cpd.correspondences; axis = (; autolimitaspect = 1), colormap = cmap)
 
-trg_sorted_idcs, src_sorted_idcs = minimize_soft_bandwidth_cost(cpd.correspondences)
+trg_sorted_idcs, src_sorted_idcs = minimize_soft_bandwidth(cpd.correspondences; iterations = 10)
 
-heatmap(cpd.correspondences[trg_sorted_idcs, src_sorted_idcs]; axis = (; autolimitaspect = 1))
+heatmap(cpd.correspondences[trg_sorted_idcs, src_sorted_idcs]; axis = (; autolimitaspect = 1), colormap = cmap)
 
-flipbook(T_source[src_sorted_idcs], target[trg_sorted_idcs]; markersize = 10)
+flipbook(source[src_sorted_idcs], target[trg_sorted_idcs]; markersize = 10, interval = .5)
 
