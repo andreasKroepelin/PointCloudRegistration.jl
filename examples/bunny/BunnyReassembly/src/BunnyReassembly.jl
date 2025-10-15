@@ -48,9 +48,14 @@ function @main(args)
         h5["successes"] = collect(successes)
         h5["overlaps"] = collect(overlaps)
         h5["threshold_range"] = collect(threshold_range)
-        attrs(h5)["normal"] = n
-        attrs(h5)["restarts"] = numrestarts
+        h5["projected"] = projected
+        h5["points"] = stack(pc.points)
+        h5["weights"] = pc.weights
+        attributes(h5)["normal"] = n
+        attributes(h5)["restarts"] = numrestarts
+        attributes(h5)["resolution"] = resolution
     end
+    nothing
 end
 
 # Extracting inner loop into these awkward functor structs to avoid
