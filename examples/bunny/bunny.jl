@@ -11,9 +11,11 @@ using PointCloudRegistration.CoordinateTransformations
 using GLMakie
 using LinearAlgebra
 
-url = "http://graphics.stanford.edu/pub/3Dscanrep/bunny.tar.gz"
-iobuffer = Downloads.download(url, IOBuffer())
-seekstart(iobuffer)
+if !isfile("bunny.tar.gz")
+    url = "http://graphics.stanford.edu/pub/3Dscanrep/bunny.tar.gz"
+    Downloads.download(url, "bunny.tar.gz")
+end
+iobuffer = IOBuffer(read("bunny.tar.gz"))
 bunny_dir = Tar.extract(GzipDecompressorStream(iobuffer))
 data_dir = joinpath(bunny_dir, "bunny", "data")
 
