@@ -21,7 +21,7 @@ function @main(args)
     config = Dict(split.(args, '='))
     numthresholds = get(config, "numthresholds", "10") |> Base.Fix1(parse, Int)
     numrestarts = get(config, "numrestarts", "10") |> Base.Fix1(parse, Int)
-    @info "config" numthresholds numrestarts
+    @info "config" numthresholds numrestarts Threads.nthreads()
 
     bunny_dir = load_bunny_data()
     full_bunny = pc_from_ply(joinpath(bunny_dir, "bunny", "reconstruction", "bun_zipper.ply"))
