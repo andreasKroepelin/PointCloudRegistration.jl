@@ -38,7 +38,11 @@ function (@main)(args)
     projected = [dot(n, p) for p in pc.points]
     lo, hi = extrema(projected)
     threshold_range = range(0, 1; length = numthresholds)
-    scales = logrange(maxscalefactor * resolution, minscalefactor*resolution; length = 5)
+    scales = logrange(
+        maxscalefactor * resolution,
+        minscalefactor * resolution;
+        length = 5,
+    )
     analyzer =
         Analyzer(; pc, scales, projected, lo, hi, threshold_range, numrestarts)
     analyzer_spawner = AnalyzerSpawner(analyzer)

@@ -102,8 +102,14 @@ function plot_result(file)
         margin = (0, 0, 0, 0),
     )
 
-    limits = ((-.1, .1), (-.1, .1), (0, .2))
-    ax3 = Axis3(fig[1, 3]; aspect = :data, protrusions = 0, limits, title = "exemplary slicing")
+    limits = ((-0.1, 0.1), (-0.1, 0.1), (0, 0.2))
+    ax3 = Axis3(
+        fig[1, 3];
+        aspect = :data,
+        protrusions = 0,
+        limits,
+        title = "exemplary slicing",
+    )
     hidedecorations!(ax3)
     hidespines!(ax3)
     corners = [[0, -0.1, 0.0], [0, -0.1, 0.2], [0, 0.1, 0.2], [0, 0.1, 0.0]]
@@ -120,12 +126,19 @@ function plot_result(file)
     mesh!(ax3, vertices1, [1 2 3; 3 4 1]; color = (lower_color, 0.7))
     mesh!(ax3, vertices2, [1 2 3; 3 4 1]; color = (upper_color, 0.7))
 
-    ax_kde = Axis3(fig[2, 3]; aspect = :data, protrusions = 0, limits, title="initial target KDE")
+    ax_kde = Axis3(
+        fig[2, 3];
+        aspect = :data,
+        protrusions = 0,
+        limits,
+        title = "initial target KDE",
+    )
     prepd = prepare_target_kc(PointCloud(points, weights); scale = scales[1])
     hidedecorations!(ax_kde)
     hidespines!(ax_kde)
     al = prepd.annealing_levels[1]
-    domains = map(d -> (first(d), last(d)), PointCloudRegistration.domains(al.grid))
+    domains =
+        map(d -> (first(d), last(d)), PointCloudRegistration.domains(al.grid))
     cmap = range(colorant"#8880", colorant"#888f")
     volume!(ax_kde, domains..., al.convd_weights_target; colormap = cmap)
 
