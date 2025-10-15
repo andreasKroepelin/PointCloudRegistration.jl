@@ -1149,7 +1149,7 @@ uuid = "eebad327-c553-4316-9ea0-9fa01ccd7688"
 version = "0.3.3"
 
 [[deps.PlotReassembly]]
-deps = ["GLMakie", "HDF5", "PrecompileTools"]
+deps = ["GLMakie", "HDF5", "PrecompileTools", "Rotations"]
 path = "PlotReassembly"
 uuid = "dec67e51-e515-435d-a492-1795d42c6d4b"
 version = "0.1.0"

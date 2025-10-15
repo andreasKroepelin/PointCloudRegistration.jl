@@ -3,6 +3,7 @@ module PlotReassembly
 using GLMakie
 using Rotations
 using HDF5
+using PointCloudRegistration
 using PrecompileTools: @compile_workload
 
 function (@main)(args)
@@ -16,7 +17,9 @@ function plot_result(file)
     overlaps = read(h5result, "overlaps")
     threshold_range = read(h5result, "threshold_range")
     points = read(h5result, "points")[[1, 3, 2], :]
+    weights = read(h5result, "weights")
     projected = read(h5result, "projected")
+    scales = read(h5result, "scales")
     resolution = read_attribute(h5result, "resolution")
     normal = read_attribute(h5result, "normal")[[1, 3, 2]]
 
@@ -34,6 +37,7 @@ function plot_result(file)
         xgridvisible = false,
         ygridvisible = false,
         limits = (0, 1, 0, 1),
+        title = "success of reassembly",
     )
     hidespines!(ax, :b, :r)
     heatmap!(
@@ -98,7 +102,8 @@ function plot_result(file)
         margin = (0, 0, 0, 0),
     )
 
-    ax3 = Axis3(fig[1:2, 3:4]; aspect = :data, yreversed = false)
+    limits = ((-.1, .1), (-.1, .1), (0, .2))
+    ax3 = Axis3(fig[1, 3]; aspect = :data, protrusions = 0, limits, title = "exemplary slicing")
     hidedecorations!(ax3)
     hidespines!(ax3)
     corners = [[0, -0.1, 0.0], [0, -0.1, 0.2], [0, 0.1, 0.2], [0, 0.1, 0.0]]
@@ -114,6 +119,15 @@ function plot_result(file)
     meshscatter!(ax3, points; color = :lightgray, markersize = resolution)
     mesh!(ax3, vertices1, [1 2 3; 3 4 1]; color = (lower_color, 0.7))
     mesh!(ax3, vertices2, [1 2 3; 3 4 1]; color = (upper_color, 0.7))
+
+    ax_kde = Axis3(fig[2, 3]; aspect = :data, protrusions = 0, limits, title="initial target KDE")
+    prepd = prepare_target_kc(PointCloud(points, weights); scale = scales[1])
+    hidedecorations!(ax_kde)
+    hidespines!(ax_kde)
+    al = prepd.annealing_levels[1]
+    domains = map(d -> (first(d), last(d)), PointCloudRegistration.domains(al.grid))
+    cmap = range(colorant"#8880", colorant"#888f")
+    volume!(ax_kde, domains..., al.convd_weights_target; colormap = cmap)
 
     fig
 end

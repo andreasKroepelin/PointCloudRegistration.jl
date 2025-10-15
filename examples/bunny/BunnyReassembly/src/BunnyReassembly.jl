@@ -19,9 +19,11 @@ function (@main)(args)
     end
 
     config = Dict(split.(args, '='))
-    numthresholds = get(config, "numthresholds", "10") |> Base.Fix1(parse, Int)
-    numrestarts = get(config, "numrestarts", "10") |> Base.Fix1(parse, Int)
-    @info "config" numthresholds numrestarts Threads.nthreads()
+    numthresholds = parse(Int, get(config, "numthresholds", "10"))
+    numrestarts = parse(Int, get(config, "numrestarts", "10"))
+    maxscalefactor = parse(Float32, get(config, "maxscalefactor", "4"))
+    minscalefactor = parse(Float32, get(config, "minscalefactor", "1"))
+    @info "config" numthresholds numrestarts maxscalefactor minscalefactor Threads.nthreads()
 
     @info "preparing bunny (loading, thinning)..."
     bunny_dir = load_bunny_data()
@@ -36,7 +38,7 @@ function (@main)(args)
     projected = [dot(n, p) for p in pc.points]
     lo, hi = extrema(projected)
     threshold_range = range(0, 1; length = numthresholds)
-    scales = logrange(4resolution, resolution; length = 5)
+    scales = logrange(maxscalefactor * resolution, minscalefactor*resolution; length = 5)
     analyzer =
         Analyzer(; pc, scales, projected, lo, hi, threshold_range, numrestarts)
     analyzer_spawner = AnalyzerSpawner(analyzer)
@@ -54,6 +56,7 @@ function (@main)(args)
         h5["projected"] = projected
         h5["points"] = stack(pc.points)
         h5["weights"] = pc.weights
+        h5["scales"] = collect(scales)
         attributes(h5)["normal"] = n
         attributes(h5)["restarts"] = numrestarts
         attributes(h5)["resolution"] = resolution
