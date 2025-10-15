@@ -4,10 +4,12 @@ using CodecZlib
 using Tar
 using PlyIO
 using PointCloudRegistration
+using PointCloudRegistration.StaticArrays
 using PointCloudRegistration.Distances
 using PointCloudRegistration.Rotations
 using PointCloudRegistration.CoordinateTransformations
 using GLMakie
+using LinearAlgebra
 
 url = "http://graphics.stanford.edu/pub/3Dscanrep/bunny.tar.gz"
 iobuffer = Downloads.download(url, IOBuffer())
@@ -22,6 +24,7 @@ function pc_from_ply(filename)
     coords = mapreduce(d -> vertices[d]', vcat, ["x", "y", "z"])
     PointCloud(coords)
 end
+
 pointclouds = Dict([
     let
         key = basename(chopsuffix(filename, ".ply"))
@@ -103,6 +106,8 @@ full_bunny = pc_from_ply(
     joinpath(bunny_dir, "bunny", "reconstruction", "bun_zipper.ply"),
 )
 
+full_bunny_thinned = thin_dpmeans(full_bunny, 0.005f0)
+
 max_radius = sqrt(maximum(full_bunny.coveigvals))
 sections = map(1:100) do _
     center = rand(full_bunny.points)
@@ -154,4 +159,130 @@ let source = pointclouds["bun090"]
     scatter!(ax, T(source))
     scatter!(ax, target)
     wait(display(fig))
+end
+
+let
+    fig = Figure()
+    ax = Axis3(fig[1, 1:2]; aspect = :data)
+    sl = Slider(fig[2, 1]; range = range(0, 1; length = 100))
+    btn = Button(fig[2, 2]; label = "rnd dir!")
+    nobs = Observable(SA[1., 0., 0.])
+    projected_obs = map(nobs) do n
+        [dot(n, p) for p in full_bunny.points]
+    end
+    mask = map(projected_obs, sl.value) do projected, rthr
+        lo, hi = extrema(projected)
+        thr = lo + rthr * (hi - lo)
+        projected .<= thr
+    end
+    on(btn.clicks) do _
+        nobs[] = normalize(randn(SVector{3}))
+    end
+    meshscatter!(ax, full_bunny.points; markersize = 1e-3, color = mask)
+    fig
+end
+
+let
+    fig = Figure()
+    ax = Axis3(fig[1, 1:2]; aspect = :data)
+    isl = IntervalSlider(fig[2, 1]; range = range(0, 1; length = 100))
+    btn = Button(fig[2, 2]; label = "go")
+    plt1 = meshscatter!(ax, full_bunny_thinned.points; markersize = 5e-3)
+    plt2 = meshscatter!(ax, full_bunny_thinned.points; markersize = 5e-3)
+    n = randn(SVector{3, Float32})
+    projected = [dot(n, p) for p in full_bunny_thinned.points]
+    lo, hi = extrema(projected)
+    on(btn.clicks) do _
+        rel_thresholds = isl.interval[]
+        thresholds = lo .+ rel_thresholds .* (hi - lo)
+        masks = (
+            projected .<= thresholds[2],
+            projected .>= thresholds[1],
+        )
+        first_slice, second_slice = map(mask -> full_bunny_thinned[mask], masks)
+        prepd_second_slice = prepare_target_kc(second_slice; scale = logrange(0.02f0, 0.005f0, length = 5))
+        T = register_kc(first_slice, prepd_second_slice; restarts = RandomRestarts(100))
+        @info "transformation" rad2deg(rotation_angle(RotMatrix(T.linear))) norm(T.translation)
+        Makie.update!(plt1, arg1 = T(first_slice).points)
+        Makie.update!(plt2, arg1 = second_slice.points)
+    end
+    fig
+end
+
+let
+    n = SA[1.0f0, 0.0f0, 0.0f0]
+    projected = [dot(n, p) for p in full_bunny_thinned.points]
+    lo, hi = extrema(projected)
+    threshold_range = range(0, 1; length = 200)
+    successes = fill(NaN, length(threshold_range), length(threshold_range))
+    overlaps = copy(successes)
+    progress_counter = Threads.Atomic{Int64}(0)
+    max_progress = length(threshold_range)^2
+    ts = Task[]
+    for i in eachindex(threshold_range)
+        lrt = threshold_range[i]
+        lrt < 1 || continue
+        t = Threads.@spawn begin
+            lt = lo + lrt * (hi - lo)
+            second_mask = projected .>= lt
+            second_slice = full_bunny_thinned[second_mask]
+            prepd_second_slice = prepare_target_kc(second_slice; scale = logrange(0.02f0, 0.005f0, length = 5))
+            for j in eachindex(threshold_range)
+                urt = threshold_range[j]
+                Threads.atomic_add!(progress_counter, 1)
+                urt <= lrt && continue
+                @info "progress" progress_counter[]/max_progress
+                # @info "iteration" i j lrt urt
+                ut = lo + urt * (hi - lo)
+                first_mask = projected .<= ut
+                first_slice = full_bunny_thinned[first_mask]
+                T = register_kc(first_slice, prepd_second_slice; restarts = RandomRestarts(100))
+                angle = rad2deg(rotation_angle(RotMatrix(T.linear)))
+                nrm = norm(T.translation)
+                successes[i, j] = angle <= 2 && nrm <= .005f0
+                overlaps[i, j] = count(splat(==), zip(first_mask, second_mask))
+            end
+        end
+        push!(ts, t)
+    end
+    @time fetch.(ts)
+    overlaps ./= length(full_bunny_thinned.points)
+    fig = Figure()
+    ax = Axis(fig[1:2, 1:2]; aspect = DataAspect(), xlabel = "lower threshold", ylabel = "upper threshold", xaxisposition = :top, xgridvisible = false, ygridvisible = false)
+    hidespines!(ax, :b, :r)
+    heatmap!(ax, threshold_range, threshold_range, successes; colormap = [colorant"#ff851b", colorant"#7fdbff"])
+    contour!(ax, threshold_range, threshold_range, overlaps; levels = 0.:.2:1., labels = true, labelcolor = :black, labelformatter = x -> Makie.Format.format("{:.0%}", x), labelsize = 15, color = :gray, linestyle = :dash, linewidth = 3)
+    Legend(fig[2, 2], [[LineElement(color = :gray, linestyle = :dash, linewidth = 3), MarkerElement(color = :black, marker = '%', markersize = 15)], PolyElement(color =  colorant"#7fdbff", strokewidth = 0), PolyElement(color =  colorant"#ff851b", strokewidth = 0)], ["overlap", "success", "failure"], patchsize = (30, 20), tellwidth = false, tellheight=false, valign = :top, halign=:left, margin = (0, 0, 0, 0) )
+    fig
+end
+
+let
+    n = SA[1.0f0, 0.0f0, 0.0f0]
+    projected = [dot(n, p) for p in full_bunny_thinned.points]
+    lo, hi = extrema(projected)
+    threshold_range = range(0, 1; length = 20)
+    boundary_thresholds = Tuple{Float64, Float64}[]
+    ts = Task[]
+    j = 1
+    for i in eachindex(threshold_range)
+        lrt = threshold_range[i]
+        lrt < 1 || continue
+        lt = lo + lrt * (hi - lo)
+        second_mask = projected .>= lt
+        second_slice = full_bunny_thinned[second_mask]
+        prepd_second_slice = prepare_target_kc(second_slice; scale = logrange(0.02f0, 0.005f0, length = 5))
+        below = CircularBuffer{Bool}(w)
+        above = CircularBuffer{Bool}(w)
+        failures = 0
+        successes = 0
+        while #= not enought successes and failures on each side =#
+            urt = threshold_range[j]
+            urt <= lrt && continue
+            ut = lo + urt * (hi - lo)
+            first_mask = projected .<= ut
+            first_slice = full_bunny_thinned[first_mask]
+            T = register_kc(first_slice, prepd_second_slice; restarts = RandomRestarts(100))
+            angle = rad2deg(rotation_angle(RotMatrix(T.linear)))
+            nrm = norm(T.translation)
+        end
 end
