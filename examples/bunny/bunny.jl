@@ -257,34 +257,3 @@ let
     Legend(fig[2, 2], [[LineElement(color = :gray, linestyle = :dash, linewidth = 3), MarkerElement(color = :black, marker = '%', markersize = 15)], PolyElement(color =  colorant"#7fdbff", strokewidth = 0), PolyElement(color =  colorant"#ff851b", strokewidth = 0)], ["overlap", "success", "failure"], patchsize = (30, 20), tellwidth = false, tellheight=false, valign = :top, halign=:left, margin = (0, 0, 0, 0) )
     fig
 end
-
-let
-    n = SA[1.0f0, 0.0f0, 0.0f0]
-    projected = [dot(n, p) for p in full_bunny_thinned.points]
-    lo, hi = extrema(projected)
-    threshold_range = range(0, 1; length = 20)
-    boundary_thresholds = Tuple{Float64, Float64}[]
-    ts = Task[]
-    j = 1
-    for i in eachindex(threshold_range)
-        lrt = threshold_range[i]
-        lrt < 1 || continue
-        lt = lo + lrt * (hi - lo)
-        second_mask = projected .>= lt
-        second_slice = full_bunny_thinned[second_mask]
-        prepd_second_slice = prepare_target_kc(second_slice; scale = logrange(0.02f0, 0.005f0, length = 5))
-        below = CircularBuffer{Bool}(w)
-        above = CircularBuffer{Bool}(w)
-        failures = 0
-        successes = 0
-        while #= not enought successes and failures on each side =#
-            urt = threshold_range[j]
-            urt <= lrt && continue
-            ut = lo + urt * (hi - lo)
-            first_mask = projected .<= ut
-            first_slice = full_bunny_thinned[first_mask]
-            T = register_kc(first_slice, prepd_second_slice; restarts = RandomRestarts(100))
-            angle = rad2deg(rotation_angle(RotMatrix(T.linear)))
-            nrm = norm(T.translation)
-        end
-end
