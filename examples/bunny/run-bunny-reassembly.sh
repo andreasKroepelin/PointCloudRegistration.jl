@@ -1,8 +1,9 @@
 #!/bin/bash
 #SBATCH --output=out.txt
 #SBATCH --cpus-per-task=48
+#SBATCH --array=0-4
 
-srun julia --project=BunnyReassembly --threads=auto --module=BunnyReassembly numrestarts=200 numthresholds=200 maxscalefactor=6
-srun julia --project=BunnyReassembly --threads=auto --module=BunnyReassembly numrestarts=200 numthresholds=200 maxscalefactor=2
-srun julia --project=BunnyReassembly --threads=auto --module=BunnyReassembly numrestarts=200 numthresholds=200 maxscalefactor=.9 minscalefactor=.5
+maxscalefactors=(10 6 3 2 1)
+
+srun julia --project=BunnyReassembly --threads=auto --module=BunnyReassembly numrestarts=200 numthresholds=200 maxscalefactor=${maxscalefactors[$SLURM_ARRAY_TASK_ID]}
 
