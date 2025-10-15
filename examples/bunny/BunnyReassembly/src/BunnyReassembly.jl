@@ -12,7 +12,7 @@ using LinearAlgebra
 using Dates
 using HDF5
 
-function @main(args)
+function (@main)(args)
     if Threads.nthreads() <= 1
         @error "Not running with multiple threads."
         return
@@ -25,8 +25,10 @@ function @main(args)
 
     @info "preparing bunny (loading, thinning)..."
     bunny_dir = load_bunny_data()
-    full_bunny = pc_from_ply(joinpath(bunny_dir, "bunny", "reconstruction", "bun_zipper.ply"))
-    resolution = 5f-3
+    full_bunny = pc_from_ply(
+        joinpath(bunny_dir, "bunny", "reconstruction", "bun_zipper.ply"),
+    )
+    resolution = 5.0f-3
     pc = thin_dpmeans(full_bunny, resolution)
 
     @info "starting reassembly"
@@ -34,11 +36,12 @@ function @main(args)
     projected = [dot(n, p) for p in pc.points]
     lo, hi = extrema(projected)
     threshold_range = range(0, 1; length = numthresholds)
-    scales = logrange(4resolution, resolution, length = 5)
-    analyzer = Analyzer(; pc, scales, projected, lo, hi, threshold_range, numrestarts)
+    scales = logrange(4resolution, resolution; length = 5)
+    analyzer =
+        Analyzer(; pc, scales, projected, lo, hi, threshold_range, numrestarts)
     analyzer_spawner = AnalyzerSpawner(analyzer)
     # precompile:
-    analyzer(.5)
+    analyzer(0.5)
     ts = map(analyzer_spawner, threshold_range)
     @time results = fetch.(ts)
     successes = stack(res -> res.successes, results)'
@@ -88,11 +91,16 @@ function (analyzer::Analyzer)(lrt)
         ut = lo + urt * (hi - lo)
         first_mask = projected .<= ut
         first_slice = pc[first_mask]
-        T = register_kc(first_slice, prepd_second_slice; restarts = RandomRestarts(numrestarts))
+        T = register_kc(
+            first_slice,
+            prepd_second_slice;
+            restarts = RandomRestarts(numrestarts),
+        )
         angle = rad2deg(rotation_angle(RotMatrix(T.linear)))
         nrm = norm(T.translation)
-        successes[j] = angle <= 2 && nrm <= .005f0
-        overlaps[j] = count(splat(==), zip(first_mask, second_mask)) / length(pc.points)
+        successes[j] = angle <= 2 && nrm <= 0.005f0
+        overlaps[j] =
+            count(splat(==), zip(first_mask, second_mask)) / length(pc.points)
     end
     return (; successes, overlaps)
 end
@@ -101,9 +109,7 @@ struct AnalyzerSpawner{A}
     analyzer::A
 end
 
-function (as::AnalyzerSpawner)(lrt)
-    Threads.@spawn as.analyzer(lrt)
-end
+(as::AnalyzerSpawner)(lrt) = Threads.@spawn as.analyzer(lrt)
 
 function load_bunny_data()
     if !isfile("bunny.tar.gz")

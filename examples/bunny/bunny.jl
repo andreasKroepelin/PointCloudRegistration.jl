@@ -168,7 +168,7 @@ let
     ax = Axis3(fig[1, 1:2]; aspect = :data)
     sl = Slider(fig[2, 1]; range = range(0, 1; length = 100))
     btn = Button(fig[2, 2]; label = "rnd dir!")
-    nobs = Observable(SA[1., 0., 0.])
+    nobs = Observable(SA[1.0, 0.0, 0.0])
     projected_obs = map(nobs) do n
         [dot(n, p) for p in full_bunny.points]
     end
@@ -197,16 +197,22 @@ let
     on(btn.clicks) do _
         rel_thresholds = isl.interval[]
         thresholds = lo .+ rel_thresholds .* (hi - lo)
-        masks = (
-            projected .<= thresholds[2],
-            projected .>= thresholds[1],
-        )
+        masks = (projected .<= thresholds[2], projected .>= thresholds[1])
         first_slice, second_slice = map(mask -> full_bunny_thinned[mask], masks)
-        prepd_second_slice = prepare_target_kc(second_slice; scale = logrange(0.02f0, 0.005f0, length = 5))
-        T = register_kc(first_slice, prepd_second_slice; restarts = RandomRestarts(100))
-        @info "transformation" rad2deg(rotation_angle(RotMatrix(T.linear))) norm(T.translation)
-        Makie.update!(plt1, arg1 = T(first_slice).points)
-        Makie.update!(plt2, arg1 = second_slice.points)
+        prepd_second_slice = prepare_target_kc(
+            second_slice;
+            scale = logrange(0.02f0, 0.005f0; length = 5),
+        )
+        T = register_kc(
+            first_slice,
+            prepd_second_slice;
+            restarts = RandomRestarts(100),
+        )
+        @info "transformation" rad2deg(rotation_angle(RotMatrix(T.linear))) norm(
+            T.translation,
+        )
+        Makie.update!(plt1; arg1 = T(first_slice).points)
+        Makie.update!(plt2; arg1 = second_slice.points)
     end
     fig
 end
@@ -228,7 +234,10 @@ let
             lt = lo + lrt * (hi - lo)
             second_mask = projected .>= lt
             second_slice = full_bunny_thinned[second_mask]
-            prepd_second_slice = prepare_target_kc(second_slice; scale = logrange(0.02f0, 0.005f0, length = 5))
+            prepd_second_slice = prepare_target_kc(
+                second_slice;
+                scale = logrange(0.02f0, 0.005f0, length = 5),
+            )
             for j in eachindex(threshold_range)
                 urt = threshold_range[j]
                 Threads.atomic_add!(progress_counter, 1)
@@ -238,11 +247,16 @@ let
                 ut = lo + urt * (hi - lo)
                 first_mask = projected .<= ut
                 first_slice = full_bunny_thinned[first_mask]
-                T = register_kc(first_slice, prepd_second_slice; restarts = RandomRestarts(100))
+                T = register_kc(
+                    first_slice,
+                    prepd_second_slice;
+                    restarts = RandomRestarts(100),
+                )
                 angle = rad2deg(rotation_angle(RotMatrix(T.linear)))
                 nrm = norm(T.translation)
-                successes[i, j] = angle <= 2 && nrm <= .005f0
-                overlaps[i, j] = count(splat(==), zip(first_mask, second_mask))
+                successes[i, j] = angle <= 2 && nrm <= 0.005f0
+                overlaps[i, j] =
+                    count(splat(==), zip(first_mask, second_mask))
             end
         end
         push!(ts, t)
@@ -250,10 +264,54 @@ let
     @time fetch.(ts)
     overlaps ./= length(full_bunny_thinned.points)
     fig = Figure()
-    ax = Axis(fig[1:2, 1:2]; aspect = DataAspect(), xlabel = "lower threshold", ylabel = "upper threshold", xaxisposition = :top, xgridvisible = false, ygridvisible = false)
+    ax = Axis(
+        fig[1:2, 1:2];
+        aspect = DataAspect(),
+        xlabel = "lower threshold",
+        ylabel = "upper threshold",
+        xaxisposition = :top,
+        xgridvisible = false,
+        ygridvisible = false,
+    )
     hidespines!(ax, :b, :r)
-    heatmap!(ax, threshold_range, threshold_range, successes; colormap = [colorant"#ff851b", colorant"#7fdbff"])
-    contour!(ax, threshold_range, threshold_range, overlaps; levels = 0.:.2:1., labels = true, labelcolor = :black, labelformatter = x -> Makie.Format.format("{:.0%}", x), labelsize = 15, color = :gray, linestyle = :dash, linewidth = 3)
-    Legend(fig[2, 2], [[LineElement(color = :gray, linestyle = :dash, linewidth = 3), MarkerElement(color = :black, marker = '%', markersize = 15)], PolyElement(color =  colorant"#7fdbff", strokewidth = 0), PolyElement(color =  colorant"#ff851b", strokewidth = 0)], ["overlap", "success", "failure"], patchsize = (30, 20), tellwidth = false, tellheight=false, valign = :top, halign=:left, margin = (0, 0, 0, 0) )
+    heatmap!(
+        ax,
+        threshold_range,
+        threshold_range,
+        successes;
+        colormap = [colorant"#ff851b", colorant"#7fdbff"],
+    )
+    contour!(
+        ax,
+        threshold_range,
+        threshold_range,
+        overlaps;
+        levels = 0.0:0.2:1.0,
+        labels = true,
+        labelcolor = :black,
+        labelformatter = x -> Makie.Format.format("{:.0%}", x),
+        labelsize = 15,
+        color = :gray,
+        linestyle = :dash,
+        linewidth = 3,
+    )
+    Legend(
+        fig[2, 2],
+        [
+            [
+                LineElement(; color = :gray, linestyle = :dash, linewidth = 3),
+                MarkerElement(; color = :black, marker = '%', markersize = 15),
+            ],
+            PolyElement(; color = colorant"#7fdbff", strokewidth = 0),
+            PolyElement(; color = colorant"#ff851b", strokewidth = 0),
+        ],
+        ["overlap", "success", "failure"];
+        patchsize = (30, 20),
+        tellwidth = false,
+        tellheight = false,
+        valign = :top,
+        halign = :left,
+        margin = (0, 0, 0, 0),
+    )
     fig
 end
