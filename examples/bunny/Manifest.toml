@@ -2,7 +2,7 @@
 
 julia_version = "1.12.0"
 manifest_format = "2.0"
-project_hash = "e797712981ef85a9b9203096d9aa89d7a9d160c3"
+project_hash = "202832761976298a980ebf54555c5905d4502c1b"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -113,7 +113,7 @@ uuid = "18cc8868-cbac-4acf-b575-c8ff214dc66f"
 version = "1.3.2"
 
 [[deps.BunnyReassembly]]
-deps = ["CodecZlib", "Downloads", "HDF5", "LinearAlgebra", "PlyIO", "PointCloudRegistration", "Tar"]
+deps = ["CodecZlib", "Dates", "Downloads", "HDF5", "LinearAlgebra", "PlyIO", "PointCloudRegistration", "Tar"]
 path = "BunnyReassembly"
 uuid = "5feba217-e912-4120-8206-526eda68b8c8"
 version = "0.1.0"
@@ -1147,6 +1147,12 @@ deps = ["Pkg"]
 git-tree-sha1 = "f9501cc0430a26bc3d156ae1b5b0c1b47af4d6da"
 uuid = "eebad327-c553-4316-9ea0-9fa01ccd7688"
 version = "0.3.3"
+
+[[deps.PlotReassembly]]
+deps = ["GLMakie", "HDF5", "PrecompileTools"]
+path = "PlotReassembly"
+uuid = "dec67e51-e515-435d-a492-1795d42c6d4b"
+version = "0.1.0"
 
 [[deps.PlotUtils]]
 deps = ["ColorSchemes", "Colors", "Dates", "PrecompileTools", "Printf", "Random", "Reexport", "StableRNGs", "Statistics"]

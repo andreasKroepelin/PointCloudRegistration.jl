@@ -8,4 +8,4 @@ Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 Tar = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
 
 [workspace]
-projects = ["BunnyReassembly"]
+projects = ["BunnyReassembly", "PlotReassembly"]
