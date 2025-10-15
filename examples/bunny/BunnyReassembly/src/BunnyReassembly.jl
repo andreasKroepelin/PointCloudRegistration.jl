@@ -23,56 +23,81 @@ function @main(args)
     numrestarts = get(config, "numrestarts", "10") |> Base.Fix1(parse, Int)
     @info "config" numthresholds numrestarts Threads.nthreads()
 
+    @info "preparing bunny (loading, thinning)..."
     bunny_dir = load_bunny_data()
     full_bunny = pc_from_ply(joinpath(bunny_dir, "bunny", "reconstruction", "bun_zipper.ply"))
     resolution = 5f-3
     pc = thin_dpmeans(full_bunny, resolution)
 
+    @info "starting reassembly"
     n = SA[1.0f0, 0.0f0, 0.0f0]
     projected = [dot(n, p) for p in pc.points]
     lo, hi = extrema(projected)
     threshold_range = range(0, 1; length = numthresholds)
-    successes = fill(NaN, length(threshold_range), length(threshold_range))
-    overlaps = copy(successes)
-    progress_counter = Threads.Atomic{Int64}(0)
-    max_progress = length(threshold_range)^2
-    ts = Task[]
-    for i in eachindex(threshold_range)
-        lrt = threshold_range[i]
-        lrt < 1 || continue
-        t = Threads.@spawn begin
-            lt = lo + lrt * (hi - lo)
-            second_mask = projected .>= lt
-            second_slice = pc[second_mask]
-            prepd_second_slice = prepare_target_kc(second_slice; scale = logrange(4resolution, resolution, length = 5))
-            for j in eachindex(threshold_range)
-                urt = threshold_range[j]
-                Threads.atomic_add!(progress_counter, 1)
-                urt <= lrt && continue
-                @info "progress" progress_counter[]/max_progress
-                # @info "iteration" i j lrt urt
-                ut = lo + urt * (hi - lo)
-                first_mask = projected .<= ut
-                first_slice = pc[first_mask]
-                T = register_kc(first_slice, prepd_second_slice; restarts = RandomRestarts(numrestarts))
-                angle = rad2deg(rotation_angle(RotMatrix(T.linear)))
-                nrm = norm(T.translation)
-                successes[i, j] = angle <= 2 && nrm <= .005f0
-                overlaps[i, j] = count(splat(==), zip(first_mask, second_mask))
-            end
-        end
-        push!(ts, t)
-    end
-    @time fetch.(ts)
-    overlaps ./= length(pc.points)
+    scales = logrange(4resolution, resolution, length = 5)
+    analyzer = Analyzer(; pc, scales, projected, lo, hi, threshold_range, numrestarts)
+    analyzer_spawner = AnalyzerSpawner(analyzer)
+    # precompile:
+    analyzer(.5)
+    ts = map(analyzer_spawner, threshold_range)
+    @time results = fetch.(ts)
+    successes = stack(res -> res.successes, results)'
+    overlaps = stack(res -> res.overlaps, results)'
 
     h5open("result-$(Dates.now()).h5", "w") do h5
-        h5["successes"] = successes
-        h5["overlaps"] = overlaps
+        h5["successes"] = collect(successes)
+        h5["overlaps"] = collect(overlaps)
         h5["threshold_range"] = collect(threshold_range)
         attrs(h5)["normal"] = n
         attrs(h5)["restarts"] = numrestarts
     end
+end
+
+# Extracting inner loop into these awkward functor structs to avoid
+# recompilation when running on multiple threads
+
+@kwdef struct Analyzer{T, PC, S, TR}
+    pc::PC
+    scales::S
+    projected::Vector{T}
+    lo::T
+    hi::T
+    threshold_range::TR
+    numrestarts::Int
+end
+
+function (analyzer::Analyzer)(lrt)
+    (; pc, scales, projected, lo, hi, threshold_range, numrestarts) = analyzer
+    successes = fill(NaN, length(threshold_range))
+    overlaps = copy(successes)
+    if lrt >= 1
+        return (; successes, overlaps)
+    end
+    lt = lo + lrt * (hi - lo)
+    second_mask = projected .>= lt
+    second_slice = pc[second_mask]
+    prepd_second_slice = prepare_target_kc(second_slice; scale = scales)
+    for j in eachindex(threshold_range)
+        urt = threshold_range[j]
+        urt <= lrt && continue
+        ut = lo + urt * (hi - lo)
+        first_mask = projected .<= ut
+        first_slice = pc[first_mask]
+        T = register_kc(first_slice, prepd_second_slice; restarts = RandomRestarts(numrestarts))
+        angle = rad2deg(rotation_angle(RotMatrix(T.linear)))
+        nrm = norm(T.translation)
+        successes[j] = angle <= 2 && nrm <= .005f0
+        overlaps[j] = count(splat(==), zip(first_mask, second_mask)) / length(pc.points)
+    end
+    return (; successes, overlaps)
+end
+
+struct AnalyzerSpawner{A}
+    analyzer::A
+end
+
+function (as::AnalyzerSpawner)(lrt)
+    Threads.@spawn as.analyzer(lrt)
 end
 
 function load_bunny_data()
