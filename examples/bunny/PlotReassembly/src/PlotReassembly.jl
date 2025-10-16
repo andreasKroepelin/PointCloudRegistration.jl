@@ -4,34 +4,26 @@ using GLMakie
 using Rotations
 using HDF5
 using PointCloudRegistration
+using Optim
+using LogExpFunctions
+using RollingFunctions
 using PrecompileTools: @compile_workload
 
 function (@main)(args)
-    fig = Figure()
-    results = read_result.(args)
-    sort!(results, by = res -> res.scales[1])
-    for (i, result) in enumerate(results)
-        plot_result(result, fig, i)
+    command, files... = args
+    results = read_result.(files)
+    sort!(results; by = res -> res.scales[1])
+
+    if command == "success"
+        fig = plot_success(results)
+    elseif command == "slices"
+        fig = plot_slices(results)
+    elseif command == "inits"
+        fig = plot_inits(results)
+    else
+        @error "unknown command" command
+        return 1
     end
-    Legend(
-        fig[2, 1:length(args)],
-        [
-            [
-                LineElement(; color = :gray, linestyle = :dash, linewidth = 3),
-                MarkerElement(; color = :black, marker = '%', markersize = 15),
-            ],
-            PolyElement(; color = colorant"#7fdbff", strokewidth = 0),
-            PolyElement(; color = colorant"#ff851b", strokewidth = 0),
-        ],
-        ["common points", "success", "failure"];
-        patchsize = (30, 20),
-        orientation = :horizontal,
-        # tellwidth = false,
-        # tellheight = false,
-        # valign = :top,
-        # halign = :left,
-        # margin = (0, 0, 0, 0),
-    )
     wait(display(fig))
 end
 
@@ -50,8 +42,229 @@ function read_result(file)
     )
 end
 
+struct Loss{Y}
+    ys::Y
+end
+
+function (loss::Loss)(params)
+    k, x0 = params
+    sum(enumerate(loss.ys)) do (x, y)
+        (y - logistic(k * (x - x0)))^2
+    end
+end
+
+function find_step(ys)
+    opt = optimize(Loss(ys), [1.0, length(ys) / 2])
+    step = Optim.minimizer(opt)[2]
+    clamp(round(Int, step), eachindex(ys))
+end
+
+function boundary_line(result)
+    @info "computing boundary" result.scales[1]
+    coords = stack(enumerate(eachcol(result.successes))) do (i, ss)
+        ys = map(ss) do s
+            if isnan(s)
+                1.0
+            else
+                1.0 - s
+            end
+        end
+        step = find_step(ys)
+        [result.threshold_range[i], result.threshold_range[step]]
+    end
+    runmean(coords[2, :], 10), coords[1, :]
+end
+
+function scale_ratio_text(result)
+    scale_ratio = result.scales[1] / result.resolution
+    "σ = $(chopsuffix(Makie.Format.format("{:.1f}", scale_ratio), ".0"))r"
+end
+
+function plot_success(results)
+    fig = Figure()
+    ax = Axis(
+        fig[1, 2];
+        aspect = DataAspect(),
+        limits = (0, 1, 0, 1),
+        xlabel = "begin overlap",
+        ylabel = "end overlap",
+        xaxisposition = :top,
+        xgridvisible = false,
+        ygridvisible = false,
+    )
+    hidespines!(ax, :b, :r)
+    cp = contourf!(
+        ax,
+        results[1].threshold_range,
+        results[1].threshold_range,
+        results[1].overlaps;
+        levels = 0.0:0.2:1.0,
+        colormap = :Blues,
+    )
+    for (i, result) in enumerate(results)
+        lines!(
+            ax,
+            boundary_line(result)...;
+            color = cgrad(:sun, length(results); categorical = true)[i],
+            linewidth = 4,
+            joinstyle = :round,
+            label = scale_ratio_text(result),
+        )
+    end
+    axislegend(
+        ax,
+        "success/failure boundary\nfor initial annealing scale";
+        position = :rb,
+        patchsize = (30, 20),
+    )
+    Colorbar(
+        fig[1, 1],
+        cp;
+        ticks = 0:0.2:1,
+        tickformat = xs -> [Makie.Format.format("{:.0%}", x) for x in xs],
+    )
+    Label(
+        fig[1, 0],
+        "proportion of common points";
+        rotation = deg2rad(90),
+        tellheight = false,
+    )
+
+    fig
+end
+
+function plot_slices(results)
+    result = results[1]
+    (; points, projected, resolution, normal) = result
+    fig = Figure()
+    lower_color = colorant"#239dad"
+    upper_color = colorant"#85144b"
+    ax = Axis(
+        fig[1, 1];
+        # aspect = DataAspect(),
+        limits = (0, 1, 0, 1),
+        xlabel = "begin overlap",
+        ylabel = "end overlap",
+        xaxisposition = :top,
+        xgridvisible = false,
+        ygridvisible = false,
+        xlabelcolor = lower_color,
+        xtickcolor = lower_color,
+        xticklabelcolor = lower_color,
+        topspinecolor = lower_color,
+        ylabelcolor = upper_color,
+        ytickcolor = upper_color,
+        yticklabelcolor = upper_color,
+        leftspinecolor = upper_color,
+    )
+    hidespines!(ax, :b, :r)
+    for interaction in interactions(ax)
+        deregister_interaction!(ax, interaction[1])
+    end
+
+    lo, hi = extrema(projected)
+    positions = [(0.1, 0.7), (0.2, 0.3), (0.7, 0.8)]
+    grid_idcs = [(1, 2), (2, 2), (2, 1)]
+    scatter!(ax, positions; marker = 'A':'C', markersize = 20)
+    limits = ((-0.1, 0.1), (-0.1, 0.1), (0, 0.2))
+    corners =
+        [[0, -0.08, 0.02], [0, -0.08, 0.18], [0, 0.08, 0.18], [0, 0.08, 0.02]]
+    rotation = rotation_between([1, 0, 0], result.normal)
+    # ax3s = Axis[]
+    for (position, grid_idx, label) in zip(positions, grid_idcs, 'A':'C')
+        lines!(
+            ax,
+            [(0, position[2]), position];
+            color = upper_color,
+            linewidth = 3,
+        )
+        lines!(
+            ax,
+            [(position[1], 1), position];
+            color = lower_color,
+            linewidth = 3,
+        )
+        lt, ut = lo .+ position .* (hi - lo)
+        ax3 = Axis3(
+            fig[grid_idx...];
+            aspect = :data,
+            # alignmode = Outside(),
+            protrusions = 0,
+            limits,
+            # width = Relative(.3),
+            # height = Relative(.3),
+            # halign = position[1] + .0,
+            # valign = position[2],
+            viewmode = :fit,
+            title = string(label),
+        )
+        # push!(ax3s, ax3)
+        hidedecorations!(ax3)
+        # translate!(ax3.blockscene, 0, 0, 150)
+        hidespines!(ax3)
+        vertices1 = [rotation * corner + lt * normal for corner in corners]
+        vertices2 = [rotation * corner + ut * normal for corner in corners]
+        meshscatter!(ax3, points; color = :lightgray, markersize = resolution)
+        # vlines!(ax3, [lt, ut]; color = [lower_color, upper_color], linewidth = 3)
+        mesh!(ax3, vertices1, [1 2 3; 3 4 1]; color = (lower_color, 0.7))
+        mesh!(ax3, vertices2, [1 2 3; 3 4 1]; color = (upper_color, 0.7))
+    end
+
+    colgap!(fig.layout, 0)
+    rowgap!(fig.layout, 0)
+
+    fig
+end
+
+function plot_inits(results)
+    fig = Figure()
+    limits = ((-0.1, 0.1), (-0.1, 0.1), (0, 0.2))
+    for (i, result) in enumerate(results)
+        (; points, weights, scales)=result
+        ax = Axis3(
+            fig[1, i];
+            aspect = :data,
+            protrusions = (0, 0, 0, 20),
+            limits,
+            title = scale_ratio_text(result),
+        )
+        prepd =
+            prepare_target_kc(PointCloud(points, weights); scale = scales[1])
+        hidedecorations!(ax)
+        hidespines!(ax)
+        al = prepd.annealing_levels[1]
+        domains = map(
+            d -> (first(d), last(d)),
+            PointCloudRegistration.domains(al.grid),
+        )
+        cmap = range(colorant"#0074d9", colorant"#0074d9")
+        kde = al.convd_weights_target
+        maxdensity = maximum(kde)
+        volume!(
+            ax,
+            domains...,
+            kde;
+            algorithm = :iso,
+            isovalue = 0.6 * maxdensity,
+            isorange = 0.2 * maxdensity,
+            colormap = cmap,
+        )
+    end
+    fig
+end
+
 function plot_result(result, fig, i)
-    (;successes,overlaps,threshold_range,points,weights,projected,scales,resolution,normal)=result
+    (;
+        successes,
+        overlaps,
+        threshold_range,
+        points,
+        weights,
+        projected,
+        scales,
+        resolution,
+        normal,
+    )=result
 
     # lo, hi = extrema(projected)
     # displayed_relative_thresholds = (0.2, 0.7)
@@ -142,27 +355,6 @@ function plot_result(result, fig, i)
     mesh!(ax3, vertices2, [1 2 3; 3 4 1]; color = (upper_color, 0.7))
     =#
 
-    ax_kde = Axis3(
-        fig[1, i];
-        aspect = :data,
-        width = Relative(0.5),
-        height = Relative(0.5),
-        halign = .9,
-        valign = .1,
-        protrusions = 0,
-        limits,
-    )
-    prepd = prepare_target_kc(PointCloud(points, weights); scale = scales[1])
-    hidedecorations!(ax_kde)
-    hidespines!(ax_kde)
-    al = prepd.annealing_levels[1]
-    domains =
-        map(d -> (first(d), last(d)), PointCloudRegistration.domains(al.grid))
-    cmap = range(colorant"#0074d9", colorant"#0074d9")
-    kde = collect(al.convd_weights_target)
-    maxdensity = maximum(kde)
-    # kde[kde .< .5 .* maxdensity] .= NaN
-    volume!(ax_kde, domains..., kde; algorithm = :iso, isovalue = .6 * maxdensity, isorange = .2 * maxdensity, colormap = cmap)
 end
 
 #=
