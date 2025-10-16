@@ -55,6 +55,11 @@ assembly, namely surface information
 cut the assembled bunny point cloud in two with varying amount of overlap,
 analyse performance of rigid registration
 
+works better with more overlap
+
+success depends on initial scale of annealing (less success when scale is to
+large)
+
 == Coherent Point Drift hyperparameters
 
 systematic exploration of CPD result with different choice of hyperparameters
