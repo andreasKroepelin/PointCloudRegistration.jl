@@ -140,8 +140,8 @@ function plot_slices(results)
     lower_color = colorant"#239dad"
     upper_color = colorant"#85144b"
     ax = Axis(
-        fig[1, 1];
-        # aspect = DataAspect(),
+        fig[1:3, 1];
+        aspect = DataAspect(),
         limits = (0, 1, 0, 1),
         xlabel = "begin overlap",
         ylabel = "end overlap",
@@ -164,53 +164,51 @@ function plot_slices(results)
 
     lo, hi = extrema(projected)
     positions = [(0.1, 0.7), (0.2, 0.3), (0.7, 0.8)]
-    grid_idcs = [(1, 2), (2, 2), (2, 1)]
-    scatter!(ax, positions; marker = 'A':'C', markersize = 20)
+    textlabel!(ax, positions; text = string.('A':'C'), fontsize = 15)
     limits = ((-0.1, 0.1), (-0.1, 0.1), (0, 0.2))
     corners =
         [[0, -0.08, 0.02], [0, -0.08, 0.18], [0, 0.08, 0.18], [0, 0.08, 0.02]]
     rotation = rotation_between([1, 0, 0], result.normal)
-    # ax3s = Axis[]
-    for (position, grid_idx, label) in zip(positions, grid_idcs, 'A':'C')
+    for (position, i, label) in zip(positions, 1:3, 'A':'C')
         lines!(
             ax,
             [(0, position[2]), position];
             color = upper_color,
-            linewidth = 3,
+            linewidth = 2,
         )
         lines!(
             ax,
             [(position[1], 1), position];
             color = lower_color,
-            linewidth = 3,
+            linewidth = 2,
         )
         lt, ut = lo .+ position .* (hi - lo)
+        Label(
+            fig[i, 2],
+            string(label);
+            tellheight = false,
+            tellwidth = false,
+            valign = :center,
+            halign = :left,
+        )
         ax3 = Axis3(
-            fig[grid_idx...];
+            fig[i, 2];
             aspect = :data,
-            # alignmode = Outside(),
             protrusions = 0,
             limits,
-            # width = Relative(.3),
-            # height = Relative(.3),
-            # halign = position[1] + .0,
-            # valign = position[2],
-            viewmode = :fit,
-            title = string(label),
+            viewmode = :fitzoom,
+            azimuth = 1.45pi,
+            elevation = 0.01pi,
         )
-        # push!(ax3s, ax3)
         hidedecorations!(ax3)
-        # translate!(ax3.blockscene, 0, 0, 150)
         hidespines!(ax3)
         vertices1 = [rotation * corner + lt * normal for corner in corners]
         vertices2 = [rotation * corner + ut * normal for corner in corners]
         meshscatter!(ax3, points; color = :lightgray, markersize = resolution)
-        # vlines!(ax3, [lt, ut]; color = [lower_color, upper_color], linewidth = 3)
         mesh!(ax3, vertices1, [1 2 3; 3 4 1]; color = (lower_color, 0.7))
         mesh!(ax3, vertices2, [1 2 3; 3 4 1]; color = (upper_color, 0.7))
     end
 
-    colgap!(fig.layout, 0)
     rowgap!(fig.layout, 0)
 
     fig
