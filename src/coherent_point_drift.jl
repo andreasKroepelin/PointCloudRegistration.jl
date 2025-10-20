@@ -86,7 +86,7 @@ function _register_cpd(
     d = zeros(T, length(source.points))
     neginv2sqscale = -inv(2 * sqscale)
     regularizer_strength_sqscale = regularizer_strength * sqscale
-    @info "type" outlier_term regularizer_strength_sqscale
+    # @info "type" outlier_term regularizer_strength_sqscale
 
     for iter in 1:10_000
         try
@@ -126,9 +126,9 @@ function _register_cpd(
                 ideal_displacement[j] = tr - src
             end
             relchange = change / length(source.points)
-            @info "iteration" iter change sqrt(relchange)
+            # @info "iteration" iter change sqrt(relchange)
             if relchange < sqscale / 10_000
-                @info "converged" iter
+                # @info "converged" iter
                 break
             end
 

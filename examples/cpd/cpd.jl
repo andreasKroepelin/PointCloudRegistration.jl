@@ -1,44 +1,73 @@
 using Revise
 using PointCloudRegistration
+import PointCloudRegistration as PCReg
 using LinearAlgebra
 # using BioStructures
 using GLMakie
+using DelimitedFiles
 
-v = normalize(randn(2))
-u = [-v[2], v[1]]
-coords = v .* range(1, 200; step = 5)'
-X = PointCloud(coords)
-m = 5
-Y = PointCloud(coords .+ m * u)
+# v = normalize(randn(2))
+# u = [-v[2], v[1]]
+# coords = v .* range(1, 200; step = 5)'
+# m = 5
+ake_dir = pkgdir(PointCloudRegistration, "assets", "ake")
+X = PointCloud(readdlm(joinpath(ake_dir, "1ake.csv"), ','))
+Y = PointCloud(readdlm(joinpath(ake_dir, "4ake.csv"), ','))
+resolution = PCReg.avg_nn_dist(X)
+T = register_gmc(Y, X; scale = DownTo(resolution))
+TY = T(Y)
 
 let
     fig = Figure()
-    ax = Axis(fig[1, 1]; autolimitaspect = 1)
-    scatter!(ax, X.points)
-    scatter!(ax, Y.points)
+    ax = Axis3(fig[1, 1]; aspect = :data)
+    meshscatter!(ax, X.points; markersize = resolution)
+    meshscatter!(ax, TY.points; markersize = resolution)
     fig
 end
 
 cpd = register_cpd(
-    Y,
+    TY,
     X;
     outlier_proportion = 0.,
-    scale = m,
-    regularizer_lengthscale = m,
+    scale = resolution,
+    regularizer_lengthscale = 2resolution,
     regularizer_strength = 1e2,
 );
 
 my_blues = range(colorant"#0074d900", colorant"#0074d9ff");
 let
+    # prepd_source = PCReg.prepare_source_cpd(TY; regularizer_lengthscale = 2resolution)
     fig = Figure()
-    ax = Axis(fig[1, 1]; autolimitaspect = 1)
-    ax_c = Axis(fig[1, 2]; autolimitaspect = 1)
-    scatter!(ax, X.points)
-    scatter!(ax, Y.points)
-    scatter!(ax, cpd.target_representatives)
-    # arrows2d!(ax, Y.points, cpd.displacement)
-    arrows2d!(ax, Y.points, cpd.target_representatives .- Y.points)
-    heatmap!(ax_c, cpd.correspondences; colormap = my_blues)
+    ax = Axis3(fig[1, 1]; aspect = :data)
+    ax_c = Axis(fig[1, 2]; aspect = DataAspect())
+    slg = SliderGrid(fig[2, 1:2],
+        (label = "log10lambda", range = -5:.1:3, startvalue = 0),
+        (label = "scalefactor", range = .2:.05:3, startvalue = 1),
+        (label = "regscalefactor", range = 1:.05:50, startvalue = 1),
+    )
+    params_obs = map(NamedTuple{(:log10lambda, :scalefactor, :regscalefactor)} ∘ tuple, [s.value for s in slg.sliders]...)
+    # meshscatter!(ax, X.points; markersize = .4resolution)
+    # meshscatter!(ax, TY.points; markersize = .4resolution)
+    plt_ttr = linesegments!(ax, vec(permutedims(hcat(X.points, cpd.target_representatives))))
+    # plt_trep = meshscatter!(ax, cpd.target_representatives; markersize = .4resolution, color = eachindex(X.points))
+    # plt_disp = arrows3d!(ax, TY.points, cpd.displacement)
+    # arrows3d!(ax, X.points, cpd.target_representatives .- X.points)
+    plt_crsp = heatmap!(ax_c, cpd.correspondences; colormap = my_blues)
+    on(params_obs) do params
+        (; log10lambda, scalefactor, regscalefactor) = params
+        cpd = register_cpd(
+            TY,
+            X;
+            outlier_proportion = 0.,
+            scale = scalefactor * resolution,
+            regularizer_strength = exp10(log10lambda),
+            regularizer_lengthscale = regscalefactor * resolution,
+        )
+        Makie.update!(plt_ttr, arg1 = vec(permutedims(hcat(X.points, cpd.target_representatives))))
+        # Makie.update!(plt_trep, arg1 = cpd.target_representatives)
+        # Makie.update!(plt_disp, arg2 = cpd.displacement)
+        Makie.update!(plt_crsp, arg1 = cpd.correspondences)
+    end
     fig
 end
 
