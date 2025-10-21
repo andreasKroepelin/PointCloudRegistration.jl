@@ -5,6 +5,9 @@ using LinearAlgebra
 # using BioStructures
 using GLMakie
 using DelimitedFiles
+using Statistics
+using LinearAlgebra
+using LinearAlgebra: norm_sqr
 
 # v = normalize(randn(2))
 # u = [-v[2], v[1]]
@@ -63,12 +66,47 @@ let
             regularizer_strength = exp10(log10lambda),
             regularizer_lengthscale = regscalefactor * resolution,
         )
-        Makie.update!(plt_ttr, arg1 = vec(permutedims(hcat(X.points, cpd.target_representatives))))
+        Makie.update!(plt_ttr, arg1 = vec(permutedims(hcat(X.points, TY.points .+ cpd.displacement))))
         # Makie.update!(plt_trep, arg1 = cpd.target_representatives)
         # Makie.update!(plt_disp, arg2 = cpd.displacement)
         Makie.update!(plt_crsp, arg1 = cpd.correspondences)
     end
     fig
+end
+
+rmsds = let
+    betas = (1:1.:10) .* resolution
+    sigmas = (.2:.1:3) .* resolution
+    log10lambdas = -5:.1:3
+    rmsds = zeros(length(log10lambdas), length(sigmas), length(betas))
+    for (k, beta) in enumerate(betas)
+        @info "outer loop" beta
+        prepd_TY = PCReg.prepare_source_cpd(TY; regularizer_lengthscale = beta)
+        ts = Task[]
+        for (j, sigma) in enumerate(sigmas)
+            t = Threads.@spawn for (i, log10lambda) in enumerate(log10lambdas)
+                lambda = exp10(log10lambda)
+                try
+                    cpd = register_cpd(
+                        TY,
+                        X;
+                        outlier_proportion = 0.,
+                        scale = sigma,
+                        regularizer_strength = lambda,
+                        regularizer_lengthscale = beta,
+                    )
+                    residues = TY.points .+ cpd.displacement .- X.points
+                    rmsds[i, j, k] = sqrt(mean(norm_sqr, residues))
+                catch
+                    @warn "Have to set to NaN" i j k
+                    rmsds[i, j, k] = NaN
+                end
+            end
+            push!(ts, t)
+        end
+        fetch.(ts)
+    end
+    rmsds
 end
 
 # X = PointCloud(
