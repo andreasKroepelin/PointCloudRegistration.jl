@@ -1,3 +1,4 @@
+#set page(margin: 1mm, width: 210mm - 25mm, height: 297mm - 25mm)
 #set text(
   size: 13pt,
   font: "Gentium",
@@ -7,6 +8,7 @@
 #show raw: set text(font: "Atkinson Hyperlegible Mono", size: 1.1em)
 
 #set heading(numbering: "1.1")
+#set par(justify: true)
 
 #[
   #set align(center)
@@ -91,3 +93,4 @@ implementations
 
 demonstrate using PCReg.jl functions with point clouds with units.
 compare runtime with and without units (should be equal)
+
