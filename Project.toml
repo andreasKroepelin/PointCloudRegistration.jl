@@ -32,3 +32,13 @@ Rotations = "1.7.1"
 StaticArrays = "1.9.13"
 Statistics = "1.11.1"
 StatsBase = "0.34"
+
+[workspace]
+projects = [
+  "test",
+  "perf",
+  "examples",
+  "docs",
+  "logo",
+  "assets",
+]

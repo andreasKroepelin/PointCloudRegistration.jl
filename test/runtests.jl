@@ -2,9 +2,9 @@ using Test
 using InteractiveUtils
 using PointCloudRegistration
 import PointCloudRegistration as PCReg
-using PointCloudRegistration.StaticArrays
-using PointCloudRegistration.CoordinateTransformations
-using PointCloudRegistration.Distances
+using StaticArrays
+using CoordinateTransformations
+using Distances
 using DelimitedFiles
 using LinearAlgebra
 using Random

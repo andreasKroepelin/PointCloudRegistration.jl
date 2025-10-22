@@ -1,0 +1,17 @@
+[deps]
+
+[workspace]
+projects = [
+  "animations",
+  "annealing",
+  "bunny",
+  "cpd",
+  "emdb",
+  "groel-subunit",
+  "icp",
+  "kernel_correlation",
+  "pdb",
+  "py",
+  "robust",
+  "units",
+]
