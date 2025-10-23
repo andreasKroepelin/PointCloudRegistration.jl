@@ -14,13 +14,6 @@ avg_nn_dist = PointCloudRegistration.avg_nn_dist(pc_1ake)
 
 minscale = avg_nn_dist
 
-# Topt = register_kc(pc_4ake, pc_1ake; scale = DownTo(.1avg_nn_dist, 10), restarts = RandomRestarts(100))
-Topt = register_kc(pc_4ake, pc_1ake; restarts = RandomRestarts(100))
-invTopt = inv(Topt)
-
-Tgmc = register_gmc(pc_4ake, pc_1ake; scale = DownTo(.1avg_nn_dist, 10), restarts = RandomRestarts(100))
-invTgmc = inv(Tgmc)
-
 let
     fig = Figure()
     ax = Axis3(fig[1, 1]; aspect = :data)
@@ -31,7 +24,7 @@ let
 end
 
 @time data = let
-    maxscales = minscale .* (1:1:10)
+    maxscales = range(minscale, sqrt(maximum(pc_1ake.coveigvals)); length = 10)
     numscales = 2:20
     kcs = fill(0.0, length(numscales), length(maxscales))
     Threads.@threads for j in eachindex(maxscales)
@@ -90,8 +83,22 @@ let
         scale = logrange(maxscale, minscale; length = numscale)
         plot_idx += 1
         x = fill(plot_idx, length(scale))
-        scatterlines!(ax_s, x, scale; color = :blue)
-        scatter!(ax_kc, Point(plot_idx, data.kcs[i, j]); color = :blue)
+        scatterlines!(ax_s, x, scale; #=color = :blue=#)
+        scatter!(ax_kc, Point(plot_idx, data.kcs[i, j]); #=color = :blue=#)
+    end
+    fig
+end
+
+let
+    fig = Figure()
+    ax = Axis(fig[1, 1])
+    for ci in CartesianIndices(data.kcs)
+        (i, j) = Tuple(ci)
+        maxscale = data.maxscales[j]
+        numscale = data.numscales[i]
+        scale = logrange(maxscale, minscale; length = numscale)
+        kc = data.kcs[i, j]
+        scatter!(ax, Point(length(unique(scale)), kc))
     end
     fig
 end
