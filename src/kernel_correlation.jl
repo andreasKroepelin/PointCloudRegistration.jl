@@ -463,6 +463,14 @@ function _register_kc(
                     kc += w_src * convd_w_trg
                 end
 
+                if iszero(kc)
+                    # As far as we can tell, the two point clouds do not overlap
+                    # at all with the current transformation so there is nothing
+                    # we can do here.
+                    # It is best to simply try another restart.
+                    @goto did_my_best
+                end
+
                 target_mean /= kc
                 source_mean /= kc
                 covariance /= kc
@@ -489,6 +497,7 @@ function _register_kc(
         end
         best = better(best, TransformationWithCost(-kc, transformation))
         report_restart(; restart, cost = -kc, transformation)
+        @label did_my_best
     end
 
     return LinearMap(axis_aligning_rotation') ∘ best.transformation

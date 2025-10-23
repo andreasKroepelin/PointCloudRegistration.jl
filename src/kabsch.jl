@@ -1,5 +1,14 @@
 function transformation_from_moments(covariance, source_mean, target_mean)
-    (; U, Vt) = svd(covariance ./ oneunit(eltype(covariance)))
+    (; U, Vt) = try
+        svd(covariance ./ oneunit(eltype(covariance)))
+    catch e
+        if e isa LAPACKException
+            @warn "Failed SVD!" e covariance
+            (U = one(covariance), Vt = one(covariance))
+        else
+            throw(e)
+        end
+    end
     if xor(det(U) < 0, det(Vt) < 0)
         U = negative_last_column(U)
     end
