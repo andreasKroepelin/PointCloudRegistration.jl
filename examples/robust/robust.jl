@@ -23,58 +23,70 @@ import PointCloudRegistration as PCReg
 pc_1ake = PointCloud(readdlm("../../assets/ake/1ake.csv", ','))
 
 data = let
-    # rows = @NamedTuple{angle::typeof(1.0u"deg"), norm::Float64, numwrong::Int, method::String}[]
-    rows = @NamedTuple{
-        angle::Float64,
-        norm::Float64,
-        numwrong::Int,
-        method::String,
-    }[]
     scale = sqrt.(PCReg.annealing_plan(pc_1ake, TargetScales(5)))
+    rr() = RandomRestarts(100, Xoshiro(1))
     prepd_1ake = prepare_target_kc(pc_1ake; scale)
-    @showprogress for num_wrong_idcs in 0:length(pc_1ake.points)
-        for _ in 1:100
-            wrong_idcs = sample(
-                eachindex(pc_1ake.points),
-                num_wrong_idcs;
-                replace = false,
-            )
-            idcs = collect(eachindex(pc_1ake.points))
-            shuffle!(view(idcs, wrong_idcs))
-            pc = pc_1ake[idcs]
-            T_rmsd = register_rmsd(pc, pc_1ake)
-            T_gmc = register_gmc(pc, pc_1ake; scale)
-            T_kc = register_kc(pc, prepd_1ake)
-            for (method, T) in (("rmsd", T_rmsd), ("gmc", T_gmc), ("kc", T_kc))
-                push!(
-                    rows,
-                    (;
-                        angle = T.linear |>
-                                RotMatrix |>
-                                rotation_angle |>
-                                rad2deg, # |> Base.Fix2(*, 1u"deg"),
-                        norm = norm(T.translation),
-                        numwrong = num_wrong_idcs,
-                        method,
-                    ),
+    ts = Task[]
+    for num_wrong_idcs in 0:length(pc_1ake.points)
+        t = Threads.@spawn begin
+            partial_rows = @NamedTuple{ angle::Float64, norm::Float64, numwrong::Int, method::String, }[]
+            for _ in 1:100
+                wrong_idcs = sample(
+                    eachindex(pc_1ake.points),
+                    num_wrong_idcs;
+                    replace = false,
                 )
+                # idcs = collect(eachindex(pc_1ake.points))
+                # shuffle!(view(idcs, wrong_idcs))
+                # pc = pc_1ake[idcs]
+                erroneous_points = collect(pc_1ake.points)
+                for idx in wrong_idcs
+                    # erroneous_points[idx] += SA[100., 100., 100.] .+ rand(SVector{3, Float64}) .* SA[100., 100., 100.]
+                    erroneous_points[idx] = rand(eltype(erroneous_points))
+                end
+                pc = PointCloud(erroneous_points, pc_1ake.weights)
+                T_rmsd = register_rmsd(pc, pc_1ake)
+                T_gmc = register_gmc(pc, pc_1ake; scale, restarts = rr())
+                T_kc = register_kc(pc, prepd_1ake, restarts = rr())
+                for (method, T) in (("rmsd", T_rmsd), ("gmc", T_gmc), ("kc", T_kc))
+                    push!(
+                        partial_rows,
+                        (;
+                            angle = T.linear |>
+                                    RotMatrix |>
+                                    rotation_angle |>
+                                    rad2deg, # |> Base.Fix2(*, 1u"deg"),
+                            norm = norm(T.translation),
+                            numwrong = num_wrong_idcs,
+                            method,
+                        ),
+                    )
+                end
             end
+            partial_rows
         end
+        push!(ts, t)
     end
+    @time rows = reduce(vcat, fetch.(ts))
     DataFrame(rows)
 end
 
 grouped = groupby(data, [:numwrong, :method])
 quartile1(x) = quantile(x, 1//4)
 quartile3(x) = quantile(x, 3//4)
+p1(x) = quantile(x, 1//100)
+p99(x) = quantile(x, 99//100)
 stats = combine(
     grouped,
     :angle => mean,
+    :angle => median,
     :angle => std,
     :norm => mean,
     :norm => std,
     :angle => quartile1,
     :angle => quartile3,
+    :angle => p1,
+    :angle => p99,
 )
 
 let
@@ -98,17 +110,23 @@ let
     ax = Axis(
         fig[1, 1];
         yscale = identity,#=yticks = 0:15:180 =##= yticks = [0.1u"deg", 1.0u"deg", 10.0u"deg", 100.0u"deg"]=#
+        xlabel = "proportion of wrong correspondences",
+        ylabel = "rotation angle",
+        xtickformat = "{:.0%}",
     )
     for method in ("rmsd", "gmc", "kc")
         selection = subset(stats, :method => (m -> m .== method))
-        band!(
-            ax,
-            selection.numwrong,
-            selection.angle_quartile1,
-            selection.angle_quartile3;
-            label = method,
-        )
-        # scatterlines!(ax, selection.numwrong, selection.angle_mean, label = method)
+        # band!(
+        #     ax,
+        #     selection.numwrong ./ length(pc_1ake.points),
+        #     # selection.angle_quartile1,
+        #     # selection.angle_quartile3;
+        #     selection.angle_p1,
+        #     selection.angle_p99;
+        #     label = method,
+        #     alpha = .5,
+        # )
+        scatterlines!(ax, selection.numwrong ./ length(pc_1ake.points), selection.angle_p99, label = method, linewidth = 3)
     end
     axislegend(ax)
     # stats_low = subset(stats, :numwrong => (n -> n .< 195))
