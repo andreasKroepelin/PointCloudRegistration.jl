@@ -4,12 +4,15 @@ using Rotations
 using GLMakie
 using Format
 using DelimitedFiles
+using Random
 
 ake_path = pkgdir(PointCloudRegistration, "assets", "ake")
 pc_1ake = PointCloud(readdlm(joinpath(ake_path, "1ake.csv"), ','))
 pc_4ake = PointCloud(readdlm(joinpath(ake_path, "4ake.csv"), ','))
 
 avg_nn_dist = PointCloudRegistration.avg_nn_dist(pc_1ake)
+
+minscale = avg_nn_dist
 
 # Topt = register_kc(pc_4ake, pc_1ake; scale = DownTo(.1avg_nn_dist, 10), restarts = RandomRestarts(100))
 Topt = register_kc(pc_4ake, pc_1ake; restarts = RandomRestarts(100))
@@ -28,38 +31,20 @@ let
 end
 
 @time data = let
-    maxscales = [1., 3., 5., 10., sqrt(maximum(pc_1ake.coveigvals)), 20.]
-    minscales = [1., 1.5, 2., 3., avg_nn_dist, 5., 10.]
-    numscales = [2, 3, 4, 5, 10 ]
-    Ts = fill(PointCloudRegistration.simple_transformation(pc_4ake, pc_1ake), length(numscales), length(minscales), length(maxscales))
-    Threads.@threads for k in eachindex(maxscales)
-        maxscale = maxscales[k]
-        for j in eachindex(minscales)
-            minscale = minscales[j]
-            minscale <= maxscale || continue
-            for (i, numscale) in enumerate(numscales)
-                scale = logrange(maxscale, minscale; length = numscale)
-                prepd_target = try
-                    prepare_target_kc(pc_1ake; scale)
-                catch e
-                    if e isa OutOfMemoryError
-                        @info "OOM!" minscale maxscale numscale
-                    end
-                end
-                T = register_kc(pc_4ake, prepd_target; restarts = RandomRestarts(100))
-                Ts[i, j, k] = T
-                # Tdiff = T ∘ invTopt
-                # angle = rotation_angle(RotMatrix(Tdiff.linear)) |> rad2deg
-                # angles[i, j, k] = angle
-                # @info "result" maxscale minscale numscale angle
-            end
+    maxscales = minscale .* (1:1:10)
+    numscales = 2:20
+    kcs = fill(0.0, length(numscales), length(maxscales))
+    Threads.@threads for j in eachindex(maxscales)
+        maxscale = maxscales[j]
+        for (i, numscale) in enumerate(numscales)
+            scale = logrange(maxscale, minscale; length = numscale)
+            prepd_target = prepare_target_kc(pc_1ake; scale)
+            T = register_kc(pc_4ake, prepd_target; restarts = RandomRestarts(100, Xoshiro(1)), iterations = 100)
+            kc = PointCloudRegistration.eval_kernel_correlation(prepd_target.annealing_levels[end], pc_4ake, T)
+            kcs[i, j] = kc
         end
     end
-    (; maxscales, minscales, numscales, Ts)
-end
-
-angles_to_gmc = map(data.Ts) do T
-    (T ∘ invTgmc).linear |> RotMatrix |> rotation_angle |> rad2deg
+    (; maxscales, numscales, kcs)
 end
 
 let
@@ -91,24 +76,22 @@ end
 let
     fig = Figure()
     ax_s = Axis(fig[1, 1:2] #=yscale = log10=#)
-    ax_a = Axis(fig[2, 1:2])
-    linkxaxes!(ax_s, ax_a)
-    ylims!(ax_a, 0, nothing)
+    ax_kc = Axis(fig[2, 1:2])
+    linkxaxes!(ax_s, ax_kc)
+    # ylims!(ax_kc, 0, nothing)
     hidexdecorations!(ax_s)
-    hidexdecorations!(ax_a)
-    sorted_idcs = sort(vec(CartesianIndices(angles_to_gmc)); by = ci -> angles_to_gmc[ci])
+    hidexdecorations!(ax_kc)
+    sorted_idcs = sort(vec(CartesianIndices(data.kcs)); by = ci -> data.kcs[ci], rev = true)
     plot_idx = 0
     for ci in sorted_idcs
-        i, j, k = Tuple(ci)
-        maxscale = data.maxscales[k]
-        minscale = data.minscales[j]
+        i, j = Tuple(ci)
+        maxscale = data.maxscales[j]
         numscale = data.numscales[i]
-        minscale > maxscale && continue
         scale = logrange(maxscale, minscale; length = numscale)
         plot_idx += 1
         x = fill(plot_idx, length(scale))
         scatterlines!(ax_s, x, scale; color = :blue)
-        scatter!(ax_a, Point(plot_idx, angles_to_gmc[i, j, k]); color = :blue)
+        scatter!(ax_kc, Point(plot_idx, data.kcs[i, j]); color = :blue)
     end
     fig
 end
