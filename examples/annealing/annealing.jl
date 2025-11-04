@@ -6,11 +6,9 @@ using Format
 using DelimitedFiles
 using Random
 
-ake_path = pkgdir(PointCloudRegistration, "assets", "ake")
-pc_1ake = PointCloud(readdlm(joinpath(ake_path, "1ake.csv"), ','))
-pc_4ake = PointCloud(readdlm(joinpath(ake_path, "4ake.csv"), ','))
+X, Y = PointCloudRegistration.Assets.load_1ake_A_4ake_A()
 
-avg_nn_dist = PointCloudRegistration.avg_nn_dist(pc_1ake)
+avg_nn_dist = PointCloudRegistration.avg_nn_dist(X)
 
 minscale = avg_nn_dist
 
@@ -18,33 +16,30 @@ let
     fig = Figure()
     ax = Axis3(fig[1, 1]; aspect = :data)
     markersize = 0.5avg_nn_dist
-    meshscatter!(ax, Tgmc(pc_4ake).points; markersize)
-    meshscatter!(ax, Topt(pc_4ake).points; markersize)
+    meshscatter!(ax, Tgmc(Y).points; markersize)
+    meshscatter!(ax, Topt(Y).points; markersize)
     fig
 end
 
 @time data = let
-    maxscales = range(minscale, sqrt(maximum(pc_1ake.coveigvals)); length = 10)
-    numscales = 2:20
-    kcs = fill(0.0, length(numscales), length(maxscales))
-    Threads.@threads for j in eachindex(maxscales)
-        maxscale = maxscales[j]
-        for (i, numscale) in enumerate(numscales)
-            scale = logrange(maxscale, minscale; length = numscale)
-            prepd_target = prepare_target_kc(pc_1ake; scale)
-            T = register_kc(
-                pc_4ake,
-                prepd_target;
-                restarts = RandomRestarts(100, Xoshiro(1)),
-                iterations = 100,
-            )
-            kc = PointCloudRegistration.eval_kernel_correlation(
-                prepd_target.annealing_levels[end],
-                pc_4ake,
-                T,
-            )
-            kcs[i, j] = kc
-        end
+    scale_reservoir = range(minscale, sqrt(maximum(X.coveigvals)); length = 10)
+    scale_powerset = powerset(scale_reservoir)
+    kcs = fill(0.0, length(scale_powerset))
+    Threads.@threads for i in eachindex(scale_powerset, kcs)
+        scale = scale_powerset[i]
+        pX = prepare_target_kc(X; scale)
+        T = register_kc(
+            Y,
+            pX;
+            restarts = RandomRestarts(100, Xoshiro(1)),
+            iterations = 100,
+        )
+        kc = PointCloudRegistration.eval_kernel_correlation(
+            pX.annealing_levels[end],
+            Y,
+            T,
+        )
+        kcs[i] = kc
     end
     (; maxscales, numscales, kcs)
 end
