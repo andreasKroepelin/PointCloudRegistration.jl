@@ -47,6 +47,7 @@ include("iterative_closest_point.jl")
 include("coherent_point_drift.jl")
 include("guess_correspondences.jl")
 include("thinning.jl")
+include("assets.jl")
 
 @compile_workload begin
     X2 = rand(2, 10)

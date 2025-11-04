@@ -1,2 +1,2 @@
 [workspace]
-projects = ["ake"]
+projects = ["ake", "pdbs"]
