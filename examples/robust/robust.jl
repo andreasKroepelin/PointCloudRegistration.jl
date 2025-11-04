@@ -29,7 +29,12 @@ data = let
     ts = Task[]
     for num_wrong_idcs in 0:length(pc_1ake.points)
         t = Threads.@spawn begin
-            partial_rows = @NamedTuple{ angle::Float64, norm::Float64, numwrong::Int, method::String, }[]
+            partial_rows = @NamedTuple{
+                angle::Float64,
+                norm::Float64,
+                numwrong::Int,
+                method::String,
+            }[]
             for _ in 1:100
                 wrong_idcs = sample(
                     eachindex(pc_1ake.points),
@@ -48,7 +53,8 @@ data = let
                 T_rmsd = register_rmsd(pc, pc_1ake)
                 T_gmc = register_gmc(pc, pc_1ake; scale, restarts = rr())
                 T_kc = register_kc(pc, prepd_1ake, restarts = rr())
-                for (method, T) in (("rmsd", T_rmsd), ("gmc", T_gmc), ("kc", T_kc))
+                for (method, T) in
+                    (("rmsd", T_rmsd), ("gmc", T_gmc), ("kc", T_kc))
                     push!(
                         partial_rows,
                         (;
@@ -109,7 +115,24 @@ let
     fig = Figure()
     ax = Axis(
         fig[1, 1];
-        yscale = identity,#=yticks = 0:15:180 =##= yticks = [0.1u"deg", 1.0u"deg", 10.0u"deg", 100.0u"deg"]=#
+        yscale = identity,
+        #=yticks = 0:15:180 =##= yticks = [0.1u"deg", 1.0u"deg", 10.0u"deg", 100.0u"deg"]=#
+
+        # TODO:
+        # 1. clean up deps
+        # 2. use 1ake
+        # 3. "phase plot", i.e. x: norm of translation, y: angle of rotation, then
+        #    trajectory of increasingly wrong (shuffled) correspondences
+        # 4. compare RMSD, GMc, KC
+
+        # idcs = collect(eachindex(pc_1ake.points))
+        # shuffle!(view(idcs, wrong_idcs))
+        # pc = pc_1ake[idcs]
+
+        # erroneous_points[idx] += SA[100., 100., 100.] .+ rand(SVector{3, Float64}) .* SA[100., 100., 100.]
+
+        # |> Base.Fix2(*, 1u"deg"),
+
         xlabel = "proportion of wrong correspondences",
         ylabel = "rotation angle",
         xtickformat = "{:.0%}",
@@ -126,7 +149,13 @@ let
         #     label = method,
         #     alpha = .5,
         # )
-        scatterlines!(ax, selection.numwrong ./ length(pc_1ake.points), selection.angle_p99, label = method, linewidth = 3)
+        scatterlines!(
+            ax,
+            selection.numwrong ./ length(pc_1ake.points),
+            selection.angle_p99;
+            label = method,
+            linewidth = 3,
+        )
     end
     axislegend(ax)
     # stats_low = subset(stats, :numwrong => (n -> n .< 195))

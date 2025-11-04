@@ -117,7 +117,7 @@ function report_iteration(; iteration, relchange, numclusters, additions)
     )
 end
 
-resolution = 15f0
+resolution = 15.0f0
 
 pcs = map(pc -> thin_dpmeans(pc, resolution; report_iteration), pcs_dense)
 # # pcs = map(pc -> thin_kmeans(pc, 1000), pcs_dense)
@@ -131,11 +131,16 @@ prepd_target = prepare_target_kc(target);
 
 T = register_kc(source, prepd_target; restarts = RandomRestarts(100))
 
-function flipbook(pcs...; markersize = 2, interval = .1)
+function flipbook(pcs...; markersize = 2, interval = 0.1)
     fig = Figure()
     ax = Axis3(fig[1, 1]; aspect = :data)
     i = Observable(1)
-    meshscatter!(ax, @lift(pcs[$i]); markersize, color = @lift(eachindex(pcs[$i].points)))
+    meshscatter!(
+        ax,
+        @lift(pcs[$i]);
+        markersize,
+        color = @lift(eachindex(pcs[$i].points))
+    )
     last_t = -Inf
     on(events(fig).tick) do tick
         if tick.time - last_t > interval
@@ -150,13 +155,16 @@ T_source = T(source)
 
 flipbook(source, target; markersize = 5)
 
-prepd_source = PointCloudRegistration.prepare_source_cpd(source; regularizer_lengthscale = 10.0f0)
+prepd_source = PointCloudRegistration.prepare_source_cpd(
+    source;
+    regularizer_lengthscale = 10.0f0,
+)
 cpd = register_cpd(
     prepd_source,
     target;
     scale = resolution / 1,
     outlier_proportion = 0.1,
-    regularizer_strength = .001,
+    regularizer_strength = 0.001,
 )
 
 source_disp = PointCloud(source.points .+ cpd.displacement, source.weights)
@@ -168,7 +176,7 @@ let
     # scatter!(ax, source_disp.points; label = "displaced source")
     scatter!(ax, cpd.target_representatives; label = "target representatives")
     scatter!(ax, target.points; label = "target")
-    arrows3d!(ax, source.points, cpd.displacement; markerscale = .1)
+    arrows3d!(ax, source.points, cpd.displacement; markerscale = 0.1)
     axislegend(ax)
     fig
 end
@@ -177,9 +185,18 @@ cmap = range(colorant"#0074d900", colorant"#0074d9ff");
 
 heatmap(cpd.correspondences; axis = (; autolimitaspect = 1), colormap = cmap)
 
-trg_sorted_idcs, src_sorted_idcs = minimize_soft_bandwidth(cpd.correspondences; iterations = 10)
+trg_sorted_idcs, src_sorted_idcs =
+    minimize_soft_bandwidth(cpd.correspondences; iterations = 10)
 
-heatmap(cpd.correspondences[trg_sorted_idcs, src_sorted_idcs]; axis = (; autolimitaspect = 1), colormap = cmap)
+heatmap(
+    cpd.correspondences[trg_sorted_idcs, src_sorted_idcs];
+    axis = (; autolimitaspect = 1),
+    colormap = cmap,
+)
 
-flipbook(source[src_sorted_idcs], target[trg_sorted_idcs]; markersize = 10, interval = .5)
-
+flipbook(
+    source[src_sorted_idcs],
+    target[trg_sorted_idcs];
+    markersize = 10,
+    interval = 0.5,
+)

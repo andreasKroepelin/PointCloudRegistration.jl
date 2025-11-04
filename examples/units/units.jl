@@ -24,5 +24,11 @@ prepd_4ake = prepare_target_kc(pc_4ake; scale = DownTo(1Å));
 T = register_kc(pc_1ake, prepd_4ake; restarts = RandomRestarts(100))
 
 T_pc_1ake = T(pc_1ake)
-cpd = register_cpd(T_pc_1ake, pc_4ake; scale = 1Å, outlier_proportion = .01, regularizer_strength = .1Å^(-2), regularizer_lengthscale = 5Å)
-
+cpd = register_cpd(
+    T_pc_1ake,
+    pc_4ake;
+    scale = 1Å,
+    outlier_proportion = 0.01,
+    regularizer_strength = 0.1Å^(-2),
+    regularizer_lengthscale = 5Å,
+)

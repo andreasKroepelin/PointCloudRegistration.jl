@@ -17,7 +17,7 @@ minscale = avg_nn_dist
 let
     fig = Figure()
     ax = Axis3(fig[1, 1]; aspect = :data)
-    markersize = .5avg_nn_dist
+    markersize = 0.5avg_nn_dist
     meshscatter!(ax, Tgmc(pc_4ake).points; markersize)
     meshscatter!(ax, Topt(pc_4ake).points; markersize)
     fig
@@ -32,8 +32,17 @@ end
         for (i, numscale) in enumerate(numscales)
             scale = logrange(maxscale, minscale; length = numscale)
             prepd_target = prepare_target_kc(pc_1ake; scale)
-            T = register_kc(pc_4ake, prepd_target; restarts = RandomRestarts(100, Xoshiro(1)), iterations = 100)
-            kc = PointCloudRegistration.eval_kernel_correlation(prepd_target.annealing_levels[end], pc_4ake, T)
+            T = register_kc(
+                pc_4ake,
+                prepd_target;
+                restarts = RandomRestarts(100, Xoshiro(1)),
+                iterations = 100,
+            )
+            kc = PointCloudRegistration.eval_kernel_correlation(
+                prepd_target.annealing_levels[end],
+                pc_4ake,
+                T,
+            )
             kcs[i, j] = kc
         end
     end
@@ -42,7 +51,10 @@ end
 
 let
     fig = Figure()
-    ax_s = Axis(fig[1, 1:2]; dim1_conversion = Makie.CategoricalConversion() #=yscale = log10=#)
+    ax_s = Axis(
+        fig[1, 1:2];
+        dim1_conversion = Makie.CategoricalConversion()#=yscale = log10=#
+    )
     ax_a = Axis(fig[2, 1:2]; dim1_conversion = Makie.CategoricalConversion())
     linkxaxes!(ax_s, ax_a)
     ylims!(ax_a, 0, nothing)
@@ -54,7 +66,11 @@ let
     # k = 5
     for i in eachindex(data.numscales)
         scale_obs = map(sl_min.value, sl_max.value) do j, k
-            logrange(data.maxscales[k], data.minscales[j]; length = data.numscales[i])
+            logrange(
+                data.maxscales[k],
+                data.minscales[j];
+                length = data.numscales[i],
+            )
         end
         is_obs = map(scale -> fill(i, length(scale)), scale_obs)
         angle_obs = map(sl_min.value, sl_max.value) do j, k
@@ -68,13 +84,17 @@ end
 
 let
     fig = Figure()
-    ax_s = Axis(fig[1, 1:2] #=yscale = log10=#)
+    ax_s = Axis(fig[1, 1:2]#=yscale = log10=#)
     ax_kc = Axis(fig[2, 1:2])
     linkxaxes!(ax_s, ax_kc)
     # ylims!(ax_kc, 0, nothing)
     hidexdecorations!(ax_s)
     hidexdecorations!(ax_kc)
-    sorted_idcs = sort(vec(CartesianIndices(data.kcs)); by = ci -> data.kcs[ci], rev = true)
+    sorted_idcs = sort(
+        vec(CartesianIndices(data.kcs));
+        by = ci -> data.kcs[ci],
+        rev = true,
+    )
     plot_idx = 0
     for ci in sorted_idcs
         i, j = Tuple(ci)
@@ -83,8 +103,8 @@ let
         scale = logrange(maxscale, minscale; length = numscale)
         plot_idx += 1
         x = fill(plot_idx, length(scale))
-        scatterlines!(ax_s, x, scale; #=color = :blue=#)
-        scatter!(ax_kc, Point(plot_idx, data.kcs[i, j]); #=color = :blue=#)
+        scatterlines!(ax_s, x, scale;#=color = :blue=#)
+        scatter!(ax_kc, Point(plot_idx, data.kcs[i, j]);#=color = :blue=#)
     end
     fig
 end

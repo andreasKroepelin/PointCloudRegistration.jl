@@ -103,7 +103,7 @@ function thin_dpmeans(
     gridinit!(state, pc, sqrt(N) * cutoffdist)
     recenter!(state, pc)
     remove_empty!(state; relabel = true)
-    
+
     for iteration in 1:iterations
         change = 0.0
         additions = 0

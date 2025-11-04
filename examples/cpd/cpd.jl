@@ -31,7 +31,7 @@ end
 cpd = register_cpd(
     TY,
     X;
-    outlier_proportion = 0.,
+    outlier_proportion = 0.0,
     scale = resolution,
     regularizer_lengthscale = 2resolution,
     regularizer_strength = 1e2,
@@ -43,15 +43,22 @@ let
     fig = Figure()
     ax = Axis3(fig[1, 1]; aspect = :data)
     ax_c = Axis(fig[1, 2]; aspect = DataAspect())
-    slg = SliderGrid(fig[2, 1:2],
-        (label = "log10lambda", range = -5:.1:3, startvalue = 0),
-        (label = "scalefactor", range = .2:.05:3, startvalue = 1),
-        (label = "regscalefactor", range = 1:.05:50, startvalue = 1),
+    slg = SliderGrid(
+        fig[2, 1:2],
+        (label = "log10lambda", range = -5:0.1:3, startvalue = 0),
+        (label = "scalefactor", range = 0.2:0.05:3, startvalue = 1),
+        (label = "regscalefactor", range = 1:0.05:50, startvalue = 1),
     )
-    params_obs = map(NamedTuple{(:log10lambda, :scalefactor, :regscalefactor)} ∘ tuple, [s.value for s in slg.sliders]...)
+    params_obs = map(
+        NamedTuple{(:log10lambda, :scalefactor, :regscalefactor)} ∘ tuple,
+        [s.value for s in slg.sliders]...,
+    )
     # meshscatter!(ax, X.points; markersize = .4resolution)
     # meshscatter!(ax, TY.points; markersize = .4resolution)
-    plt_ttr = linesegments!(ax, vec(permutedims(hcat(X.points, cpd.target_representatives))))
+    plt_ttr = linesegments!(
+        ax,
+        vec(permutedims(hcat(X.points, cpd.target_representatives))),
+    )
     # plt_trep = meshscatter!(ax, cpd.target_representatives; markersize = .4resolution, color = eachindex(X.points))
     # plt_disp = arrows3d!(ax, TY.points, cpd.displacement)
     # arrows3d!(ax, X.points, cpd.target_representatives .- X.points)
@@ -61,27 +68,33 @@ let
         cpd = register_cpd(
             TY,
             X;
-            outlier_proportion = 0.,
+            outlier_proportion = 0.0,
             scale = scalefactor * resolution,
             regularizer_strength = exp10(log10lambda),
             regularizer_lengthscale = regscalefactor * resolution,
         )
-        Makie.update!(plt_ttr, arg1 = vec(permutedims(hcat(X.points, TY.points .+ cpd.displacement))))
+        Makie.update!(
+            plt_ttr;
+            arg1 = vec(
+                permutedims(hcat(X.points, TY.points .+ cpd.displacement)),
+            ),
+        )
         # Makie.update!(plt_trep, arg1 = cpd.target_representatives)
         # Makie.update!(plt_disp, arg2 = cpd.displacement)
-        Makie.update!(plt_crsp, arg1 = cpd.correspondences)
+        Makie.update!(plt_crsp; arg1 = cpd.correspondences)
     end
     fig
 end
 
 rmsds = let
-    betas = (1:1.:10) .* resolution
-    sigmas = (.2:.1:3) .* resolution
-    log10lambdas = -5:.1:3
+    betas = (1:1.0:10) .* resolution
+    sigmas = (0.2:0.1:3) .* resolution
+    log10lambdas = -5:0.1:3
     rmsds = zeros(length(log10lambdas), length(sigmas), length(betas))
     for (k, beta) in enumerate(betas)
         @info "outer loop" beta
-        prepd_TY = PCReg.prepare_source_cpd(TY; regularizer_lengthscale = beta)
+        prepd_TY =
+            PCReg.prepare_source_cpd(TY; regularizer_lengthscale = beta)
         ts = Task[]
         for (j, sigma) in enumerate(sigmas)
             t = Threads.@spawn for (i, log10lambda) in enumerate(log10lambdas)
@@ -90,7 +103,7 @@ rmsds = let
                     cpd = register_cpd(
                         TY,
                         X;
-                        outlier_proportion = 0.,
+                        outlier_proportion = 0.0,
                         scale = sigma,
                         regularizer_strength = lambda,
                         regularizer_lengthscale = beta,
