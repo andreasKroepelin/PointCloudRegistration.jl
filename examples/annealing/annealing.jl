@@ -7,10 +7,8 @@ using Combinatorics
 using Random
 using Statistics
 
-X, Y = PointCloudRegistration.Assets.load_1ake_A_4ake_A()
-
+X, Y = PointCloudRegistration.Assets.load_1ih7_A_1ig9_A()
 avg_nn_dist = PointCloudRegistration.avg_nn_dist(X)
-
 minscale = avg_nn_dist
 
 let
@@ -24,8 +22,8 @@ end
 
 @time data = let
     ref_al = prepare_target_kc(X; scale = minscale).annealing_levels[end]
-    scale_reservoir = range(sqrt(maximum(X.coveigvals)), minscale; length = 6)
-    scale_powerset = collect(powerset(scale_reservoir, 1))
+    scale_reservoir = range(sqrt(maximum(X.coveigvals)), minscale; length = 6)[begin:end - 1]
+    scale_powerset = [[ss; minscale] for ss in powerset(scale_reservoir)]
     kcs = fill(0.0, length(scale_powerset))
     Threads.@threads for i in eachindex(scale_powerset, kcs)
         scale = scale_powerset[i]
