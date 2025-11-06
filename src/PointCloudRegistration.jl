@@ -28,6 +28,8 @@ export PointCloud,
     TargetScales,
     RandomRestarts,
     FixedRestarts,
+    AllPoints,
+    SomePoints,
     thin_dpmeans,
     thin_kmeans,
     thin_droplowweight
@@ -37,6 +39,7 @@ public VecOfSVec
 include("pointcloud.jl")
 include("common.jl")
 include("annealing.jl")
+include("stochastic_majorization_minimization.jl")
 include("transformation_utils.jl")
 include("restarts.jl")
 include("accumulation.jl")

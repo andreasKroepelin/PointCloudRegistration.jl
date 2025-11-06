@@ -149,11 +149,13 @@ struct PointCloud{
     P <: VecOfSVec{N, T},
     WT,
     W <: AbstractVector,
+    WC <: AbstractVector,
     EVL <: SMatrix{N, N},
     EVC <: SVector{N},
 } <: AbstractMatrix{T}
     points::P
     weights::W
+    weights_cumsum::WC
     sum_of_weights::WT
     mean::SVector{N, T}
     coveigvecs::EVL
@@ -170,11 +172,13 @@ function PointCloud(points::VecOfSVec, weights::AbstractVector)
     @argcheck all(>=(0), weights) "weights must be non-negative"
     mean, cov, sum_of_weights = mean_cov_sumw(points, weights)
     @argcheck sum_of_weights > 0 "weights cannot all be zero"
+    weights_cumsum = cumsum(weights)
     unit = oneunit(eltype(cov))
     coveig = eigen(cov ./ unit)
     PointCloud(
         points,
         weights,
+        weights_cumsum,
         sum_of_weights,
         mean,
         coveig.vectors,
@@ -274,9 +278,17 @@ function bbox_hypervolume(pc::PointCloud)
     prod(hi - lo)
 end
 
+function sample_point(rng, pc::PointCloud)
+    r = rand(rng, float(eltype(pc.weights_cumsum)))
+    idx = searchsortedfirst(pc.weights_cumsum, r * pc.sum_of_weights)
+    idx = clamp(idx, eachindex(pc.points))
+    (;idx, point = pc.points[idx])
+end
+
 (m::AffineMap)(pc::PointCloud) = PointCloud(
     m.(pc.points),
     pc.weights,
+    pc.weights_cumsum,
     pc.sum_of_weights,
     m(pc.mean),
     m.linear * pc.coveigvecs,
@@ -286,6 +298,7 @@ end
 (m::LinearMap)(pc::PointCloud) = PointCloud(
     m.(pc.points),
     pc.weights,
+    pc.weights_cumsum,
     pc.sum_of_weights,
     m(pc.mean),
     m(pc.coveigvecs),

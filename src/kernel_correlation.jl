@@ -363,6 +363,7 @@ function register_kc(
     axisalign::Bool = default_axisalign(),
     restarts::AbstractRestarts = default_restarts(),
     iterations::Int = default_iterations(),
+    stochastic_majorization_minimization = AllPoints(),
     report_iteration::RI = no_report,
     report_restart::RR = no_report,
 ) where {RI, RR}
@@ -379,6 +380,7 @@ function register_kc(
         prepared_target,
         restarts,
         iterations,
+        stochastic_majorization_minimization,
         report_iteration,
         report_restart,
     )
@@ -398,6 +400,7 @@ function register_kc(
     prepared_target::PreparedTarget;
     restarts::AbstractRestarts = default_restarts(),
     iterations::Int = default_iterations(),
+    stochastic_majorization_minimization = AllPoints(),
     report_iteration::RI = no_report,
     report_restart::RR = no_report,
 ) where {RI, RR}
@@ -411,6 +414,7 @@ function register_kc(
         prepared_target,
         restarts,
         iterations,
+        stochastic_majorization_minimization,
         report_iteration,
         report_restart,
     )
@@ -421,6 +425,7 @@ function _register_kc(
     prepared_target::PreparedTarget{N},
     restarts,
     iterations,
+    smm,
     report_iteration,
     report_restart,
 ) where {N}
@@ -437,6 +442,7 @@ function _register_kc(
     best = worst(CostT, transformation_type(source, target))
     kc = zero(CostT)
     restarts_iter = restarts_iterator(source, target, restarts)
+    source_iter = smm_iterator(smm, source)
     for (restart, transformation) in enumerate(restarts_iter)
         for annealing_level in annealing_levels
             (; grid, convd_target, convd_weights_target) = annealing_level
@@ -448,13 +454,13 @@ function _register_kc(
                 source_mean = zero(eltype(source.points))
                 covariance = target_mean * source_mean'
                 kc = zero(CostT)
-                for j in eachindex(source.points)
-                    src = source.points[j]
+                for source_element in source_iter
+                    src = source_element.point
                     transformed_src = transformation(src)
                     grid_idx = idx_on_grid(transformed_src, grid)
                     grid_idx in valid_idcs || continue
 
-                    w_src = source.weights[j]
+                    w_src = source_element.weight
                     convd_trg = convd_target[grid_idx]
                     convd_w_trg = convd_weights_target[grid_idx]
                     target_mean += w_src * convd_trg
