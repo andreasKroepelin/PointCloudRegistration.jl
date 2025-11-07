@@ -443,18 +443,24 @@ function _register_kc(
     kc = zero(CostT)
     restarts_iter = restarts_iterator(source, target, restarts)
     source_iter = smm_iterator(smm, source)
+    all_source_iter = smm_iterator(AllPoints(), source)
     for (restart, transformation) in enumerate(restarts_iter)
         for annealing_level in annealing_levels
             (; grid, convd_target, convd_weights_target) = annealing_level
             valid_idcs = CartesianIndices(size(grid))
             prev_transformation = identity_transformation(transformation)
 
-            for iter in 1:iterations
+            for iter in 1:2iterations
                 target_mean = zero(eltype(target.points))
                 source_mean = zero(eltype(source.points))
                 covariance = target_mean * source_mean'
                 kc = zero(CostT)
-                for source_element in source_iter
+                this_source_iter = if iter > iterations
+                    all_source_iter
+                else
+                    source_iter
+                end
+                for source_element in this_source_iter
                     src = source_element.point
                     transformed_src = transformation(src)
                     grid_idx = idx_on_grid(transformed_src, grid)

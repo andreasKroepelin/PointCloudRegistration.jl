@@ -13,5 +13,6 @@ projects = [
   "pdb",
   "py",
   "robust",
+  "smm",
   "units",
 ]

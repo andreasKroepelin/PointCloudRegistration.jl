@@ -18,7 +18,7 @@ struct SomePoints{Rng <: AbstractRNG}
     rng::Rng
 end
 
-SomePoints(count::Int) = SomePoint(count, Random.default_rng())
+SomePoints(count::Int) = SomePoints(count, Random.default_rng())
 
 struct SomePointsIterator{PC <: PointCloud, Rng <: AbstractRNG}
     count::Int

@@ -5,11 +5,12 @@ using GLMakie
 using Format
 using Combinatorics
 using Random
+using LinearAlgebra
 using Statistics
 
 X, Y = PointCloudRegistration.Assets.load_1su4_A_1iwo_A()
 avg_nn_dist = PointCloudRegistration.avg_nn_dist(X)
-minscale = avg_nn_dist
+minscale = .5 * avg_nn_dist
 
 let
     fig = Figure()
@@ -20,45 +21,43 @@ let
     fig
 end
 
+struct RestartCollector{T}
+    transformations::Vector{T}
+end
+RestartCollector() = RestartCollector([])
+function (rc::RestartCollector)(; transformation, kwargs...)
+    push!(rc.transformations, transformation)
+end
+
 @time data = let
+    nrestarts = 10_000
+    iterations = 100
+    seed = 1
     ref_al = prepare_target_kc(X; scale = minscale).annealing_levels[end]
     scale_reservoir = range(sqrt(maximum(X.coveigvals)), minscale; length = 6)[begin:end - 1]
     scale_powerset = [[ss; minscale] for ss in powerset(scale_reservoir)]
-    kcs = fill(0.0, length(scale_powerset))
-    kcs_smm = fill(0.0, length(scale_powerset))
-    warn_no_convergence(; iter, kwargs...) = iter == 100 && @warn "did not converge"
-    Threads.@threads for i in eachindex(scale_powerset, kcs)
-        scale = scale_powerset[i]
-        pX = prepare_target_kc(X; scale)
-        local_kcs = Float32[]
-        for seed in 1:10
-            T = register_kc(
-                Y,
-                pX;
-                restarts = RandomRestarts(100, Xoshiro(seed)),
-                iterations = 100,
-                report_iteration = warn_no_convergence,
-            )
-            kc = PointCloudRegistration.eval_kernel_correlation(ref_al, Y, T)
-            push!(local_kcs, kc)
+    successes = fill(0.0, length(scale_powerset))
+    successes_smm = fill(0.0, length(scale_powerset))
+    rows = []
+    # warn_no_convergence(; iter, kwargs...) = iter == 100 && @warn "did not converge"
+    for scale in scale_powerset
+        Threads.@spawn begin
+            pX = prepare_target_kc(X; scale)
+            for smm in (AllPoints, () -> SomePoints(100, Xoshiro(-seed)))
+                restart_collector = RestartCollector()
+                T = register_kc(
+                    Y,
+                    pX;
+                    restarts = RandomRestarts(nrestarts, Xoshiro(seed)),
+                    iterations,
+                    stochastic_majorization_minimization = smm(),
+                    report_restart = restart_collector,
+                )
+                push!(rows, (;T, smm = !(smm() isa AllPoints), scale))
+            end
         end
-        kcs[i] = quantile(local_kcs, .5)
-        local_kcs = Float32[]
-        for seed in 1:10
-            T = register_kc(
-                Y,
-                pX;
-                restarts = RandomRestarts(100, Xoshiro(seed)),
-                iterations = 1000,
-                stochastic_majorization_minimization = SomePoints(500, Xoshiro(-seed)),
-                report_iteration = warn_no_convergence,
-            )
-            kc = PointCloudRegistration.eval_kernel_correlation(ref_al, Y, T)
-            push!(local_kcs, kc)
-        end
-        kcs_smm[i] = quantile(local_kcs, .5)
     end
-    (; scale_powerset, kcs, kcs_smm)
+    rows
 end
 
 let
@@ -96,26 +95,21 @@ end
 
 let
     fig = Figure()
-    ax_s = Axis(fig[1, 1:2], ylabel = "annealing scales")
-    ax_kc = Axis(fig[2, 1:2], ylabel = "final KC")
-    linkxaxes!(ax_s, ax_kc)
+    ax_sc = Axis(fig[1, 1:2], ylabel = "annealing scales")
+    ax_su = Axis(fig[2, 1:2], ylabel = "success rate")
+    linkxaxes!(ax_sc, ax_su)
     # ylims!(ax_kc, 0, nothing)
-    hidexdecorations!(ax_s)
-    hidexdecorations!(ax_kc)
-    sorted_idcs = sortperm(data.kcs; rev = true)
-    # sorted_idcs = sort(
-    #     vec(CartesianIndices(data.kcs));
-    #     by = ci -> data.kcs[ci],
-    #     rev = true,
-    # )
+    hidexdecorations!(ax_sc)
+    hidexdecorations!(ax_su)
+    sorted_idcs = sortperm(data.successes_smm; rev = true)
     plot_idx = 0
     for i in sorted_idcs
         scale = data.scale_powerset[i]
         plot_idx += 1
         x = fill(plot_idx, length(scale))
-        scatterlines!(ax_s, x, scale;#=color = :blue=#)
-        scatter!(ax_kc, Point(plot_idx, data.kcs[i]);#=color = :blue=#)
-        scatter!(ax_kc, Point(plot_idx, data.kcs_smm[i]); marker = :x)
+        scatterlines!(ax_sc, x, scale;#=color = :blue=#)
+        scatter!(ax_su, Point(plot_idx, data.successes[i]);#=color = :blue=#)
+        scatter!(ax_su, Point(plot_idx, data.successes_smm[i]); marker = :x)
     end
     fig
 end
