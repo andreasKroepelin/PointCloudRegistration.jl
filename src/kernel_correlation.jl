@@ -363,7 +363,7 @@ function register_kc(
     axisalign::Bool = default_axisalign(),
     restarts::AbstractRestarts = default_restarts(),
     iterations::Int = default_iterations(),
-    stochastic_majorization_minimization = AllPoints(),
+    smm = NoSmm(),
     report_iteration::RI = no_report,
     report_restart::RR = no_report,
 ) where {RI, RR}
@@ -380,7 +380,7 @@ function register_kc(
         prepared_target,
         restarts,
         iterations,
-        stochastic_majorization_minimization,
+        smm,
         report_iteration,
         report_restart,
     )
@@ -400,7 +400,7 @@ function register_kc(
     prepared_target::PreparedTarget;
     restarts::AbstractRestarts = default_restarts(),
     iterations::Int = default_iterations(),
-    stochastic_majorization_minimization = AllPoints(),
+    smm = NoSmm(),
     report_iteration::RI = no_report,
     report_restart::RR = no_report,
 ) where {RI, RR}
@@ -414,7 +414,7 @@ function register_kc(
         prepared_target,
         restarts,
         iterations,
-        stochastic_majorization_minimization,
+        smm,
         report_iteration,
         report_restart,
     )
@@ -443,7 +443,7 @@ function _register_kc(
     kc = zero(CostT)
     restarts_iter = restarts_iterator(source, target, restarts)
     source_iter = smm_iterator(smm, source)
-    all_source_iter = smm_iterator(AllPoints(), source)
+    all_source_iter = smm_iterator(NoSmm(), source)
     for (restart, transformation) in enumerate(restarts_iter)
         for annealing_level in annealing_levels
             (; grid, convd_target, convd_weights_target) = annealing_level

@@ -1,37 +1,37 @@
-struct AllPoints end
+struct NoSmm end
 
-struct AllPointsIterator{PC <: PointCloud}
+struct NoSmmIterator{PC <: PointCloud}
     pc::PC
 end
 
-smm_iterator(::AllPoints, pc::PointCloud) = AllPointsIterator(pc)
+smm_iterator(::NoSmm, pc::PointCloud) = NoSmmIterator(pc)
 
-function Base.iterate(api::AllPointsIterator, i = 1)
-    if i > lastindex(api.pc.points)
+function Base.iterate(nsi::NoSmmIterator, i = 1)
+    if i > lastindex(nsi.pc.points)
         return nothing
     end
-    ((idx = i, point = api.pc.points[i], weight = api.pc.weights[i]), i + 1)
+    ((idx = i, point = nsi.pc.points[i], weight = nsi.pc.weights[i]), i + 1)
 end
 
-struct SomePoints{Rng <: AbstractRNG}
+struct Smm{Rng <: AbstractRNG}
     count::Int
     rng::Rng
 end
 
-SomePoints(count::Int) = SomePoints(count, Random.default_rng())
+Smm(count::Int) = Smm(count, Random.default_rng())
 
-struct SomePointsIterator{PC <: PointCloud, Rng <: AbstractRNG}
+struct SmmIterator{PC <: PointCloud, Rng <: AbstractRNG}
     count::Int
     rng::Rng
     pc::PC
 end
 
-function smm_iterator(sp::SomePoints, pc::PointCloud)
+function smm_iterator(sp::Smm, pc::PointCloud)
     count = min(sp.count, length(pc.points))
-    SomePointsIterator(count, sp.rng, pc)
+    SmmIterator(count, sp.rng, pc)
 end
 
-function Base.iterate(spi::SomePointsIterator, i = 1)
+function Base.iterate(spi::SmmIterator, i = 1)
     if i > spi.count
         return nothing
     end
