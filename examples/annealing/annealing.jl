@@ -14,7 +14,7 @@ using Statistics
 X, Y = PointCloudRegistration.Assets.load_1ih7_A_1ig9_A()
 # X, Y = PointCloudRegistration.Assets.load_1q9x_B_1q9y_A()
 avg_nn_dist = PointCloudRegistration.avg_nn_dist(X)
-minscale = 0.5 * avg_nn_dist
+minscale = avg_nn_dist / 2
 
 let
     fig = Figure()
@@ -39,8 +39,8 @@ end
     seed = 2
     ref_al = prepare_target_kc(X; scale = minscale).annealing_levels[end]
     scale_reservoir =
-        # range(sqrt(maximum(X.coveigvals)), minscale; length = 6)[begin:(end - 1)]
-        range(10minscale, minscale; length = 5)[begin:(end - 1)]
+        range(sqrt(maximum(X.coveigvals)), minscale; length = 5)[begin:(end - 1)]
+        # range(20minscale, minscale; length = 5)[begin:(end - 1)]
     scale_powerset = [[ss; minscale] for ss in powerset(scale_reservoir)]
     successes = fill(0.0, length(scale_powerset))
     successes_smm = fill(0.0, length(scale_powerset))
@@ -111,8 +111,8 @@ end
 
 
 let
-    smm_color = :cornflowerblue
-    no_smm_color = :tomato
+    smm_color = colorant"#0074D9"
+    no_smm_color = colorant"#01FF70"
     fig = Figure()
     ax_sc = Axis(fig[1, 1]; ylabel = "annealing scales")
     ax_su = Axis(fig[2, 1]; ylabel = "number of restarts\nfor 1 % failure rate")
@@ -128,34 +128,34 @@ let
         tellwidth = false,
         tellheight = false,
     )
-    # ax_kc = Axis(fig[3, 1], ylabel = "best KC found")
     linkxaxes!(ax_sc, ax_su)
-    # linkxaxes!(ax_sc, ax_kc)
     hidexdecorations!(ax_sc)
     hidexdecorations!(ax_su)
-    # hidexdecorations!(ax_kc)
     sorted_idcs = sortperm(success_rates; rev = true)
+    stripes_lo = (1:2:length(data)) .- 0.5
+    stripes_hi = (1:2:length(data)) .+ 0.5
+    for ax in (ax_sc, ax_su)
+        vspan!(ax, stripes_lo, stripes_hi, color = (:gray, .1), inspectable = false)
+    end
     plot_idx = 0
     for i in sorted_idcs
-        scale = data[i].scale ./ minscale
+        scale = data[i].scale
         plot_idx += 1
-        if iseven(plot_idx)
-            vspan!(ax_sc, [plot_idx - 0.5], [plot_idx + 0.5], color = (:gray, .1))
-            vspan!(ax_su, [plot_idx - 0.5], [plot_idx + 0.5], color = (:gray, .1))
-        end
         x = fill(plot_idx, length(scale))
         points = mapreduce(vcat, scale) do s
             [Point(plot_idx - 0.2, s), Point(plot_idx + 0.2, s)]
         end
         color = ifelse(data[i].smm, smm_color, no_smm_color)
         linesegments!(ax_sc, points; color, linewidth = 4, linecap = :round)
-        # scatter!(ax_sc, x, scale; color, markersize = 10)
-        # scatterlines!(ax_sc, x, scale; color, linewidth = 3, markersize = 10)
         num_trials = log(1 - success_rates[i], .01)
-        barplot!(ax_su, Point(plot_idx, num_trials); color)
+        if isfinite(num_trials)
+            barplot!(ax_su, Point(plot_idx, num_trials); color)
+        else
+            text!(ax_su, Point(plot_idx, 0); text = "?", align = (:center, :bottom))
+        end
         # barplot!(ax_su, Point(plot_idx, success_rates[i]); color)
-        # barplot!(ax_kc, Point(plot_idx, data[i].kc); color)
     end
+    DataInspector(fig)
     fig
 end
 
