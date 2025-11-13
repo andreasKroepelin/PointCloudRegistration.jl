@@ -4,7 +4,7 @@ using GLMakie
 using Random
 
 X, Y = PointCloudRegistration.Assets.load_1ake_A_4ake_A()
-scale = .2 * PointCloudRegistration.avg_nn_dist(X)
+scale = 0.2 * PointCloudRegistration.avg_nn_dist(X)
 pX = prepare_target_kc(X; scale = DownTo(scale));
 
 iterations = 200
@@ -21,7 +21,6 @@ function report_restart(; restart, cost, transformation, kwargs...)
     push!(restart_costs, cost)
 end
 
-
 empty!(transformations)
 empty!(restart_transformations)
 empty!(restart_costs)
@@ -32,7 +31,7 @@ empty!(restart_costs)
     iterations,
     stochastic_majorization_minimization = SomePoints(100, Xoshiro(1)),
     # report_iteration = warn_divergence,
-    report_restart
+    report_restart,
 )
 
 mask = restart_costs .< -50
@@ -42,9 +41,17 @@ let
     fig = Figure()
     ax = Axis3(fig[1, 1]; aspect = :data)
     sl = Slider(fig[2, 1]; range = eachindex(restart_transformations))
-    markersize = .5PointCloudRegistration.avg_nn_dist(X)
+    markersize = 0.5PointCloudRegistration.avg_nn_dist(X)
     meshscatter!(ax, X.points; markersize)
-    meshscatter!(ax, (@lift ((restart_transformations[$(sl.value)])(Y)).points); markersize)
-    Label(fig[0, 1], (@lift string(restart_costs[$(sl.value)])); tellwidth = false)
+    meshscatter!(
+        ax,
+        (@lift ((restart_transformations[$(sl.value)])(Y)).points);
+        markersize,
+    )
+    Label(
+        fig[0, 1],
+        (@lift string(restart_costs[$(sl.value)]));
+        tellwidth = false,
+    )
     fig
 end

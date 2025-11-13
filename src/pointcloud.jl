@@ -282,7 +282,7 @@ function sample_point(rng, pc::PointCloud)
     r = rand(rng, float(eltype(pc.weights_cumsum)))
     idx = searchsortedfirst(pc.weights_cumsum, r * pc.sum_of_weights)
     idx = clamp(idx, eachindex(pc.points))
-    (;idx, point = pc.points[idx])
+    (; idx, point = pc.points[idx])
 end
 
 (m::AffineMap)(pc::PointCloud) = PointCloud(
