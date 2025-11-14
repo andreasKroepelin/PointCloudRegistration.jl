@@ -443,68 +443,64 @@ function _register_kc(
     kc = zero(CostT)
     restarts_iter = restarts_iterator(source, target, restarts)
     source_iter = smm_iterator(smm, source)
-    all_source_iter = smm_iterator(NoSmm(), source)
     for (restart, transformation) in enumerate(restarts_iter)
         for annealing_level in annealing_levels
             (; grid, convd_target, convd_weights_target) = annealing_level
             valid_idcs = CartesianIndices(size(grid))
             prev_transformation = identity_transformation(transformation)
 
-            for iter in 1:2iterations
-                target_mean = zero(eltype(target.points))
-                source_mean = zero(eltype(source.points))
-                covariance = target_mean * source_mean'
-                kc = zero(CostT)
-                this_source_iter = if iter > iterations
-                    all_source_iter
-                else
-                    source_iter
+            for this_source_iter in (source_iter, non_stochastic(source_iter))
+                for iter in 1:iterations
+                    target_mean = zero(eltype(target.points))
+                    source_mean = zero(eltype(source.points))
+                    covariance = target_mean * source_mean'
+                    kc = zero(CostT)
+                    for source_element in this_source_iter
+                        src = source_element.point
+                        transformed_src = transformation(src)
+                        grid_idx = idx_on_grid(transformed_src, grid)
+                        grid_idx in valid_idcs || continue
+
+                        w_src = source_element.weight
+                        convd_trg = convd_target[grid_idx]
+                        convd_w_trg = convd_weights_target[grid_idx]
+                        target_mean += w_src * convd_trg
+                        source_mean += w_src * convd_w_trg * src
+                        covariance += w_src * convd_trg * src'
+                        kc += w_src * convd_w_trg
+                    end
+
+                    if iszero(kc)
+                        # As far as we can tell, the two point clouds do not overlap
+                        # at all with the current transformation so there is nothing
+                        # we can do here.
+                        # It is best to simply try another restart.
+                        @goto did_my_best
+                    end
+
+                    target_mean /= kc
+                    source_mean /= kc
+                    covariance /= kc
+                    covariance -= target_mean * source_mean'
+
+                    transformation = transformation_from_moments(
+                        covariance,
+                        source_mean,
+                        target_mean,
+                    )
+
+                    report_iteration(;
+                        iter,
+                        annealing_level,
+                        cost = -kc,
+                        transformation,
+                    )
+
+                    if iter > 1 && isapprox(transformation, prev_transformation)
+                        break
+                    end
+                    prev_transformation = transformation
                 end
-                for source_element in this_source_iter
-                    src = source_element.point
-                    transformed_src = transformation(src)
-                    grid_idx = idx_on_grid(transformed_src, grid)
-                    grid_idx in valid_idcs || continue
-
-                    w_src = source_element.weight
-                    convd_trg = convd_target[grid_idx]
-                    convd_w_trg = convd_weights_target[grid_idx]
-                    target_mean += w_src * convd_trg
-                    source_mean += w_src * convd_w_trg * src
-                    covariance += w_src * convd_trg * src'
-                    kc += w_src * convd_w_trg
-                end
-
-                if iszero(kc)
-                    # As far as we can tell, the two point clouds do not overlap
-                    # at all with the current transformation so there is nothing
-                    # we can do here.
-                    # It is best to simply try another restart.
-                    @goto did_my_best
-                end
-
-                target_mean /= kc
-                source_mean /= kc
-                covariance /= kc
-                covariance -= target_mean * source_mean'
-
-                transformation = transformation_from_moments(
-                    covariance,
-                    source_mean,
-                    target_mean,
-                )
-
-                report_iteration(;
-                    iter,
-                    annealing_level,
-                    cost = -kc,
-                    transformation,
-                )
-
-                if iter > 1 && isapprox(transformation, prev_transformation)
-                    break
-                end
-                prev_transformation = transformation
             end
         end
         best = better(best, TransformationWithCost(-kc, transformation))

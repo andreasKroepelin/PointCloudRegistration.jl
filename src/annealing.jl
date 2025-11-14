@@ -7,7 +7,7 @@ function avg_nn_dist(pc::PointCloud)
 end
 
 """
-    TargetScales([steps = 5])
+    TargetScales([steps = 2])
 
 Annealing plan starting from the largest standard deviation of the target point
 cloud in any direction, going down to average nearest neighbor distance in the
@@ -17,10 +17,10 @@ struct TargetScales
     steps::Int
 end
 
-TargetScales() = TargetScales(5)
+TargetScales() = TargetScales(2)
 
 """
-    DownTo(scale, [steps = 5])
+    DownTo(scale, [steps = 2])
 
 Annealing plan starting from the largest standard deviation of the target point
 cloud in any direction, going down to `scale` in `steps` steps with logarithmic
@@ -31,7 +31,7 @@ struct DownTo{T <: Number}
     steps::Int
 end
 
-DownTo(scale) = DownTo(scale, 5)
+DownTo(scale) = DownTo(scale, 2)
 
 const ScaleType =
     Union{T, <: AbstractVector{T}, TargetScales, DownTo{T}} where {T <: Number}
