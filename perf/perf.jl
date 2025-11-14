@@ -41,3 +41,7 @@ Profile.clear()
     iterations = 100,
     scale = logrange(1.0, 0.1, length = 5),
 )
+
+X, Y = PointCloudRegistration.Assets.load_1ake_A_4ake_A()
+pX = prepare_target_kc(X);
+@btime register_kc($Y, $pX; restarts = RandomRestarts(30), smm = Smm(100));
