@@ -40,7 +40,7 @@ end
     ref_al = prepare_target_kc(X; scale = minscale).annealing_levels[end]
     scale_reservoir =
         range(sqrt(maximum(X.coveigvals)), minscale; length = 5)[begin:(end - 1)]
-        # range(20minscale, minscale; length = 5)[begin:(end - 1)]
+    # range(20minscale, minscale; length = 5)[begin:(end - 1)]
     scale_powerset = [[ss; minscale] for ss in powerset(scale_reservoir)]
     successes = fill(0.0, length(scale_powerset))
     successes_smm = fill(0.0, length(scale_powerset))
@@ -109,7 +109,6 @@ success_rates = map(data) do row
     success_count / length(row.restartTs)
 end
 
-
 let
     smm_color = colorant"#0074D9"
     no_smm_color = colorant"#01FF70"
@@ -135,7 +134,13 @@ let
     stripes_lo = (1:2:length(data)) .- 0.5
     stripes_hi = (1:2:length(data)) .+ 0.5
     for ax in (ax_sc, ax_su)
-        vspan!(ax, stripes_lo, stripes_hi, color = (:gray, .1), inspectable = false)
+        vspan!(
+            ax,
+            stripes_lo,
+            stripes_hi;
+            color = (:gray, 0.1),
+            inspectable = false,
+        )
     end
     plot_idx = 0
     for i in sorted_idcs
@@ -147,15 +152,19 @@ let
         end
         color = ifelse(data[i].smm, smm_color, no_smm_color)
         linesegments!(ax_sc, points; color, linewidth = 4, linecap = :round)
-        num_trials = log(1 - success_rates[i], .01)
+        num_trials = log(1 - success_rates[i], 0.01)
         if isfinite(num_trials)
             barplot!(ax_su, Point(plot_idx, num_trials); color)
         else
-            text!(ax_su, Point(plot_idx, 0); text = "?", align = (:center, :bottom))
+            text!(
+                ax_su,
+                Point(plot_idx, 0);
+                text = "?",
+                align = (:center, :bottom),
+            )
         end
         # barplot!(ax_su, Point(plot_idx, success_rates[i]); color)
     end
     DataInspector(fig)
     fig
 end
-
