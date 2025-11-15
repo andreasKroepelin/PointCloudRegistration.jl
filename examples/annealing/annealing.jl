@@ -8,10 +8,10 @@ using Random
 using LinearAlgebra
 using Statistics
 
-# X, Y = PointCloudRegistration.Assets.load_1ysy_A_2ahm_D()
+X, Y = PointCloudRegistration.Assets.load_1ysy_A_2ahm_D()
 # X, Y = PointCloudRegistration.Assets.load_1su4_A_1iwo_A()
 # X, Y = PointCloudRegistration.Assets.load_1ake_A_4ake_A()
-X, Y = PointCloudRegistration.Assets.load_1ih7_A_1ig9_A()
+# X, Y = PointCloudRegistration.Assets.load_1ih7_A_1ig9_A()
 # X, Y = PointCloudRegistration.Assets.load_1q9x_B_1q9y_A()
 avg_nn_dist = PointCloudRegistration.avg_nn_dist(X)
 minscale = avg_nn_dist / 2
@@ -49,10 +49,10 @@ end
         t = Threads.@spawn begin
             my_rows = []
             pX = prepare_target_kc(X; scale)
-            for do_smm in (false, true)
+            for smm_count in (0, 10, 50, 100)
                 restart_collector = RestartCollector()
-                smm = if do_smm
-                    Smm(100, Xoshiro(-seed))
+                smm = if smm_count > 0
+                    Smm(smm_count, Xoshiro(-seed))
                 else
                     NoSmm()
                 end
@@ -73,7 +73,7 @@ end
                     my_rows,
                     (;
                         T,
-                        smm = do_smm,
+                        smm_count,
                         scale,
                         kc,
                         restartTs = restart_collector.transformations,
@@ -107,21 +107,25 @@ success_rates = map(data) do row
         angle < 5 && nrm < 1 * avg_nn_dist
     end
     success_count / length(row.restartTs)
-end
+end;
 
 let
-    smm_color = colorant"#0074D9"
-    no_smm_color = colorant"#01FF70"
+    smm_colors = Dict(
+        0 => colorant"#85144b",
+        10 => colorant"#0074D9",
+        50 => colorant"#39CCCC",
+        100 => colorant"#7FDBFF",
+    )
     fig = Figure()
     ax_sc = Axis(fig[1, 1]; ylabel = "annealing scales")
     ax_su = Axis(fig[2, 1]; ylabel = "number of restarts\nfor 1 % failure rate")
     Legend(
         fig[2, 1],
         [
-            PolyElement(; color = smm_color, strokewidth = 0),
-            PolyElement(; color = no_smm_color, strokewidth = 0),
+            PolyElement(; color = smm_colors[n], strokewidth = 0)
+            for n in [0, 10, 50, 100]
         ],
-        ["with SMM", "without SMM"];
+        ["without SMM", "with SMM (10)", "with SMM (50)", "with SMM (100)"];
         halign = :left,
         valign = :top,
         tellwidth = false,
@@ -150,7 +154,7 @@ let
         points = mapreduce(vcat, scale) do s
             [Point(plot_idx - 0.2, s), Point(plot_idx + 0.2, s)]
         end
-        color = ifelse(data[i].smm, smm_color, no_smm_color)
+        color = smm_colors[data[i].smm_count]
         linesegments!(ax_sc, points; color, linewidth = 4, linecap = :round)
         num_trials = log(1 - success_rates[i], 0.01)
         if isfinite(num_trials)
