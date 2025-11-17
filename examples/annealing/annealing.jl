@@ -8,9 +8,9 @@ using Random
 using LinearAlgebra
 using Statistics
 
-X, Y = PointCloudRegistration.Assets.load_1ysy_A_2ahm_D()
+# X, Y = PointCloudRegistration.Assets.load_1ysy_A_2ahm_D()
 # X, Y = PointCloudRegistration.Assets.load_1su4_A_1iwo_A()
-# X, Y = PointCloudRegistration.Assets.load_1ake_A_4ake_A()
+X, Y = PointCloudRegistration.Assets.load_1ake_A_4ake_A()
 # X, Y = PointCloudRegistration.Assets.load_1ih7_A_1ig9_A()
 # X, Y = PointCloudRegistration.Assets.load_1q9x_B_1q9y_A()
 avg_nn_dist = PointCloudRegistration.avg_nn_dist(X)
@@ -37,7 +37,7 @@ end
     nrestarts = 1_000
     iterations = 100
     seed = 2
-    ref_al = prepare_target_kc(X; scale = minscale).annealing_levels[end]
+    # ref_al = prepare_target_kc(X; scale = minscale).annealing_levels[end]
     scale_reservoir =
         range(sqrt(maximum(X.coveigvals)), minscale; length = 5)[begin:(end - 1)]
     # range(20minscale, minscale; length = 5)[begin:(end - 1)]
@@ -48,7 +48,7 @@ end
     for scale in scale_powerset
         t = Threads.@spawn begin
             my_rows = []
-            pX = prepare_target_kc(X; scale)
+            # pX = prepare_target_kc(X; scale)
             for smm_count in (0, 10, 50, 100)
                 restart_collector = RestartCollector()
                 smm = if smm_count > 0
@@ -56,18 +56,26 @@ end
                 else
                     NoSmm()
                 end
-                T = register_kc(
+                # T = register_kc(
+                #     Y,
+                #     pX;
+                #     restarts = RandomRestarts(nrestarts, Xoshiro(seed)),
+                #     iterations,
+                #     smm,
+                #     report_restart = restart_collector,
+                # )
+                # kc = PointCloudRegistration.eval_kernel_correlation(
+                #     ref_al,
+                #     Y,
+                #     T,
+                # )
+                T = register_gmc(
                     Y,
-                    pX;
+                    X;
                     restarts = RandomRestarts(nrestarts, Xoshiro(seed)),
                     iterations,
                     smm,
                     report_restart = restart_collector,
-                )
-                kc = PointCloudRegistration.eval_kernel_correlation(
-                    ref_al,
-                    Y,
-                    T,
                 )
                 push!(
                     my_rows,

@@ -49,6 +49,7 @@ function register_gmc(
     scale::ScaleType = default_scale(),
     restarts::AbstractRestarts = default_restarts(),
     iterations::Int = default_iterations(),
+    smm = NoSmm(),
     # use type parameters `RI` and `RR` here to force specialization
     report_iteration::RI = no_report,
     report_restart::RR = no_report,
@@ -66,6 +67,7 @@ function register_gmc(
         sqscales,
         restarts,
         iterations,
+        smm,
         report_iteration,
         report_restart,
     )
@@ -77,6 +79,7 @@ function _register_gmc(
     sqscales,
     restarts,
     iterations,
+    smm,
     report_iteration,
     report_restart,
 ) where {N}
@@ -88,6 +91,7 @@ function _register_gmc(
     best = worst(CostT, transformation_type(source, target))
     gm_cost = zero(CostT)
     restarts_iter = restarts_iterator(source, target, restarts)
+    source_iter = smm_iterator(smm, source)
     for (restart, transformation) in enumerate(restarts_iter)
         for sqscale in sqscales
             # double `sqscale` such that the loss function has the same
@@ -95,52 +99,52 @@ function _register_gmc(
             # loss with `sqscale`
             gm = GemanMcclure(2sqscale)
             prev_transformation = identity_transformation(transformation)
-            for iter in 1:iterations
-                sum_w = zero(WeightT)
-                source_mean = sum_w * zero(SrcT)
-                target_mean = sum_w * zero(TrgT)
-                covariance = sum_w * zero(TrgT) * zero(SrcT)'
-                gm_cost = zero(CostT)
+            for this_source_iter in (source_iter, non_stochastic(source_iter))
+                for iter in 1:iterations
+                    sum_w = zero(WeightT)
+                    source_mean = sum_w * zero(SrcT)
+                    target_mean = sum_w * zero(TrgT)
+                    covariance = sum_w * zero(TrgT) * zero(SrcT)'
+                    gm_cost = zero(CostT)
 
-                correspondences = zip(
-                    source.points,
-                    source.weights,
-                    target.points,
-                    target.weights,
-                )
-                for (src, w_src, trg, w_trg) in correspondences
-                    sqdist = sqeuclidean(transformation(src), trg)
-                    w_src_w_trg = w_src * w_trg
-                    w = w_src_w_trg * mm_weight(gm, sqdist)
-                    gm_cost += w_src_w_trg * cost(gm, sqdist)
-                    source_mean += w * src
-                    target_mean += w * trg
-                    covariance += w * trg * src'
-                    sum_w += w
+                    for source_element in this_source_iter
+                        src = source_element.point
+                        trg = target.points[source_element.idx]
+                        w_src = source_element.weight
+                        w_trg = target.weights[source_element.idx]
+                        sqdist = sqeuclidean(transformation(src), trg)
+                        w_src_w_trg = w_src * w_trg
+                        w = w_src_w_trg * mm_weight(gm, sqdist)
+                        gm_cost += w_src_w_trg * cost(gm, sqdist)
+                        source_mean += w * src
+                        target_mean += w * trg
+                        covariance += w * trg * src'
+                        sum_w += w
+                    end
+
+                    source_mean /= sum_w
+                    target_mean /= sum_w
+                    covariance /= sum_w
+                    covariance -= target_mean * source_mean'
+
+                    transformation = transformation_from_moments(
+                        covariance,
+                        source_mean,
+                        target_mean,
+                    )
+
+                    report_iteration(;
+                        iter,
+                        annealing_level = sqscale,
+                        cost = gm_cost,
+                        transformation,
+                    )
+
+                    if iter > 1 && isapprox(transformation, prev_transformation)
+                        break
+                    end
+                    prev_transformation = transformation
                 end
-
-                source_mean /= sum_w
-                target_mean /= sum_w
-                covariance /= sum_w
-                covariance -= target_mean * source_mean'
-
-                transformation = transformation_from_moments(
-                    covariance,
-                    source_mean,
-                    target_mean,
-                )
-
-                report_iteration(;
-                    iter,
-                    annealing_level = sqscale,
-                    cost = gm_cost,
-                    transformation,
-                )
-
-                if iter > 1 && isapprox(transformation, prev_transformation)
-                    break
-                end
-                prev_transformation = transformation
             end
         end
         best = better(best, TransformationWithCost(gm_cost, transformation))

@@ -104,11 +104,19 @@ performance of the different rigid registration algorithms implemented.
   analyse distribution of pairwise distances
 ]
 
-== Restarts
+== Restarts and Optimization
 
 #idea[
-  show how many restarts each iterative method needs to find its "own" global
-  optimum
+  explore how many restarts reach the global optimum for each iterative method
+  and different optimization strategies; justify default parameters
+
+  measure optimization strategy the following way:
+  proportion $p$ of restarts reach global optimum, so after $k$ restarts, the
+  probability of not having found the global maximum is $(1 - p)^k$.
+  we want to limit this to some $q$, i.e. $(1 - p)^k <= q$ iff
+  $
+    k >= log(q) / log(1 - p)
+  $
 ]
 
 == Python interface
