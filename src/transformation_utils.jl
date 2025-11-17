@@ -7,7 +7,7 @@ function rotation_type(
     rotation_type(Val(N), T1)
 end
 
-rotation_type(::Val{N}, ::Type{T}) where {N, T} = SMatrix{N, N, T, N * N}
+rotation_type(::Val{N}, ::Type{T}) where {N, T} = RotMatrix{N, T, N * N}
 
 function translation_type(
     source::PointCloud{N, TS},
@@ -28,15 +28,15 @@ function rand_rotation(
     source::PointCloud{N},
     target::PointCloud{N},
 ) where {N}
-    rand_rotation(rng, rotation_type(source, target))
+    rand(rng, rotation_type(source, target))
 end
 
 function rand_rotation(rng, SM::Type{<: SMatrix{N, N, T}}) where {N, T}
-    rand(rng, RotMatrix{N, T}) |> SM
+    rand(rng, RotMatrix{N, T})
 end
 
 function rand_rotation(rng, ::Val{N}, ::Type{T}) where {N, T}
-    rand(rng, RotMatrix{N, T}) |> SMatrix{N, N, T}
+    rand(rng, RotMatrix{N, T})
 end
 
 function rand_transformation(
@@ -66,3 +66,5 @@ function identity_transformation(::Type{<:AffineMap{R, L}}) where {R, L}
     AffineMap(one(R), zero(L))
 end
 identity_transformation(::A) where {A <: AffineMap} = identity_transformation(A)
+
+const RigidTransformation{N} = AffineMap{Rot, Transl} where {Rot <: Rotation{N}, Transl <: StaticVector{N}}

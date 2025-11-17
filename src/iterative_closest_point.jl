@@ -49,7 +49,7 @@ function _register_icp(
         for iter in 1:iterations
             source_mean = zero(eltype(source.points))
             target_mean = zero(eltype(target.points))
-            covariance = zero(rotation_type(source, target))
+            covariance = target_mean * source_mean'
             sum_w = zero(T)
             cost = zero(T)
 
