@@ -61,14 +61,27 @@ function _register_rmsd(
     target::PointCloud{N, TT},
 ) where {N, TS, TT}
     @argcheck length(source.points) == length(target.points)
-    T = promote_type(TS, TT)
+    SrcT = eltype(source.points)
+    TrgT = eltype(target.points)
+    sum_w = 2 * zero(eltype(source.weights)) * zero(eltype(target.weights))
     covariance = zero_cov(source, target)
+    source_mean = sum_w * zero(SrcT)
+    target_mean = sum_w * zero(TrgT)
     for i in eachindex(source.points)
-        src = source.points[i] - source.mean
-        trg = target.points[i] - target.mean
+        src = source.points[i]
+        trg = target.points[i]
         w_src = source.weights[i]
         w_trg = target.weights[i]
-        covariance += w_trg * w_src * trg * src'
+        w = w_src * w_trg
+        source_mean += w * src
+        target_mean += w * trg
+        covariance += w * trg * src'
+        sum_w += w
     end
-    transformation_from_moments(covariance, source.mean, target.mean)
+
+    source_mean /= sum_w
+    target_mean /= sum_w
+    covariance /= sum_w
+    covariance -= target_mean * source_mean'
+    transformation_from_moments(covariance, source_mean, target_mean)
 end
