@@ -9,10 +9,12 @@ using LinearAlgebra
 using Statistics
 
 # X, Y = PointCloudRegistration.Assets.load_1ysy_A_2ahm_D()
-# X, Y = PointCloudRegistration.Assets.load_1su4_A_1iwo_A()
-X, Y = PointCloudRegistration.Assets.load_1ake_A_4ake_A()
+X, Y = PointCloudRegistration.Assets.load_1su4_A_1iwo_A()
+# X, Y = PointCloudRegistration.Assets.load_1ake_A_4ake_A()
 # X, Y = PointCloudRegistration.Assets.load_1ih7_A_1ig9_A()
 # X, Y = PointCloudRegistration.Assets.load_1q9x_B_1q9y_A()
+Y = PointCloud(X.points .+ 10 .* randn(eltype(X.points), length(X.points)))
+Y = PointCloudRegistration.rand_transformation(Random.default_rng(), Y, X)(Y)
 avg_nn_dist = PointCloudRegistration.avg_nn_dist(X)
 minscale = avg_nn_dist / 2
 
@@ -25,16 +27,18 @@ let
     fig
 end
 
-struct RestartCollector{T}
+mutable struct RestartCollector{T}
     transformations::Vector{T}
+    mincost
 end
-RestartCollector() = RestartCollector([])
-function (rc::RestartCollector)(; transformation, kwargs...)
+RestartCollector() = RestartCollector([], Inf)
+function (rc::RestartCollector)(; transformation, cost, kwargs...)
     push!(rc.transformations, transformation)
+    rc.mincost = min(rc.mincost, cost)
 end
 
 @time data = let
-    nrestarts = 1_000
+    nrestarts = 1000
     iterations = 100
     seed = 2
     # ref_al = prepare_target_kc(X; scale = minscale).annealing_levels[end]
@@ -83,7 +87,7 @@ end
                         T,
                         smm_count,
                         scale,
-                        kc,
+                        cost = restart_collector.mincost,
                         restartTs = restart_collector.transformations,
                     ),
                 )
@@ -95,7 +99,7 @@ end
     mapreduce(fetch, vcat, ts)
 end;
 
-bestT = argmax(r -> r.kc, data).T
+bestT = argmin(r -> r.cost, data).T
 invbestT = inv(bestT)
 
 let
