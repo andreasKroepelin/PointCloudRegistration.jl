@@ -1,0 +1,319 @@
+\journaltitle{Bioinformatics}
+\DOI{DOI HERE}
+\copyrightyear{2025}
+\pubyear{2025}
+\access{Advance Access Publication Date: Day Month Year}
+\appnotes{Applications Note}
+
+\firstpage{1}
+
+\subtitle{Structural bioinformatics}
+
+\title[Short Article Title]{
+  PointCloudRegistration.jl: rigid and non-rigid registration of point clouds in
+  Julia
+}
+
+\author[1,$\ast$]{Andreas Kröpelin}
+\author[1]{Michael Habeck\ORCID{0000-0000-0000-0000}}
+
+\authormark{Author Name et al.}
+
+\address[1]{
+  \orgdiv{Microscopic Image Analysis Group},
+  \orgname{University Hospital Jena},
+  \orgaddress{
+    \street{Am Klinikum 1},
+    \postcode{07747 Jena},
+    \country{Germany}
+  }
+}
+
+\corresp[$\ast$]{
+  Corresponding author.
+  \href{email:andreas.kroepelin@uni-jena.de}{andreas.kroepelin@uni-jena.de}
+}
+
+\received{Date}{0}{Year}
+\revised{Date}{0}{Year}
+\accepted{Date}{0}{Year}
+
+%\editor{Associate Editor: Name}
+
+\abstract{
+\textbf{Motivation:} .\\
+\textbf{Results:} .\\
+\textbf{Availability:} .\\
+\textbf{Contact:} \href{name@email.com}{name@email.com}\\
+\textbf{Supplementary information:} Supplementary data are available at \textit{Journal Name}
+online.}
+
+% \abstract{Abstracts must be able to stand alone and so cannot contain citations to
+% the paper's references, equations, etc. An abstract must consist of a single
+% paragraph and be concise. Because of online formatting, abstracts must appear
+% as plain as possible.}
+\keywords{keyword1, Keyword2, Keyword3, Keyword4}
+
+% \boxedtext{
+% \begin{itemize}
+% \item Key boxed text here.
+% \item Key boxed text here.
+% \item Key boxed text here.
+% \end{itemize}}
+
+%%%%%%%%%%%%%%
+
+\maketitle
+
+\section{Introduction}
+
+\section{Scope of the package}
+
+This package adresses researchers and practioners within structural
+bioinformatics and beyond who work with point cloud data.
+Point clouds representing biological macromolecules were a prime consideration
+during the development but no biological features are specifically assumed.
+This also means that no surface or normal information is required or used.
+
+The general setting where this package is applicable is the following:
+Given two weighted $d$-dimensional point clouds,
+a \emph{target} $X$ with points $\bm{x}_1, \dots, \bm{x}_I \in \mathbb{R}^d$
+and weights $p_1, \dots, p_I$
+as well as
+a \emph{source} $Y$ with points $\bm{y}_1, \dots, \bm{y}_J \in \mathbb{R}^d$
+and weights $q_1, \dots, q_J$,
+we want to find a \emph{rigid} (rotation and translation) or \emph{non-rigid
+transformation} (more complex displacement) that maps the source onto the target
+in some optimal way.
+
+
+\section{Rigid registration}
+
+Formally, the problem of rigid registration can be stated as follows:
+\begin{align*}
+  \min_{T \in \operatorname{SE}(d)}
+  \sum_{i = 1}^I
+  \sum_{j = 1}^J
+  c_{i j}
+  p_i q_j
+  \cdot
+  \rho\left(
+  \lVert
+  \bm{x}_i - T(\bm{y}_j)
+  \rVert
+  \right)
+\end{align*}
+where $c_{i j}$ expresses the strength of the correspondence between the $i$-th
+point of the target and the $j$-th point of the source and $\rho$ is some cost
+function.
+
+\subsection{Known correspondences}
+When superimposing biomolecluar structures, it is often known which point in the
+source corresponds to which point in the target, e.g. from sequence alignments.
+In this case, we have
+\begin{align*}
+c_{i j} = \begin{cases}
+  1 & \text{ if } i = j \\
+  0 & \text{ else } \\
+\end{cases}
+\end{align*}
+which implies the source and target having equal size, i.e. $I = J$.
+
+\subsubsection{RMSD}
+In the simplest case, we can trust these correspondences and also assume the
+difference between source and target to be solely due to the rigid
+transformation.
+We then minimize the \emph{root mean square displacement} (RMSD), i.e.
+$\rho(r) = r^2$, using the \emph{Kabsch} algorithm, which finds the global
+optimum in a closed form by means of a singular value decomposition.
+
+\subsubsection{Geman-McClure cost}
+Often, however, some correspondences might be spurious or the displacement
+between some source and target points cannot be explained by a rigid
+transformation alone.
+In the context of minimizing the RMSD, these can be considered outliers and they
+potentially confound the optimal transformation.
+We thus have to limit their influence, which can be done by using the
+\emph{Geman-McClure} cost function $\rho(r) = r^2 / (2\sigma^2 + r^2)$ with
+some scale parameter $\sigma$.
+It behaves like $r^2$ for small $r$ but flattens out to $1$
+for large $r$, where $\sigma$ determines what small and large mean.
+
+Since the optimization problem becomes non-convex, we cannot find the optimum
+in a single step anymore but have to use an iterative procedure.
+The implemented algorithm is a \emph{majorization minimization} scheme where
+we majorize the original objective function by a quadratic one and then
+minimize the latter by the Kabsch algorithm to find an improved candidate for
+the global optimum.
+See Section \ref{sec:opt-strats} for strategies to avoid local optima.
+
+\subsection{Unknown correspondences}
+For general point clouds or when no sequence information matching the structure
+is available, we cannot rely on known correspondences.
+This forces us to either treat every correspondence as equally likely or
+estimate the correspondences on the fly.
+
+\subsubsection{Kernel correlation}
+The package implements the method proposed in \cite{our-kc-paper}
+where we have $c_{i j} \equiv 1$ and $\rho(r) = - \exp(-r^2 / 2 \sigma^2)$ with
+a scale parameter $\sigma$.
+
+Similar to the Geman-McClure based registration, we perform majorization
+minimization with optimization strategies outlined in Section
+\ref{sec:opt-strats}.
+We also make use of precomputation strategies that allow the runtime of the
+implementation to be linear in the sizes of the point clouds even if
+conceptually all pairs of points are considered in the objective function.
+
+\subsubsection{Iterative Closest Point}
+Due to its widespread adoption, we also implemented the \emph{Iterative Closest
+Point} method in this package.
+The cost function is simply $\rho(r) = r^2$ again, but now the correspondences
+are updated iteratively.
+That is, if we have a candidate transformation $\hat{T}$, we set
+\begin{align*}
+  c_{i j} = \begin{cases}
+    1 & \text{ if }
+      i = \arg\min_{i'} \lVert \bm{x}_{i'} - \hat{T}(\bm{y}_j) \rVert
+      \text{ and }
+      \lVert \bm{x}_i - \hat{T}(\bm{y}_j) \rVert \leq D \\
+    0 & \text{ else}
+  \end{cases}
+\end{align*}
+with some cut off distance $D$.
+
+
+\subsection{Optimization strategies}
+\label{sec:opt-strats}
+
+\section{Non-rigid registration}
+
+\section{Thinning point clouds}
+
+\section{Implementation notes}
+
+
+\begin{appendices}
+\end{appendices}
+
+\section{Competing interests}
+No competing interest is declared.
+
+\section{Author contributions statement}
+
+Must include all authors, identified by initials, for example:
+S.R. and D.A. conceived the experiment(s),  S.R. conducted the experiment(s), S.R. and D.A. analysed the results.  S.R. and D.A. wrote and reviewed the manuscript.
+
+\section{Acknowledgments}
+The authors thank the anonymous reviewers for their valuable suggestions. This work is supported in part by funds from the National Science Foundation (NSF: \# 1636933 and \# 1920920).
+
+
+%\bibliographystyle{plain}
+%\bibliography{reference}
+
+\begin{thebibliography}{10}
+
+\bibitem{bahdanau2014neural}
+Dzmitry Bahdanau, Kyunghyun Cho, and Yoshua Bengio.
+\newblock Neural machine translation by jointly learning to align and
+  translate.
+\newblock {\em arXiv preprint arXiv:1409.0473}, 2014.
+
+\bibitem{horvath2018dna}
+Steve Horvath and Kenneth Raj.
+\newblock Dna methylation-based biomarkers and the epigenetic clock theory of
+  ageing.
+\newblock {\em Nature Reviews Genetics}, 19(6):371, 2018.
+
+\bibitem{imboden2018cardiorespiratory}
+Mary~T Imboden, Matthew~P Harber, Mitchell~H Whaley, W~Holmes Finch, Derron~L
+  Bishop, and Leonard~A Kaminsky.
+\newblock Cardiorespiratory fitness and mortality in healthy men and women.
+\newblock {\em Journal of the American College of Cardiology},
+  72(19):2283--2292, 2018.
+
+\bibitem{ji20123d}
+Shuiwang Ji, Wei Xu, Ming Yang, and Kai Yu.
+\newblock 3d convolutional neural networks for human action recognition.
+\newblock {\em IEEE Transactions on Pattern Analysis and Machine Intelligence},
+  35(1):221--231, 2012.
+
+\bibitem{krizhevsky2012imagenet}
+Alex Krizhevsky, Ilya Sutskever, and Geoffrey~E Hinton.
+\newblock Imagenet classification with deep convolutional neural networks.
+\newblock In {\em Advances in Neural Information Processing Systems}, pages
+  1097--1105, 2012.
+
+\bibitem{lecun2015deep}
+Yann LeCun, Yoshua Bengio, and Geoffrey Hinton.
+\newblock Deep learning.
+\newblock {\em Nature}, 521(7553):436, 2015.
+
+\bibitem{motiian2017unified}
+Saeid Motiian, Marco Piccirilli, Donald~A Adjeroh, and Gianfranco Doretto.
+\newblock Unified deep supervised domain adaptation and generalization.
+\newblock In {\em Proceedings of the IEEE International Conference on Computer
+  Vision}, pages 5715--5725, 2017.
+
+\bibitem{murphy2012machine}
+Kevin~P Murphy.
+\newblock {\em Machine learning: A probabilistic perspective}.
+\newblock MIT press, 2012.
+
+\bibitem{american2013acsm}
+American~College of~Sports~Medicine et~al.
+\newblock {\em ACSM's guidelines for exercise testing and prescription}.
+\newblock Lippincott Williams \& Wilkins, 2013.
+
+\bibitem{pyrkov2018quantitative}
+Timothy~V Pyrkov, Evgeny Getmantsev, Boris Zhurov, Konstantin Avchaciov,
+  Mikhail Pyatnitskiy, Leonid Menshikov, Kristina Khodova, Andrei~V Gudkov, and
+  Peter~O Fedichev.
+\newblock Quantitative characterization of biological age and frailty based on
+  locomotor activity records.
+\newblock {\em Aging (Albany NY)}, 10(10):2973, 2018.
+
+\bibitem{rahman2019centroidb}
+Syed~Ashiqur Rahman and Donald Adjeroh.
+\newblock Centroid of age neighborhoods: A generalized approach to estimate
+  biological age.
+\newblock In {\em 2019 IEEE EMBS International Conference on Biomedical \&
+  Health Informatics (BHI)}, pages 1--4. IEEE, 2019.
+
+\bibitem{ravi2016deep}
+Daniele Rav{\`\i}, Charence Wong, Fani Deligianni, Melissa Berthelot, Javier
+  Andreu-Perez, Benny Lo, and Guang-Zhong Yang.
+\newblock Deep learning for health informatics.
+\newblock {\em IEEE {J}ournal of {B}iomedical and {H}ealth {I}nformatics},
+  21(1):4--21, 2016.
+
+\bibitem{wang2018face}
+Zongwei Wang, Xu~Tang, Weixin Luo, and Shenghua Gao.
+\newblock Face aging with identity-preserved conditional generative adversarial
+  networks.
+\newblock In {\em Proceedings of the IEEE Conference on Computer Vision and
+  Pattern Recognition}, pages 7939--7947, 2018.
+
+\bibitem{zhang2018fine}
+Ke~Zhang, Na~Liu, Xingfang Yuan, Xinyao Guo, Ce~Gao, and Zhenbing Zhao.
+\newblock Fine-grained age estimation in the wild with attention {LSTM}
+  networks.
+\newblock {\em arXiv preprint arXiv:1805.10445}, 2018.
+
+\end{thebibliography}
+
+
+%USE THE BELOW OPTIONS IN CASE YOU NEED AUTHOR YEAR FORMAT.
+\bibliographystyle{abbrvnat}
+%\bibliography{reference}
+
+
+
+%% sample for biography with author's image
+\begin{biography}{{\color{black!20}\rule{77pt}{77pt}}}{\author{Author Name.} This is sample author biography text. The values provided in the optional argument are meant for sample purposes. There is no need to include the width and height of an image in the optional argument for live articles. This is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text.}
+\end{biography}
+
+%% sample for biography without author's image
+\begin{biography}{}{\author{Author Name.} This is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text.}
+\end{biography}
+
