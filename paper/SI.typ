@@ -13,36 +13,6 @@
   set math.equation(numbering: "(1)")
   body
 }
-// #set math.equation(numbering: "(1)")
-// #show math.equation.where(block: true, label: none): set math.equation(
-//   numbering: none,
-// )
-// #show math.equation.where(block: true, label: none): set math.equation(numbering: "(1)") if (
-//   "label" in eq.fields() and eq.label != none
-// )
-// #show math.equation.where(block: true, numbering: none): eq => {
-// show math.equation: set math.equation(numbering: "(1)") if (
-//   "label" in eq.fields() and eq.label != none
-// )
-// [hallooo]
-// let numbering = if "label" in eq.fields() and eq.label != none {
-//   "(1)"
-// } else { none }
-
-// [#eq.fields()]
-
-//   [
-//     #math.equation(
-//       block: true,
-//       numbering: numbering,
-//       number-align: eq.number-align,
-//       supplement: eq.supplement,
-//       alt: eq.alt,
-//       eq.body,
-//     )
-//     #if numbering != none { eq.label }
-//   ]
-// }
 #show bibliography: bib => {
   show link: set text(font: "Atkinson Hyperlegible Mono", size: .8em)
   bib
@@ -229,6 +199,27 @@ $sum_(j = 1)^J q_j A(j)$.
 
 
 === Iterative Closest Point
+Because of its widespread adoption we also implemented the _Iterative Closest
+Point_ method.
+Here, we tackle the following optimisation problem in every iteration:
+$
+  min_(T in SE(d))
+  sum_((i, j) in C)
+  p_i q_j
+  norm(bold(x)_i - T(bold(y)_j))^2
+$
+where
+$
+  C = { (i, j)
+    med : med
+    i = op("argmin", limits: #true)_(i' = 1, ..., I) norm(bold(x)_i' - hat(T)(bold(y)_j))
+    "and"
+    norm(bold(x)_i - hat(T)(bold(y)_j)) <= D }
+$
+with a cut off distance $D$.
+
+
+
 == Non-rigid registration
 === Coherent Point Drift
 == Thinning
