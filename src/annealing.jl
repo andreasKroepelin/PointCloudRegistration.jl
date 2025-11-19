@@ -6,6 +6,20 @@ function avg_nn_dist(pc::PointCloud)
     mean(first, dists2)
 end
 
+function avg_nn_dist_fast(pc::PointCloud)
+    i1 = rand(eachindex(pc.points))
+    i2 = rand(eachindex(pc.points))
+    i3 = rand(eachindex(pc.points))
+    test_points = map(i -> pc.points[i], (i1, i2, i3))
+    some_dist = sqeuclidean(test_points[1], test_points[2])
+    mins = map(Returns(typemax(some_dist)), test_points)
+    discount_zero(x) = ifelse(iszero(x), typemax(x), x)
+    for p in pc.points
+        mins = min.(mins, discount_zero.(sqeuclidean.(test_points, (p, ))))
+    end
+    mean(sqrt, mins)
+end
+
 """
     TargetScales([steps = 2])
 
@@ -43,7 +57,7 @@ annealing_plan(::PointCloud{N, T}, scales::AbstractVector) where {N, T} =
     T.(scales) .^ 2
 
 annealing_plan(target, ann::TargetScales) =
-    annealing_plan(target, DownTo(avg_nn_dist(target) / 2, ann.steps))
+    annealing_plan(target, DownTo(avg_nn_dist_fast(target) / 2, ann.steps))
 
 function annealing_plan(target::PointCloud{N, T}, ann::DownTo) where {N, T}
     hi = maximum(target.coveigvals)
