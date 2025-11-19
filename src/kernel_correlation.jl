@@ -276,17 +276,14 @@ end
 default_axisalign() = false
 
 function axisalign_target(target)
-    axisaligner = target.coveigvecs'
-    if det(axisaligner) < 0
-        axisaligner = negative_last_column(axisaligner)
-    end
+    axisaligner = nearest_rotation(target.coveigvecs')
     axisaligner, LinearMap(axisaligner)(target)
 end
 
 struct PreparedTarget{
     N,
     T,
-    R <: SMatrix{N, N},
+    R <: RotMatrix{N},
     Al <: AnnealingLevel,
     PC <: PointCloud{N, T},
 }
