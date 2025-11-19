@@ -174,7 +174,7 @@ function PointCloud(points::VecOfSVec, weights::AbstractVector)
     @argcheck sum_of_weights > 0 "weights cannot all be zero"
     weights_cumsum = cumsum(weights)
     unit = oneunit(eltype(cov))
-    coveig = eigen(cov ./ unit)
+    coveig = eigen(Symmetric(cov ./ unit))
     PointCloud(
         points,
         weights,

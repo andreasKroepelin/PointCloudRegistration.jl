@@ -1,3 +1,13 @@
+# vendored from Rotations.jl since the upstream version currently has issues
+# with the return type
+function nearest_rotation(M::StaticMatrix{N,N}) where N
+    u, _, v = svd(M)
+    s = sign(det(u * v'))
+    d = @SVector ones(eltype(M), N-1)
+    R = u * Diagonal(push(d,s)) * v'
+    return RotMatrix{N}(R)
+end
+
 function transformation_from_moments(covariance, source_mean, target_mean)
     unit_free_covariance = covariance ./ oneunit(eltype(covariance))
     rotation = nearest_rotation(unit_free_covariance)
