@@ -36,7 +36,7 @@ let
     ylims!(ax, (0, nothing))
     for (i, key) in enumerate(kys)
         (; times) = bms[key]
-        q = map((.25, .5, .75)) do p
+        q = map((.05, .5, .95)) do p
             quantile(times, p) |> round |> Nanosecond
         end
         rangebars!(ax, [i], [q[1]], [q[3]])
