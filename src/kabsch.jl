@@ -1,27 +1,8 @@
 function transformation_from_moments(covariance, source_mean, target_mean)
-    (; U, Vt) = try
-        svd(covariance ./ oneunit(eltype(covariance)))
-    catch e
-        if e isa LAPACKException
-            @warn "Failed SVD!" e covariance
-            (U = one(covariance), Vt = one(covariance))
-        else
-            throw(e)
-        end
-    end
-    if xor(det(U) < 0, det(Vt) < 0)
-        U = negative_last_column(U)
-    end
-    rotation = RotMatrix(U * Vt)
+    unit_free_covariance = covariance ./ oneunit(eltype(covariance))
+    rotation = nearest_rotation(unit_free_covariance)
     translation = target_mean - rotation * source_mean
     AffineMap(rotation, translation)
-end
-
-function negative_last_column(A::SMatrix)
-    for i in axes(A, 1)
-        @reset A[i, end] *= -1
-    end
-    A
 end
 
 """
