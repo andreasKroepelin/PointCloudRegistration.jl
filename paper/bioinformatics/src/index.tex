@@ -14,8 +14,8 @@
   Julia
 }
 
-\author[1,$\ast$]{Andreas Kröpelin}
-\author[1]{Michael Habeck\ORCID{0000-0000-0000-0000}}
+\author[1,$\ast$]{Andreas Kröpelin\ORCID{0009-0000-0557-1978}}
+\author[1]{Michael Habeck\ORCID{0000-0002-2188-5667}}
 
 \authormark{Author Name et al.}
 
@@ -41,12 +41,12 @@
 %\editor{Associate Editor: Name}
 
 \abstract{
-\textbf{Motivation:} .\\
-\textbf{Results:} .\\
+\textbf{Summary:} .\\
 \textbf{Availability:} .\\
 \textbf{Contact:} \href{name@email.com}{name@email.com}\\
-\textbf{Supplementary information:} Supplementary data are available at \textit{Journal Name}
-online.}
+\textbf{Supplementary information:}
+Supplementary data are available at \textit{Bioinformatics} online.
+}
 
 % \abstract{Abstracts must be able to stand alone and so cannot contain citations to
 % the paper's references, equations, etc. An abstract must consist of a single
@@ -137,7 +137,7 @@ We thus have to limit their influence, which can be done by using the
 \emph{Geman-McClure} cost function $\rho(r) = r^2 / (2\sigma^2 + r^2)$ with
 some scale parameter $\sigma$.
 It behaves like $r^2$ for small $r$ but flattens out to $1$
-for large $r$, where $\sigma$ determines what small and large mean.
+for large $r$, where $\sigma$ determines what small and large means.
 
 Since the optimization problem becomes non-convex, we cannot find the optimum
 in a single step anymore but have to use an iterative procedure.
@@ -161,7 +161,7 @@ a scale parameter $\sigma$.
 Similar to the Geman-McClure based registration, we perform majorization
 minimization with optimization strategies outlined in Section
 \ref{sec:opt-strats}.
-We also make use of precomputation strategies that allow the runtime of the
+We also make use of precomputation that allows the runtime of the
 implementation to be linear in the sizes of the point clouds even if
 conceptually all pairs of points are considered in the objective function.
 
@@ -181,17 +181,137 @@ That is, if we have a candidate transformation $\hat{T}$, we set
   \end{cases}
 \end{align*}
 with some cut off distance $D$.
+We use kd-trees to efficiently find the closest target point for each source
+point.
+An improved transformation is again found using the Kabsch algorithm.
 
 
 \subsection{Optimization strategies}
 \label{sec:opt-strats}
 
+Optimizing the Geman-McClure cost and the kernel correlation, as well as the
+Iterative Closest Point method are all non-convex optimization problems with
+multiple local optima.
+We employ several strategies to find the global optimum.
+
+\subsubsection{Simulated Annealing}
+The Geman-McClure cost and the kernel correlation both depend on a scale
+parameter $\sigma$ that determines the smoothness of the overall objective
+function.
+By optimizing with a larger $\sigma$ first and then decreasing its value towards
+the desired one, we can make narrower optima appear later and guide the
+iteration towards the global optimum.
+As an initial value for $\sigma$, we chose the square root of the largest
+eigenvalue of the covariance matrix of the target by default.
+It is an efficiently computable heuristic for the diameter of the point cloud.
+
+\subsubsection{Stochastic sums}
+It turns out that the relevant computational steps in the individual methods all
+have the form $\sum_{j = 1}^J q_j A(j)$ with the weights of the source point
+cloud $q_1, \dots, q_J$ and some quantity $A$ that depends on $j$.
+We can thus approximate these sums by repeatedly sampling the index $j$
+according to the categorical distribution defined by the weights $q_j$ and then
+computing the sample average of the corresponding quantities $A(j)$.
+
+Similar to the technique of stochastic gradient descent popular in deep
+learning, this avoids local optima because only optima that are true for many
+subsampled parts of the source have an effect on the iteration.
+
+\subsubsection{Multiple restarts}
+All three discussed methods are sensitive to the initial transformation
+candidate.
+We thus perform multiple restarts with randomly chosen initial transformations.
+For this, we draw a rotation $\bm{R}$ uniformly from the rotation group
+$\operatorname{SO}(d)$, then pick a target point $\bm{x}_i$ and a source point
+$\bm{y}_j$ and set the initial transformation to $\bm{x}_i - \bm{R} \bm{y}_j$.
+This ensures that the initial transformation produces some overlap of the
+two point clouds.
+Additionally, we try the identity transformation as an intial guess to never
+miss in case the point clouds are already superimposed.
+
+All these strategies are configurable by users of this package, that is the
+set of annealing levels, how many samples to use for the stochastic sums, and
+how many restarts to perform.
+Default values are chosen such that the global optimum can be expected to be
+found in at least 99\,\% of cases with as few restarts as possible, according
+to experiments.
+
+
 \section{Non-rigid registration}
+
+To adress more finegrained differences between the source and target point
+cloud, the package also offers a function to perform non-rigid registration.
+We opted for implementing the \emph{Coherent Point Drift} method.
+This estimates a displacement vector $\bm{v}_j \in \mathbb{R}^d$ for every
+point in the source cloud such that the displaced source matches the target
+and that $\bm{v}_j$ and $\bm{v}_k$ are similar whenever $\bm{y}_j$ and
+$\bm{y}_k$ are close.
 
 \section{Thinning point clouds}
 
+Especially when the goal is to perform rigid registration, large point clouds
+provide much more data than is nececessary to estimate the (in three dimensions:
+six) parameters describing the rigid transformation.
+Since the runtime of the registration methods depends on the number of points,
+it can be beneficial to perform \emph{thinning} where we represent the same
+point cloud by fewer points.
+
+The package implements two approaches to thinning, depending on if the user has
+a number of points or a resolution in mind:
+For the former, the thinning performs a standard $k$-means clustering.
+For the latter, Dirichlet process means clustering allows finding points that
+have a given minimal distance to each other.
+Both methods respect the weights of the point cloud and produce an appropriately
+weighted point cloud in turn.
+
 \section{Implementation notes}
 
+\subsection{Performance considerations}
+
+The just-in-time compilation model of Julia allows the implementation to
+optimally adapt to the dimensionality of the point cloud without sacrificing
+user or developer experience.
+The generated machine code exploits the statically known sizes of vectors and
+matrices representing points, means, covariances, etc., avoiding dynamic memory
+allocations, inlining computations, and using special implementations of certain
+functions depending on the dimension.
+
+Certain registration methods, like optimizing the kernel correlation and
+Coherent Point Drift, allow for precomputing significant parts of their workload
+that depend only on either the source or the target.
+These precomputations are available as extra functions in the package so that
+users can reuse the precomputed data if possible.
+For example, when rigidly registering many sources to the same target in terms
+of the kernel correlation, the computationally heavy precomputation for the
+target can be done once and then registering the individual sources is greatly
+accelerated.
+
+\subsection{Interoperability}
+
+Large parts of this package can be applied to point clouds where the coordinates
+have physical units, represented without run time overhead by Unitful.jl.
+Where necessary and possible, the code was adapted minimally to account for this
+use case.
+
+Via the Python package juliacall, this package can be used from Python as well.
+It is specifically tested to make sure this integration works properly.
+
+
+\section{Evaluation}
+
+\subsection{Run time}
+
+Kabsch vs. GMC, KC vs. ICP, juliacall vs. native Python implementations
+
+\subsection{Superimposing proteins}
+
+\subsubsection{Atomic structures from PDB}
+
+\subsubsection{Volume data from EMDB}
+
+\subsection{Domain rearrangement}
+
+\subsection{Fragment assembly}
 
 \begin{appendices}
 \end{appendices}
@@ -213,92 +333,92 @@ The authors thank the anonymous reviewers for their valuable suggestions. This w
 
 \begin{thebibliography}{10}
 
-\bibitem{bahdanau2014neural}
-Dzmitry Bahdanau, Kyunghyun Cho, and Yoshua Bengio.
-\newblock Neural machine translation by jointly learning to align and
-  translate.
-\newblock {\em arXiv preprint arXiv:1409.0473}, 2014.
+% \bibitem{bahdanau2014neural}
+% Dzmitry Bahdanau, Kyunghyun Cho, and Yoshua Bengio.
+% \newblock Neural machine translation by jointly learning to align and
+%   translate.
+% \newblock {\em arXiv preprint arXiv:1409.0473}, 2014.
 
-\bibitem{horvath2018dna}
-Steve Horvath and Kenneth Raj.
-\newblock Dna methylation-based biomarkers and the epigenetic clock theory of
-  ageing.
-\newblock {\em Nature Reviews Genetics}, 19(6):371, 2018.
+% \bibitem{horvath2018dna}
+% Steve Horvath and Kenneth Raj.
+% \newblock Dna methylation-based biomarkers and the epigenetic clock theory of
+%   ageing.
+% \newblock {\em Nature Reviews Genetics}, 19(6):371, 2018.
 
-\bibitem{imboden2018cardiorespiratory}
-Mary~T Imboden, Matthew~P Harber, Mitchell~H Whaley, W~Holmes Finch, Derron~L
-  Bishop, and Leonard~A Kaminsky.
-\newblock Cardiorespiratory fitness and mortality in healthy men and women.
-\newblock {\em Journal of the American College of Cardiology},
-  72(19):2283--2292, 2018.
+% \bibitem{imboden2018cardiorespiratory}
+% Mary~T Imboden, Matthew~P Harber, Mitchell~H Whaley, W~Holmes Finch, Derron~L
+%   Bishop, and Leonard~A Kaminsky.
+% \newblock Cardiorespiratory fitness and mortality in healthy men and women.
+% \newblock {\em Journal of the American College of Cardiology},
+%   72(19):2283--2292, 2018.
 
-\bibitem{ji20123d}
-Shuiwang Ji, Wei Xu, Ming Yang, and Kai Yu.
-\newblock 3d convolutional neural networks for human action recognition.
-\newblock {\em IEEE Transactions on Pattern Analysis and Machine Intelligence},
-  35(1):221--231, 2012.
+% \bibitem{ji20123d}
+% Shuiwang Ji, Wei Xu, Ming Yang, and Kai Yu.
+% \newblock 3d convolutional neural networks for human action recognition.
+% \newblock {\em IEEE Transactions on Pattern Analysis and Machine Intelligence},
+%   35(1):221--231, 2012.
 
-\bibitem{krizhevsky2012imagenet}
-Alex Krizhevsky, Ilya Sutskever, and Geoffrey~E Hinton.
-\newblock Imagenet classification with deep convolutional neural networks.
-\newblock In {\em Advances in Neural Information Processing Systems}, pages
-  1097--1105, 2012.
+% \bibitem{krizhevsky2012imagenet}
+% Alex Krizhevsky, Ilya Sutskever, and Geoffrey~E Hinton.
+% \newblock Imagenet classification with deep convolutional neural networks.
+% \newblock In {\em Advances in Neural Information Processing Systems}, pages
+%   1097--1105, 2012.
 
-\bibitem{lecun2015deep}
-Yann LeCun, Yoshua Bengio, and Geoffrey Hinton.
-\newblock Deep learning.
-\newblock {\em Nature}, 521(7553):436, 2015.
+% \bibitem{lecun2015deep}
+% Yann LeCun, Yoshua Bengio, and Geoffrey Hinton.
+% \newblock Deep learning.
+% \newblock {\em Nature}, 521(7553):436, 2015.
 
-\bibitem{motiian2017unified}
-Saeid Motiian, Marco Piccirilli, Donald~A Adjeroh, and Gianfranco Doretto.
-\newblock Unified deep supervised domain adaptation and generalization.
-\newblock In {\em Proceedings of the IEEE International Conference on Computer
-  Vision}, pages 5715--5725, 2017.
+% \bibitem{motiian2017unified}
+% Saeid Motiian, Marco Piccirilli, Donald~A Adjeroh, and Gianfranco Doretto.
+% \newblock Unified deep supervised domain adaptation and generalization.
+% \newblock In {\em Proceedings of the IEEE International Conference on Computer
+%   Vision}, pages 5715--5725, 2017.
 
-\bibitem{murphy2012machine}
-Kevin~P Murphy.
-\newblock {\em Machine learning: A probabilistic perspective}.
-\newblock MIT press, 2012.
+% \bibitem{murphy2012machine}
+% Kevin~P Murphy.
+% \newblock {\em Machine learning: A probabilistic perspective}.
+% \newblock MIT press, 2012.
 
-\bibitem{american2013acsm}
-American~College of~Sports~Medicine et~al.
-\newblock {\em ACSM's guidelines for exercise testing and prescription}.
-\newblock Lippincott Williams \& Wilkins, 2013.
+% \bibitem{american2013acsm}
+% American~College of~Sports~Medicine et~al.
+% \newblock {\em ACSM's guidelines for exercise testing and prescription}.
+% \newblock Lippincott Williams \& Wilkins, 2013.
 
-\bibitem{pyrkov2018quantitative}
-Timothy~V Pyrkov, Evgeny Getmantsev, Boris Zhurov, Konstantin Avchaciov,
-  Mikhail Pyatnitskiy, Leonid Menshikov, Kristina Khodova, Andrei~V Gudkov, and
-  Peter~O Fedichev.
-\newblock Quantitative characterization of biological age and frailty based on
-  locomotor activity records.
-\newblock {\em Aging (Albany NY)}, 10(10):2973, 2018.
+% \bibitem{pyrkov2018quantitative}
+% Timothy~V Pyrkov, Evgeny Getmantsev, Boris Zhurov, Konstantin Avchaciov,
+%   Mikhail Pyatnitskiy, Leonid Menshikov, Kristina Khodova, Andrei~V Gudkov, and
+%   Peter~O Fedichev.
+% \newblock Quantitative characterization of biological age and frailty based on
+%   locomotor activity records.
+% \newblock {\em Aging (Albany NY)}, 10(10):2973, 2018.
 
-\bibitem{rahman2019centroidb}
-Syed~Ashiqur Rahman and Donald Adjeroh.
-\newblock Centroid of age neighborhoods: A generalized approach to estimate
-  biological age.
-\newblock In {\em 2019 IEEE EMBS International Conference on Biomedical \&
-  Health Informatics (BHI)}, pages 1--4. IEEE, 2019.
+% \bibitem{rahman2019centroidb}
+% Syed~Ashiqur Rahman and Donald Adjeroh.
+% \newblock Centroid of age neighborhoods: A generalized approach to estimate
+%   biological age.
+% \newblock In {\em 2019 IEEE EMBS International Conference on Biomedical \&
+%   Health Informatics (BHI)}, pages 1--4. IEEE, 2019.
 
-\bibitem{ravi2016deep}
-Daniele Rav{\`\i}, Charence Wong, Fani Deligianni, Melissa Berthelot, Javier
-  Andreu-Perez, Benny Lo, and Guang-Zhong Yang.
-\newblock Deep learning for health informatics.
-\newblock {\em IEEE {J}ournal of {B}iomedical and {H}ealth {I}nformatics},
-  21(1):4--21, 2016.
+% \bibitem{ravi2016deep}
+% Daniele Rav{\`\i}, Charence Wong, Fani Deligianni, Melissa Berthelot, Javier
+%   Andreu-Perez, Benny Lo, and Guang-Zhong Yang.
+% \newblock Deep learning for health informatics.
+% \newblock {\em IEEE {J}ournal of {B}iomedical and {H}ealth {I}nformatics},
+%   21(1):4--21, 2016.
 
-\bibitem{wang2018face}
-Zongwei Wang, Xu~Tang, Weixin Luo, and Shenghua Gao.
-\newblock Face aging with identity-preserved conditional generative adversarial
-  networks.
-\newblock In {\em Proceedings of the IEEE Conference on Computer Vision and
-  Pattern Recognition}, pages 7939--7947, 2018.
+% \bibitem{wang2018face}
+% Zongwei Wang, Xu~Tang, Weixin Luo, and Shenghua Gao.
+% \newblock Face aging with identity-preserved conditional generative adversarial
+%   networks.
+% \newblock In {\em Proceedings of the IEEE Conference on Computer Vision and
+%   Pattern Recognition}, pages 7939--7947, 2018.
 
-\bibitem{zhang2018fine}
-Ke~Zhang, Na~Liu, Xingfang Yuan, Xinyao Guo, Ce~Gao, and Zhenbing Zhao.
-\newblock Fine-grained age estimation in the wild with attention {LSTM}
-  networks.
-\newblock {\em arXiv preprint arXiv:1805.10445}, 2018.
+% \bibitem{zhang2018fine}
+% Ke~Zhang, Na~Liu, Xingfang Yuan, Xinyao Guo, Ce~Gao, and Zhenbing Zhao.
+% \newblock Fine-grained age estimation in the wild with attention {LSTM}
+%   networks.
+% \newblock {\em arXiv preprint arXiv:1805.10445}, 2018.
 
 \end{thebibliography}
 
@@ -310,10 +430,10 @@ Ke~Zhang, Na~Liu, Xingfang Yuan, Xinyao Guo, Ce~Gao, and Zhenbing Zhao.
 
 
 %% sample for biography with author's image
-\begin{biography}{{\color{black!20}\rule{77pt}{77pt}}}{\author{Author Name.} This is sample author biography text. The values provided in the optional argument are meant for sample purposes. There is no need to include the width and height of an image in the optional argument for live articles. This is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text.}
-\end{biography}
+% \begin{biography}{{\color{black!20}\rule{77pt}{77pt}}}{\author{Author Name.} This is sample author biography text. The values provided in the optional argument are meant for sample purposes. There is no need to include the width and height of an image in the optional argument for live articles. This is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text.}
+% \end{biography}
 
 %% sample for biography without author's image
-\begin{biography}{}{\author{Author Name.} This is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text.}
-\end{biography}
+% \begin{biography}{}{\author{Author Name.} This is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text this is sample author biography text.}
+% \end{biography}
 
