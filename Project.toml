@@ -41,4 +41,5 @@ projects = [
   "docs",
   "logo",
   "assets",
+  "benchmarks",
 ]

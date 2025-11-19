@@ -1,0 +1,10 @@
+[deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+BioStructures = "de9282ab-8554-53be-b2d6-f6c222edabfc"
+CoordinateTransformations = "150eb455-5306-5404-9cee-2592286d6298"
+GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
+HybridArrays = "1baab800-613f-4b0a-84e4-9cd3431bfbb9"
+Kabsch = "f04b186e-52d5-4f75-9fe8-bf69181293d4"
+PointCloudRegistration = "afb9b67c-ae14-49fb-afbe-36d52467eca1"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
