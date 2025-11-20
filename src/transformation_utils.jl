@@ -58,7 +58,9 @@ function simple_transformation(
     target::PointCloud{N},
 ) where {N}
     rotation = one(rotation_type(source, target))
-    translation = target.mean - rotation * source.mean
+    target_mean, _ = mean_cov(target)
+    source_mean, _ = mean_cov(source)
+    translation = target_mean - rotation * source_mean
     AffineMap(rotation, translation)::transformation_type(source, target)
 end
 

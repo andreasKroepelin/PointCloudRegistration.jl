@@ -60,7 +60,7 @@ annealing_plan(target, ann::TargetScales) =
     annealing_plan(target, DownTo(avg_nn_dist_fast(target) / 2, ann.steps))
 
 function annealing_plan(target::PointCloud{N, T}, ann::DownTo) where {N, T}
-    hi = maximum(target.coveigvals)
+    hi = maxcoveigval(target)
     lo = T(ann.scale) ^ 2
     _logrange(hi, lo; length = ann.steps)
 end

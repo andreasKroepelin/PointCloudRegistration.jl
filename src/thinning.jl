@@ -9,14 +9,15 @@
 end
 
 function DpMeansState(pc::PointCloud)
+    mean, _ = mean_cov(pc)
     DpMeansState(;
-        centers = [pc.mean],
+        centers = [mean],
         weightsums = [pc.sum_of_weights],
         indicators = ones(Int, length(pc.points)),
         permutation = [1],
-        tree = Ref(KDTree([pc.mean])),
+        tree = Ref(KDTree([mean])),
         nn_idcs = [1],
-        nn_dists = [euclidean(pc.mean, pc.mean)],
+        nn_dists = [euclidean(mean, mean)],
     )
 end
 

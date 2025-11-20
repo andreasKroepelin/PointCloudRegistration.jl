@@ -46,24 +46,6 @@ to_vec_of_svec(arg::Any) = throw(
     ),
 )
 
-function mean_cov_sumw(points, weights)
-    sum_w = zero(one(eltype(eltype(points))))
-    mean = zero(eltype(points))
-    cov = mean * mean'
-
-    for (x, w) in zip(points, weights)
-        iszero(w) && continue
-        sum_w += w
-        diff = x - mean
-        mean += w / sum_w * diff
-        cov += w * diff * (x - mean)'
-    end
-
-    cov /= sum_w
-
-    mean, cov, sum_w
-end
-
 """
 Representation of a weighted point cloud.
 An instance `pc` of `PointCloud{N, T}` stores `N`-dimensional points with
@@ -150,16 +132,11 @@ struct PointCloud{
     WT,
     W <: AbstractVector,
     WC <: AbstractVector,
-    EVL <: SMatrix{N, N},
-    EVC <: SVector{N},
 } <: AbstractMatrix{T}
     points::P
     weights::W
     weights_cumsum::WC
     sum_of_weights::WT
-    mean::SVector{N, T}
-    coveigvecs::EVL
-    coveigvals::EVC
 end
 
 """
@@ -169,20 +146,19 @@ Wrap a list of points and explicit weights as a `PointCloud`.
 """
 function PointCloud(points::VecOfSVec, weights::AbstractVector)
     @argcheck length(points) == length(weights) "number of points must match number of weights"
-    @argcheck all(>=(0), weights) "weights must be non-negative"
-    mean, cov, sum_of_weights = mean_cov_sumw(points, weights)
-    @argcheck sum_of_weights > 0 "weights cannot all be zero"
+    # @argcheck all(>=(0), weights) "weights must be non-negative"
     weights_cumsum = cumsum(weights)
-    unit = oneunit(eltype(cov))
-    coveig = eigen(Symmetric(cov ./ unit))
+    sum_of_weights = if isempty(weights)
+        zero(eltype(weights))
+    else
+        last(weights_cumsum)
+    end
+    # @argcheck sum_of_weights > 0 "weights cannot all be zero"
     PointCloud(
         points,
         weights,
         weights_cumsum,
         sum_of_weights,
-        mean,
-        coveig.vectors,
-        coveig.values .* unit,
     )
 end
 
@@ -212,6 +188,7 @@ PointCloud(points, weights::AbstractVector) =
 PointCloud{N}(points) where {N} = PointCloud(to_vec_of_svec(points, Val(N)))
 PointCloud{N}(points, weights::AbstractVector) where {N} =
     PointCloud(to_vec_of_svec(points, Val(N)), weights)
+PointCloud{N, T}() where {N, T} = PointCloud(SVector{N, T}[], Bool[])
 
 """
     PointCloud(pc::PointCloud) = pc
@@ -262,6 +239,29 @@ function Base.show(
     end
 end
 
+function mean_cov(pc::PointCloud)
+    sum_w = zero(one(eltype(eltype(pc.points))))
+    mean = zero(eltype(pc.points))
+    cov = mean * mean'
+
+    for (x, w) in zip(pc.points, pc.weights)
+        iszero(w) && continue
+        sum_w += w
+        diff = x - mean
+        mean += w / sum_w * diff
+        cov += w * diff * (x - mean)'
+    end
+
+    cov /= sum_w
+
+    mean, cov
+end
+
+function maxcoveigval(pc::PointCloud)
+    _, cov = mean_cov(pc)
+    cov ./ oneunit(eltype(cov)) |> Symmetric |> eigvals |> maximum
+end
+
 function bbox(xs::VecOfSVec)
     lo = hi = first(xs)
     for point in xs
@@ -290,9 +290,6 @@ end
     pc.weights,
     pc.weights_cumsum,
     pc.sum_of_weights,
-    m(pc.mean),
-    m.linear * pc.coveigvecs,
-    pc.coveigvals,
 )
 
 (m::LinearMap)(pc::PointCloud) = PointCloud(
@@ -300,7 +297,13 @@ end
     pc.weights,
     pc.weights_cumsum,
     pc.sum_of_weights,
-    m(pc.mean),
-    m(pc.coveigvecs),
-    pc.coveigvals,
 )
+
+function Base.vcat(pc1::PointCloud{N}, pc2::PointCloud{N}) where {N}
+    PointCloud(
+        vcat(pc1.points, pc2.points),
+        vcat(pc1.weights, pc2.weights),
+        vcat(pc1.weights_cumsum, pc2.weights_cumsum .+ pc1.sum_of_weights),
+        pc1.sum_of_weights + pc2.sum_of_weights,
+    )
+end
