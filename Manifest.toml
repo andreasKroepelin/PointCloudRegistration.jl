@@ -2,7 +2,7 @@
 
 julia_version = "1.12.0"
 manifest_format = "2.0"
-project_hash = "4e7fa908e35b6dedb61acc14a470bc3ea9f090e9"
+project_hash = "6df259e761ef26d151eeb842a9572c4c34ae48c0"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "8be2ae325471fc20b11c27bb34b518541d07dd3a"
@@ -628,6 +628,12 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "e3290f2d49e661fbd94046d7e3726ffcb2d41053"
 uuid = "5ae413db-bbd1-5e63-b57d-d24a61df00f5"
 version = "2.2.4+0"
+
+[[deps.EmdbHelper]]
+deps = ["MRCFile"]
+path = "examples/EmdbHelper"
+uuid = "73a1ea5e-8760-4b79-adba-eb192829ad00"
+version = "0.1.0"
 
 [[deps.EnumX]]
 git-tree-sha1 = "bddad79635af6aec424f53ed8aad5d7555dc6f00"
@@ -1733,6 +1739,10 @@ deps = ["Accessors", "ArgCheck", "CoordinateTransformations", "Distances", "Fill
 path = "."
 uuid = "afb9b67c-ae14-49fb-afbe-36d52467eca1"
 version = "0.1.0"
+weakdeps = ["MRCFile"]
+
+    [deps.PointCloudRegistration.extensions]
+    MRCFileExt = "MRCFile"
 
 [[deps.PolygonOps]]
 git-tree-sha1 = "77b3d3605fc1cd0b42d95eba87dfcd2bf67d5ff6"

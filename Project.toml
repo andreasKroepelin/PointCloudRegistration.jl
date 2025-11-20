@@ -1,7 +1,10 @@
 name = "PointCloudRegistration"
 uuid = "afb9b67c-ae14-49fb-afbe-36d52467eca1"
-authors = ["Andreas Kröpelin <andreas-kroepelin@gmx.de>"]
 version = "0.1.0"
+authors = ["Andreas Kröpelin <andreas-kroepelin@gmx.de>"]
+
+[workspace]
+projects = ["test", "perf", "examples", "docs", "logo", "assets", "benchmarks"]
 
 [deps]
 Accessors = "7d9f7c33-5ae7-4f3b-8dc6-eff91059b697"
@@ -18,6 +21,12 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
+[weakdeps]
+MRCFile = "c18c01d3-0ab9-49c3-bd2d-8f2e64a2b7a5"
+
+[extensions]
+MRCFileExt = "MRCFile"
+
 [compat]
 Accessors = "0.1.42"
 ArgCheck = "2.5.0"
@@ -32,14 +41,3 @@ Rotations = "1.7.1"
 StaticArrays = "1.9.13"
 Statistics = "1.11.1"
 StatsBase = "0.34"
-
-[workspace]
-projects = [
-  "test",
-  "perf",
-  "examples",
-  "docs",
-  "logo",
-  "assets",
-  "benchmarks",
-]

@@ -1,0 +1,10 @@
+name = "EmdbHelper"
+uuid = "73a1ea5e-8760-4b79-adba-eb192829ad00"
+version = "0.1.0"
+authors = ["Andreas Kröpelin <andreas-kroepelin@gmx.de>"]
+
+[deps]
+MRCFile = "c18c01d3-0ab9-49c3-bd2d-8f2e64a2b7a5"
+
+[compat]
+MRCFile = "0.1.4"
