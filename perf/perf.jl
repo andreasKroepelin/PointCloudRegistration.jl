@@ -4,7 +4,7 @@ using Profile, PProf
 using BenchmarkTools
 using Cthulhu
 
-X_raw = rand(3, 2000)
+X_raw = rand(3, 2_000_000)
 @btime PointCloud($X_raw);
 @btime PointCloud{3}($X_raw);
 X = PointCloud(X_raw)
@@ -21,6 +21,9 @@ register_cpd(
     outlier_proportion = 0.01,
     regularizer_strength = 1.0,
 )
+
+Profile.clear()
+@pprof PointCloud(X_raw)
 
 Profile.clear()
 @pprof register_cpd(
