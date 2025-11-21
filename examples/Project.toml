@@ -16,5 +16,6 @@ projects = [
   "smm",
   "units",
   "ribosome-puzzle",
+  "frame-shift",
   "EmdbHelper"
 ]
