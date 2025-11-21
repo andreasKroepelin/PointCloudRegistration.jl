@@ -26,8 +26,8 @@ update_tree!(dp::DpMeansState) = dp.tree[] = KDTree(dp.centers)
 function remove_empty!(dp::DpMeansState; relabel::Bool)
     (; centers, weightsums, indicators, permutation, tree) = dp
     n = length(centers)
-    first_empty_idx = count(!iszero, weightsums)
-    if first_empty_idx > 0
+    first_empty_idx = count(!iszero, weightsums) + 1
+    if first_empty_idx > 1
         resize!(permutation, n)
         sortperm!(permutation, weightsums; by = iszero)
         permute!(centers, permutation)
@@ -36,7 +36,13 @@ function remove_empty!(dp::DpMeansState; relabel::Bool)
         deleteat!(weightsums, first_empty_idx:n)
         if relabel
             for i in eachindex(indicators)
-                indicators[i] = permutation[indicators[i]]
+                old_label = indicators[i]
+                if old_label <= n
+                    indicators[i] = permutation[old_label]
+                else
+                    # the cluster this point was assigned to has been deleted
+                    indicators[i] = 0
+                end
             end
         end
     end
@@ -111,7 +117,7 @@ function thin_dpmeans(
         update_tree!(state)
         for i in eachindex(pc.points, pc.weights)
             w = pc.weights[i]
-            iszero(w) && continue
+            # iszero(w) && continue
             point = pc.points[i]
             j, dist = closest_cluster(state, point)
 
