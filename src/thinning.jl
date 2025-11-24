@@ -75,7 +75,7 @@ function recenter!(dp::DpMeansState, pc::PointCloud)
     fill!(dp.centers, zero(eltype(dp.centers)))
     for i in eachindex(dp.indicators, pc.points, pc.weights)
         w = pc.weights[i]
-        iszero(w) && continue
+        # iszero(w) && continue
         l = dp.indicators[i]
         dp.weightsums[l] += w
         dp.centers[l] += w * pc.points[i]
@@ -107,9 +107,9 @@ function thin_dpmeans(
 ) where {N, RI}
     state = DpMeansState(pc)
 
-    gridinit!(state, pc, sqrt(N) * cutoffdist)
-    recenter!(state, pc)
-    remove_empty!(state; relabel = true)
+    # gridinit!(state, pc, sqrt(N) * cutoffdist)
+    # recenter!(state, pc)
+    # remove_empty!(state; relabel = true)
 
     for iteration in 1:iterations
         change = 0.0
