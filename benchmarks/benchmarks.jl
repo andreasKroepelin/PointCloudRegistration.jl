@@ -26,7 +26,7 @@ bms = (
     k = @benchmark(K.kabsch($Y, $X)),
 )
 labels = (
-    pcreg = "PCReg.jl",
+    pcreg = rich("PCReg.jl"; font = :bold),
     pcreg_pc = "PCReg.jl w/o\npreparation",
     ct = "CoordTr.jl",
     bios = "BioStr.jl",
