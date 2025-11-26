@@ -309,7 +309,7 @@ It is specifically tested to make sure this integration works properly.
   Julia.
   The plot shows the median run time for minimizing the RMSD together with the
   centered 90\,\% range.
-}\label{fig1}
+}\label{fig:benchmark-kabsch}
 \end{figure}
 
 Kabsch vs. GMC, KC vs. ICP, juliacall vs. native Python implementations
@@ -318,8 +318,35 @@ Kabsch vs. GMC, KC vs. ICP, juliacall vs. native Python implementations
 
 \subsection{Fitting RNAs into ribosomal electron microscopy map}
 
-\subsection{Aligning micrographs with frameshift}
-\cite{baar}
+\subsection{Aligning micrographs with frame shift}
+By turning images into weighted two dimensional point clouds, we can apply
+point cloud registration to image registration as well.
+We demonstrate that using a data set by \cite{baar}.
+In their publication, they used a deep learning architecture to align frames of
+microscopic time-lapse observations.
+The same can be achieved by optimising the kernel correlation of these
+micrographs (turned point clouds).
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=.8\linewidth]{img/frame-shift-imgs.pdf}
+\caption{
+  Benchmark results of different implementations of the Kabsch algorithm in
+  Julia.
+  The plot shows the median run time for minimizing the RMSD together with the
+  centered 90\,\% range.
+}\label{fig:frame-shift-imgs}
+
+\end{figure}\begin{figure}[h]
+\centering
+\includegraphics[width=.8\linewidth]{img/frame-shift-pointclouds.pdf}
+\caption{
+  Benchmark results of different implementations of the Kabsch algorithm in
+  Julia.
+  The plot shows the median run time for minimizing the RMSD together with the
+  centered 90\,\% range.
+}\label{fig:frame-shift-pointclouds}
+\end{figure}
 
 \begin{appendices}
 \end{appendices}
