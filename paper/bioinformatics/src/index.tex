@@ -326,25 +326,39 @@ In their publication, they used a deep learning architecture to align frames of
 microscopic time-lapse observations.
 The same can be achieved by optimising the kernel correlation of these
 micrographs (turned point clouds).
+Figure \ref{fig:frame-shift-imgs} shows ten such time-lapse micrographs
+(recolored so that the background is white).
+By placing a point at every pixel with the pixel's darkness as the value,
+we turn each image into an equivalent point cloud.
+For computational efficiency, points with very low weight were dropped and the
+point clouds were thinned to a certain resolution.
+In Figure \ref{fig:frame-shift-pointclouds}, the resulting point clouds are
+displayed on top of each other (left).
+Note how the plot looks ``blurry'' due to the frame shift happening between the
+images.
+Without assuming correspondences and by optimizing the kernel correlation
+between all these point clouds and the (arbitrarily chosen) first one, we
+obtain the point clouds on the right of Figure \ref{fig:frame-shift-pointclouds}.
+The remaining ``blurryness'' is visibly lower and due to actual movement of the
+observed objects.
+
+
+
 
 \begin{figure}[h]
 \centering
 \includegraphics[width=.8\linewidth]{img/frame-shift-imgs.pdf}
 \caption{
-  Benchmark results of different implementations of the Kabsch algorithm in
-  Julia.
-  The plot shows the median run time for minimizing the RMSD together with the
-  centered 90\,\% range.
+    Time-lapse micrographs from \cite{baar}.
 }\label{fig:frame-shift-imgs}
+\end{figure}
 
-\end{figure}\begin{figure}[h]
+\begin{figure}[h]
 \centering
 \includegraphics[width=.8\linewidth]{img/frame-shift-pointclouds.pdf}
 \caption{
-  Benchmark results of different implementations of the Kabsch algorithm in
-  Julia.
-  The plot shows the median run time for minimizing the RMSD together with the
-  centered 90\,\% range.
+    All micrographs turned into point clouds and plotted on top of each other,
+    first in their original pose and then rigidly registered.
 }\label{fig:frame-shift-pointclouds}
 \end{figure}
 

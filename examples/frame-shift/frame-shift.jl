@@ -104,8 +104,10 @@ sources = pointclouds[begin:end]
 prepd_target = prepare_target_kc(target; scale = DownTo(resolution));
 
 Ts = map(sources) do source
-    register_kc(source, prepd_target; restarts = RandomRestarts(30), smm = Smm(50))
-end
+    Threads.@spawn begin
+        register_kc(source, prepd_target; restarts = RandomRestarts(30), smm = Smm(50))
+    end
+end .|> fetch
 
 let
     fig = Figure()
@@ -133,14 +135,20 @@ let
     sl = Slider(fig[2, 1]; range = eachindex(sources))
     factor = 2resolution / maximum(pc -> maximum(pc.weights), pointclouds)
     # scatter!(ax, target.points; markersize = factor .* target.weights)
+    for j in eachindex(target.points)
+        pts = [Point(cpd.target_representatives[j]) for cpd in cpds]
+        lines!(ax, pts; linewidth = 1, color = 1:length(cpds), colormap = :blues)
+    end
     src_plt = scatter!(ax, Ts[1](sources[1]).points, markersize = factor .* sources[1].weights, markerspace = :data, label = "original")
-    dtrg_plt = scatter!(ax, target.points .+ cpds[1].displacement, markersize = factor .* target.weights, markerspace = :data, label = "reconstructed")
+    # dtrg_plt = scatter!(ax, target.points .+ cpds[1].displacement, markersize = factor .* target.weights, markerspace = :data, label = "reconstructed")
+    dtrg_plt = scatter!(ax, cpds[1].target_representatives, markersize = factor .* target.weights, markerspace = :data, label = "reconstructed")
     # dis_plt = arrows2d!(ax, Ts[1](sources[1]).points, cpds[1].displacement)
     hm_plt = heatmap!(ax_h, cpds[1].correspondences)
     on(sl.value) do i
         Makie.update!(src_plt; arg1 = Ts[i](sources[i]).points, markersize = factor .* sources[i].weights)
         # Makie.update!(dis_plt; arg1 = Ts[i](sources[i]).points, arg2 = cpds[i].displacement)
-        Makie.update!(dtrg_plt; arg1 = target.points .+ cpds[i].displacement)
+        # Makie.update!(dtrg_plt; arg1 = target.points .+ cpds[i].displacement)
+        Makie.update!(dtrg_plt; arg1 = cpds[i].target_representatives)
         Makie.update!(hm_plt; arg1 = cpds[i].correspondences)
     end
     axislegend(ax)
@@ -164,7 +172,7 @@ let
 end
 
 let
-    fig = Figure()
+    fig = Figure(size = (400, 300))
     ax = Axis(fig[1, 1]; #= autolimitaspect = 1, =# aspect = DataAspect(), title = "not registered")
     ax_t = Axis(fig[1, 2]; #= autolimitaspect = 1, =# aspect = DataAspect(), title = "registered")
     hidedecorations!(ax)
