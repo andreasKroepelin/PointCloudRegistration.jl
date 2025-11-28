@@ -127,24 +127,30 @@ We then minimize the \emph{root mean square displacement} (RMSD), i.e.
 $\rho(r) = r^2$, using the \emph{Kabsch} algorithm, which finds the global
 optimum in a closed form by means of a singular value decomposition.
 
-\subsubsection{Geman-McClure cost}
+\subsubsection{Mean Absolute Displacement}
 Often, however, some correspondences might be spurious or the displacement
 between some source and target points cannot be explained by a rigid
 transformation alone.
 In the context of minimizing the RMSD, these can be considered outliers and they
 potentially confound the optimal transformation.
-We thus have to limit their influence, which can be done by using the
-\emph{Geman-McClure} cost function $\rho(r) = r^2 / (2\sigma^2 + r^2)$ with
-some scale parameter $\sigma$.
-It behaves like $r^2$ for small $r$ but flattens out to $1$
-for large $r$, where $\sigma$ determines what small and large means.
 
-Since the optimization problem becomes non-convex, we cannot find the optimum
-in a single step anymore but have to use an iterative procedure.
+The cost functon $\rho(r) = r$ is less sensitive to outliers but the resulting
+optimisation problem does not have a closed form solution.
+Instead, we use an iterative procedure.
 The implemented algorithm is a \emph{majorization minimization} scheme where
 we majorize the original objective function by a quadratic one and then
 minimize the latter by the Kabsch algorithm to find an improved candidate for
 the global optimum.
+
+\subsubsection{Geman-McClure cost}
+Alternatively, outliers can be mitigated by limiting their influence, which can
+be done by using the \emph{Geman-McClure} cost function
+$\rho(r) = r^2 / (2\sigma^2 + r^2)$ with some scale parameter $\sigma$.
+It behaves like $r^2$ for small $r$ but flattens out to $1$
+for large $r$, where $\sigma$ determines what small and large means.
+
+Since the optimization problem becomes non-convex, the majorization minimization
+iterations are not guaranteed to find the global optimum.
 See Section \ref{sec:opt-strats} for strategies to avoid local optima.
 
 \subsection{Unknown correspondences}
@@ -158,8 +164,8 @@ The package implements the method proposed in \cite{our-kc-paper}
 where we have $c_{i j} \equiv 1$ and $\rho(r) = - \exp(-r^2 / 2 \sigma^2)$ with
 a scale parameter $\sigma$.
 
-Similar to the Geman-McClure based registration, we perform majorization
-minimization with optimization strategies outlined in Section
+Similar to the Geman-McClure based registration, we perform non-convex
+majorization minimization with optimization strategies outlined in Section
 \ref{sec:opt-strats}.
 We also make use of precomputation that allows the runtime of the
 implementation to be linear in the sizes of the point clouds even if
