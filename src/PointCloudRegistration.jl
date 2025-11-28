@@ -16,6 +16,7 @@ using ArgCheck
 
 export PointCloud,
     register_rmsd,
+    register_mad,
     register_gmc,
     register_kc,
     register_icp,

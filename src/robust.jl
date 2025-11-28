@@ -153,3 +153,71 @@ function _register_gmc(
 
     return best.transformation
 end
+
+function register_mad(
+    source,
+    target;
+    iterations::Int = default_iterations(),
+    # use type parameter `RI` here to force specialization
+    report_iteration::RI = no_report,
+) where {RI}
+    @argcheck iterations >= 1
+
+    pc_source = PointCloud(source)
+    pc_target = PointCloud(target)
+    @argcheck size(pc_source) == size(pc_target)
+
+    _register_mad(pc_source, pc_target, iterations, report_iteration)
+end
+
+function _register_mad(
+    source::PointCloud{N},
+    target::PointCloud{N},
+    iterations,
+    report_iteration,
+) where {N}
+    SrcT = eltype(source.points)
+    TrgT = eltype(target.points)
+    transformation = simple_transformation(source, target)
+    prev_transformation = identity_transformation(transformation)
+    for iter in 1:iterations
+        sum_w = float(zero(eltype(source.weights)) * zero(eltype(target.weights)))
+        source_mean = sum_w * zero(SrcT)
+        target_mean = sum_w * zero(TrgT)
+        covariance = sum_w * zero(TrgT) * zero(SrcT)'
+
+        for j in eachindex(source.points, target.points)
+            src = source.points[j]
+            trg = target.points[j]
+            w_src = source.weights[j]
+            w_trg = target.weights[j]
+            sqdist = sqeuclidean(transformation(src), trg)
+            w_src_w_trg = w_src * w_trg
+            w = w_src_w_trg / (sqdist + one(sqdist) / 100)
+            source_mean += w * src
+            target_mean += w * trg
+            covariance += w * trg * src'
+            sum_w += w
+        end
+
+        source_mean /= sum_w
+        target_mean /= sum_w
+        covariance /= sum_w
+        covariance -= target_mean * source_mean'
+
+        transformation = transformation_from_moments(
+            covariance,
+            source_mean,
+            target_mean,
+        )
+
+        report_iteration(; iter, transformation)
+
+        if iter > 1 && isapprox(transformation, prev_transformation)
+            break
+        end
+        prev_transformation = transformation
+    end
+
+    return transformation
+end
