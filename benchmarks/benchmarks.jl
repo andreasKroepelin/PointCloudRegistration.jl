@@ -25,6 +25,7 @@ bms = (
     bios = @benchmark(BioS.Transformation($Y, $X)),
     k = @benchmark(K.kabsch($Y, $X)),
 )
+
 labels = (
     pcreg = rich("PCReg.jl"; font = :bold),
     pcreg_pc = "PCReg.jl w/o\npreparation",
@@ -34,7 +35,7 @@ labels = (
 )
 
 let
-    fig = Figure()
+    fig = Figure(size = (400, 200))
     kys = collect(keys(bms))
     ax = Axis(fig[1, 1], xticks = (eachindex(kys), [labels[k] for k in kys]))
     ylims!(ax, (0, nothing))
