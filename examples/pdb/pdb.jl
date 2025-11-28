@@ -30,15 +30,16 @@ id_X = "1iwo_A"
 # id_Y = "1ysy_A"
 # id_X = "2ahm_D"
 
-pdb_Y = retrievepdb(split(id_Y, "_")[1]; dir = tempdir())[split(id_Y, "_")[2]]
-pdb_X = retrievepdb(split(id_X, "_")[1]; dir = tempdir())[split(id_X, "_")[2]]
+pdb_Y = retrievepdb(split(id_Y, "_")[1])[split(id_Y, "_")[2]]
+pdb_X = retrievepdb(split(id_X, "_")[1])[split(id_X, "_")[2]]
 Y, X = aligned_atoms(pdb_Y, pdb_X, notwaterselector)
 
 Ts = (
     rmsd = register_rmsd(Y, X),
+    mad = register_mad(Y, X),
     gmc = register_gmc(Y, X),
     kc = register_kc(Y, X; restarts = RandomRestarts(100)),
-    icp = register_icp(Y, X; restarts = RandomRestarts(1000)),
+    # icp = register_icp(Y, X; restarts = RandomRestarts(1000)),
 )
 
 function show_both(X, Y)
@@ -61,6 +62,7 @@ end
 
 show_both(X, Y)
 show_both(X, Ts.rmsd(Y))
+show_both(X, Ts.mad(Y))
 show_both(X, Ts.gmc(Y))
 show_both(X, Ts.kc(Y))
 show_both(X, Ts.icp(Y))
@@ -69,14 +71,14 @@ arrows3d(Y.points, X.points .- Ts.icp(Y).points; markerscale = 5)
 
 norms = map(T -> norm.(X.points .- T(Y).points), Ts)
 maxnorm = maximum(maximum, norms)
-edges = range(0, maxnorm; length = 50)
+edges = range(0, maxnorm; length = 60)
 norm_hists = map(ns -> fit(Histogram, ns, edges), norms)
 
 mids(es) = es[begin:(end - 1)] .+ diff(es) ./ 2
 
 let
     fig = Figure()
-    methods = [:gmc, :rmsd, :kc, :icp]
+    methods = [:gmc, :mad, :kc, :rmsd]
     offsets = cumsum([-0.5 * maximum(norm_hists[m].weights) for m in methods])
     ax = Axis(
         fig[1, 1];
