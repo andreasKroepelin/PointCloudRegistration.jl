@@ -99,7 +99,8 @@ function _register_cpd(
             for ci in CartesianIndices(P)
                 i, j = Tuple(ci)
                 sqdist = sqeuclidean(target.points[i], displaced_source[j])
-                P[ci] = exp(neginv2sqscale * sqdist)
+                w_src_w_trg = source.weights[j] * target.weights[i]
+                P[ci] = w_src_w_trg * exp(neginv2sqscale * sqdist)
             end
             # map!(P, Iterators.product(target.points, displaced_source)) do (x, y)
             #                                     exp(neginv2sqscale * sqeuclidean(x, y))
