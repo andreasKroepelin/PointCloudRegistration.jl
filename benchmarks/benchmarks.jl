@@ -48,7 +48,8 @@ let
         scatter!(ax, [i], [q[2]]; markersize = 15)
     end
     # GLMakie.activate!(); display(fig)
-    CairoMakie.activate!(); save("../paper/bioinformatics/src/img/kabsch-benchmark.pdf", fig)
+    CairoMakie.activate!(pdf_version = "1.5");
+    save("../paper/bioinformatics/src/img/kabsch-benchmark.pdf", fig)
 end
 
 @btime PCReg.register_gmc($Y, $X)

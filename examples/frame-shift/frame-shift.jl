@@ -159,7 +159,7 @@ let
     end
     # GLMakie.activate!()
     # display(fig)
-    CairoMakie.activate!()
+    CairoMakie.activate!(pdf_version = "1.5")
     save("../../paper/bioinformatics/src/img/frame-shift-imgs.pdf", fig)
 end
 
@@ -176,8 +176,7 @@ let
         scatter!(ax, pc.points; markersize = factor .* pc.weights, markerspace = :data)
         scatter!(ax_t, T(pc).points; markersize = factor .* pc.weights, markerspace = :data)
     end
-    # GLMakie.activate!()
-    # display(fig)
-    CairoMakie.activate!()
+    # GLMakie.activate!(); display(fig)
+    CairoMakie.activate!(pdf_version = "1.5")
     save("../../paper/bioinformatics/src/img/frame-shift-pointclouds.pdf", fig)
 end
