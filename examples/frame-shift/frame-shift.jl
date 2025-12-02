@@ -184,7 +184,25 @@ let
         scatter!(ax, pc.points; markersize = factor .* pc.weights, markerspace = :data)
         scatter!(ax_t, T(pc).points; markersize = factor .* pc.weights, markerspace = :data)
     end
-    # GLMakie.activate!(); display(fig)
-    CairoMakie.activate!(pdf_version = "1.5")
-    save("../../paper/bioinformatics/src/img/frame-shift-pointclouds.pdf", fig)
+    GLMakie.activate!(); display(fig)
+    # CairoMakie.activate!(pdf_version = "1.5")
+    # save("../../paper/bioinformatics/src/img/frame-shift-pointclouds.pdf", fig)
+end
+
+let
+    fig = Figure(size = (400, 300))
+    ax = Axis(fig[1, 1]; #= autolimitaspect = 1, =# aspect = DataAspect(), title = "not registered")
+    ax_t = Axis(fig[1, 2]; #= autolimitaspect = 1, =# aspect = DataAspect(), title = "registered")
+    hidedecorations!(ax)
+    hidedecorations!(ax_t)
+    linkxaxes!(ax, ax_t)
+    linkyaxes!(ax, ax_t)
+    for (img, T) in zip(bg_contrast_images, Ts)
+        # scatter!(ax, pc.points; markersize = factor .* pc.weights, markerspace = :data)
+        # scatter!(ax_t, T(pc).points; markersize = factor .* pc.weights, markerspace = :data)
+        heatmap!(ax, gray.(img), alpha = 0.3)
+    end
+    GLMakie.activate!(); display(fig)
+    # CairoMakie.activate!(pdf_version = "1.5")
+    # save("../../paper/bioinformatics/src/img/frame-shift-pointclouds.pdf", fig)
 end
