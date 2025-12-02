@@ -9,8 +9,10 @@ using PointCloudRegistration
 using PointCloudRegistration.Rotations
 import PointCloudRegistration as PCReg
 using DataFrames
-using GLMakie
-using GLMakie.Makie.Unitful
+using Makie
+import GLMakie
+import CairoMakie
+using Makie.Unitful
 using ProgressMeter
 
 includet("alignment.jl")
@@ -57,7 +59,8 @@ function show_both(X, Y)
             t = tick.time
         end
     end
-    fig
+    GLMakie.activate!()
+    display(fig)
 end
 
 show_both(X, Y)
@@ -67,42 +70,62 @@ show_both(X, Ts.gmc(Y))
 show_both(X, Ts.kc(Y))
 show_both(X, Ts.icp(Y))
 
-arrows3d(Y.points, X.points .- Ts.icp(Y).points; markerscale = 5)
+let
+    methods = [:rmsd, :gmc]
+    colorrange_hi = maximum(maximum, norms[methods])
+    cmap = :managua
+    fig = Figure(size = (400, 400))
+    axs = [Axis3(fig[1, i]; aspect = :data, title = uppercase(string(methods[i])), [Symbol(d, :ticklabelsvisible) => false for d in [:x, :y, :z]]...) for i in (1, 2)]
+    # Colorbar(fig[1, 3]; limits = (0, colorrange_hi), colormap = cmap, label = "distance of corresponding atoms [Å]")
+    # meshscatter!(ax, Ts.gmc(Y).points; markersize = 3)
+    # meshscatter!(ax, X.points; markersize = 3)
+    # meshscatter!(ax, Ts.kc(Y).points; markersize = 3, color = eachindex(X.points))
+    # meshscatter!(ax, X.points; markersize = 3, color = eachindex(X.points), marker = Rect3f(Point3f(-1), Vec3f(2)))
+    segments = [NTuple{2, Point3f}[] for _ in axs]
+    for (y, x) in zip(Y.points, X.points)
+        for (ss, method) in zip(segments, methods)
+            T = Ts[method]
+            push!(ss, (T(y), x))
+        end
+    end
+    for (ax, ss, method) in zip(axs, segments, methods)
+        hidespines!(ax)
+        # hidedecorations!(ax)
+        T = Ts[method]
+        # linesegments!(ax, ss; linewidth = 1)
+        # meshscatter!(ax, X.points; markersize = 3, color = norms[method], colorrange = (0, colorrange_hi), colormap = cmap)
+        meshscatter!(ax, X.points; markersize = max.(.2, 3 .* norms[method] ./ colorrange_hi))
+    end
+    # arrows3d!(ax, Ts.gmc(Y).points, X.points .- Ts.gmc(Y).points; markerscale = .1, lengthscale = 1)
+    # GLMakie.activate!(); display(fig)
+    GLMakie.activate!()
+    save("../../paper/bioinformatics/src/img/pdb-connections.png", fig; px_per_unit = 3)
+end
 
 norms = map(T -> norm.(X.points .- T(Y).points), Ts)
 maxnorm = maximum(maximum, norms)
 edges = range(0, maxnorm; length = 60)
 norm_hists = map(ns -> fit(Histogram, ns, edges), norms)
 
-mids(es) = es[begin:(end - 1)] .+ diff(es) ./ 2
-
 let
-    fig = Figure()
+    fig = Figure(size = (400, 350))
     methods = [:gmc, :mad, :kc, :rmsd]
-    offsets = cumsum([-0.5 * maximum(norm_hists[m].weights) for m in methods])
+    offset = -.05
     ax = Axis(
         fig[1, 1];
         title = "$id_Y \u2194 $id_X",
-        yticks = offsets,
+        yticks = offset .* eachindex(methods),
         yticklabelsvisible = false,
         ylabel = "frequency",
         xlabel = "distance of corresponding atoms [Å]",
     )
     for (i, method) in enumerate(methods)
-        offset = offsets[i]
-        xs = mids(norm_hists[method].edges...) # .* 0.1u"nm"
-        band!(
-            ax,
-            xs,
-            offset,
-            offset .+ norm_hists[method].weights;
-            alpha = 0.8,
-            label = string(method),
-        )
-        lines!(ax, xs, offset .+ norm_hists[method].weights; linewidth = 3)
+        density!(ax, norms[method]; label = uppercase(string(method)), alpha = 0.8, strokearound = true, strokewidth=2, offset = offset * i, bandwidth = .5)
     end
-    axislegend(ax)
-    fig
+    axislegend(ax,valign=:bottom)
+    # GLMakie.activate!(); display(fig)
+    CairoMakie.activate!(pdf_version = "1.5")
+    save("../../paper/bioinformatics/src/img/pdb-distances.pdf", fig)
 end
 
 data = let # X = PCReg.rand_transformation(Xoshiro(-2), Y, X)(X)
