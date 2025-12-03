@@ -10,8 +10,8 @@ using PointCloudRegistration.Rotations
 import PointCloudRegistration as PCReg
 using DataFrames
 using Makie
-import GLMakie
 import CairoMakie
+import GLMakie
 using Makie.Unitful
 using ProgressMeter
 
@@ -36,39 +36,62 @@ pdb_Y = retrievepdb(split(id_Y, "_")[1])[split(id_Y, "_")[2]]
 pdb_X = retrievepdb(split(id_X, "_")[1])[split(id_X, "_")[2]]
 Y, X = aligned_atoms(pdb_Y, pdb_X, notwaterselector)
 
-Ts = (
-    rmsd = register_rmsd(Y, X),
-    mad = register_mad(Y, X),
-    gmc = register_gmc(Y, X),
-    kc = register_kc(Y, X; restarts = RandomRestarts(100)),
-    # icp = register_icp(Y, X; restarts = RandomRestarts(1000)),
-)
+pdb_ids = "1IWO,1KJU,1SU4,1T5S,1T5T,1VFP,1WPG,1XP5,2AGV,2BY4,2C88,2C8K,2C8L,2C9M,2DQS,2EAR,2EAT,2EAU,2O9J,2OA0,2YFY,2ZBD,2ZBE,2ZBF,2ZBG,3AR2,3AR3,3AR4,3AR5,3AR6,3AR7,3AR8,3AR9,3B9B,3B9R,3BA6,3FGO,3FPB,3FPS,3J7T,3N5K,3N8G,3NAL,3NAM,3NAN,3W5A,3W5B,3W5C,3W5D,4H1W,4J2T,4KYT,4UU0,4UU1,4XOU,4Y3U,4YCL,4YCM,4YCN,5A3Q,5A3R,5A3S,5NCQ,5XA7,5XA8,5XA9,5XAA,5XAB,6HEF,6YAA,6YSO,4BEW,8OWA,8OWL" |> Base.Fix2(split, ",")
+pdbs = [retrievepdb(id; dir = "data")["A"] for id in pdb_ids]
+pointclouds = [PointCloud(coordarray(pdb, calphaselector)) for pdb in pdbs if countatoms(pdb, calphaselector) == 994]
 
-function show_both(X, Y)
+target = pointclouds[1];
+Ts_per_method = (
+    rmsd = [register_rmsd(source, target) for source in pointclouds],
+    gmc = [register_gmc(source, target) for source in pointclouds],
+);
+registered_pointclouds_per_method = map(Ts_per_method) do Ts
+    [T(pc) for (T, pc) in zip(Ts, pointclouds)]
+end;
+
+function show_all(pcs)
     fig = Figure()
     states = collect.([X, Y])
     ax = Axis3(fig[1, 1]; aspect = :data)
-    sld = Slider(fig[2, 1]; range = 0.01:0.01:2, startvalue = 1.0)
-    i_obs = Observable(false)
-    points_obs = @lift states[$i_obs + 1]
-    meshscatter!(ax, points_obs; markersize = 3, color = eachindex(X.points))
-    t = 0
-    on(events(fig).tick) do tick
-        if tick.time - t > sld.value[]
-            i_obs[] = !(i_obs[])
-            t = tick.time
-        end
-    end
+    sl = Slider(fig[2, 1]; range = eachindex(pcs))
+    meshscatter!(ax, @lift(pcs[$(sl.value)].points); markersize = 3, color = eachindex(pcs[1].points))
     GLMakie.activate!()
     display(fig)
 end
 
-show_both(X, Y)
-show_both(X, Ts.rmsd(Y))
-show_both(X, Ts.mad(Y))
-show_both(X, Ts.gmc(Y))
-show_both(X, Ts.kc(Y))
-show_both(X, Ts.icp(Y))
+show_all(pointclouds)
+show_all(registered_pointclouds_per_method.rmsd)
+show_all(registered_pointclouds_per_method.gmc)
+
+norms = map(registered_pointclouds_per_method) do reg_pcs
+    stack(reg_pcs) do reg_pc
+        norm.(target.points .- reg_pc.points)
+    end
+end
+
+qs = [.75, .5, .25]
+normqs = map(norms) do ns
+    stack(eachrow(ns)) do row
+        [quantile(row, q) for q in qs]
+    end |> permutedims
+end
+
+let
+    methods = [:rmsd, :gmc]
+    fig = Figure()
+    axs = [Axis(fig[1, i]) for i in eachindex(methods)]
+    for ax in axs
+        linkyaxes!(ax, axs[1])
+    end
+    colors = cgrad(:blues, length(pointclouds))
+    for (ax, method) in zip(axs, methods)
+        for (color, nqs) in zip(colors, eachcol(normqs[method]))
+            # lines!(ax, nqs)
+            band!(ax, 1:length(nqs), zeros(length(nqs)), nqs)
+        end
+    end
+    GLMakie.activate!(); display(fig)
+end
 
 let
     methods = [:rmsd, :gmc]
