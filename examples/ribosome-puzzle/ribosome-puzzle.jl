@@ -5,6 +5,7 @@ using MRCFile
 using EmdbHelper
 using NearestNeighbors
 using GLMakie
+using Random
 
 function report_iteration(; iteration, relchange, numclusters, additions)
     println(
@@ -65,6 +66,7 @@ sources = [
 ];
 sort!(sources, by = pc -> length(pc.points), rev = true);
 sources = sources[1:2]
+sources = [PointCloudRegistration.rand_transformation(Random.default_rng(), src, src)(src) for src in sources]
 # fake_target = mapreduce(identity, vcat, sources)
 
 let
