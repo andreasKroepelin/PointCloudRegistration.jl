@@ -2,6 +2,7 @@ using Revise
 using BioStructures
 using BioSequences
 using BioAlignments
+using ProteinSecondaryStructures
 using StatsBase
 using LinearAlgebra
 using Random
@@ -14,44 +15,118 @@ import CairoMakie
 import GLMakie
 using Makie.Unitful
 using ProgressMeter
+using Clustering
+using InvertedIndices
 
-includet("alignment.jl")
+function compute_rmsd(Y, X)
+    T = register_rmsd(Y, X)
+    PCReg.evaluate_rmsd(Y, X, T)
+end
 
-# id_Y = "1ih7_A"
-# id_X = "1ig9_A"
+pointclouds, pdb_ids = let
+    all_ids = split(
+        """
+        1IWO,1KJU,1SU4,1T5S,1T5T,1VFP,1WPG,1XP5,2AGV,2BY4,2C88,2C8K,2C8L,2C9M,\
+        2DQS,2EAR,2EAT,2EAU,2O9J,2OA0,2YFY,2ZBD,2ZBE,2ZBF,2ZBG,3AR2,3AR3,3AR4,\
+        3AR5,3AR6,3AR7,3AR8,3AR9,3B9B,3B9R,3BA6,3FGO,3FPB,3FPS,3J7T,3N5K,3N8G,\
+        3NAL,3NAM,3NAN,3W5A,3W5B,3W5C,3W5D,4H1W,4J2T,4KYT,4UU0,4UU1,4XOU,4Y3U,\
+        4YCL,4YCM,4YCN,5A3Q,5A3R,5A3S,5NCQ,5XA7,5XA8,5XA9,5XAA,5XAB,6HEF,6YAA,\
+        6YSO,4BEW,8OWA,8OWL\
+        """,
+        ","
+    )
+    all_pdbs = [retrievepdb(id; dir = "data")["A"] for id in all_ids]
+    exact_seq_mask = [
+        countatoms(pdb, calphaselector) == 994
+        for pdb in all_pdbs
+    ]
+    exact_seq_ids = all_ids[exact_seq_mask]
+    exact_seq_pdbs = all_pdbs[exact_seq_mask]
+    exact_seq_pcs = [
+        PointCloud(coordarray(pdb, calphaselector))
+        for pdb in exact_seq_pdbs
+    ]
+    rmsds = [compute_rmsd(Y, X) for Y in exact_seq_pcs, X in exact_seq_pcs]
+    clustering = hclust(Symmetric(rmsds))
+    assignments = cutree(clustering; h = 4.)
+    pcs = PointCloud{3, Float64}[]
+    ids = String[]
+    for a in unique(assignments)
+        idx = findfirst(==(a), assignments)
+        push!(pcs, exact_seq_pcs[idx])
+        push!(ids, exact_seq_ids[idx])
+    end
+    pcs, ids
+end
 
-# id_Y = "1q9y_A"
-# id_X = "1q9x_B"
+secondary_structure = dssp_run("data/1SU4.cif") .|> ss_code
 
-id_Y = "1su4_A"
-id_X = "1iwo_A"
 
-# id_Y = "1ake_A"
-# id_X = "4ake_A"
+function greedy_shortest_path(dists)
+    path = [1]
+    dists[1, :] .= typemax(eltype(dists))
+    dists = copy(dists)
+    while length(path) < size(dists, 1)
+        next = argmin(view(dists, :, last(path)))
+        push!(path, next)
+        dists[next, :] .= typemax(eltype(dists))
+    end
+    path
+end
 
-# id_Y = "1ysy_A"
-# id_X = "2ahm_D"
+pairs = [
+    (pointclouds[i], pointclouds[j])
+    for i in eachindex(pointclouds)
+    for j in eachindex(pointclouds)
+    if i > j
+]
+id_pairs = [
+    (pdb_ids[i], pdb_ids[j])
+    for i in eachindex(pdb_ids)
+    for j in eachindex(pdb_ids)
+    if i > j
+]
 
-pdb_Y = retrievepdb(split(id_Y, "_")[1])[split(id_Y, "_")[2]]
-pdb_X = retrievepdb(split(id_X, "_")[1])[split(id_X, "_")[2]]
-Y, X = aligned_atoms(pdb_Y, pdb_X, notwaterselector)
-
-pdb_ids = "1IWO,1KJU,1SU4,1T5S,1T5T,1VFP,1WPG,1XP5,2AGV,2BY4,2C88,2C8K,2C8L,2C9M,2DQS,2EAR,2EAT,2EAU,2O9J,2OA0,2YFY,2ZBD,2ZBE,2ZBF,2ZBG,3AR2,3AR3,3AR4,3AR5,3AR6,3AR7,3AR8,3AR9,3B9B,3B9R,3BA6,3FGO,3FPB,3FPS,3J7T,3N5K,3N8G,3NAL,3NAM,3NAN,3W5A,3W5B,3W5C,3W5D,4H1W,4J2T,4KYT,4UU0,4UU1,4XOU,4Y3U,4YCL,4YCM,4YCN,5A3Q,5A3R,5A3S,5NCQ,5XA7,5XA8,5XA9,5XAA,5XAB,6HEF,6YAA,6YSO,4BEW,8OWA,8OWL" |> Base.Fix2(split, ",")
-pdbs = [retrievepdb(id; dir = "data")["A"] for id in pdb_ids]
-pointclouds = [PointCloud(coordarray(pdb, calphaselector)) for pdb in pdbs if countatoms(pdb, calphaselector) == 994]
-
-target = pointclouds[1];
 Ts_per_method = (
-    rmsd = [register_rmsd(source, target) for source in pointclouds],
-    gmc = [register_gmc(source, target) for source in pointclouds],
+    rmsd = [register_rmsd(source, target) for (source, target) in pairs],
+    gmc = [register_gmc(source, target) for (source, target) in pairs],
 );
-registered_pointclouds_per_method = map(Ts_per_method) do Ts
-    [T(pc) for (T, pc) in zip(Ts, pointclouds)]
+registered_pairs_per_method = map(Ts_per_method) do Ts
+    [(T(source), target) for (T, (source, target)) in zip(Ts, pairs)]
 end;
+
+norms = map(registered_pairs_per_method) do reg_pairs
+    ns = stack(reg_pairs) do (source, target)
+        norm.(source.points .- target.points)
+    end
+end
+orders = map(norms) do ns
+    cm = cor(ns; dims = 1)
+    greedy_shortest_path(-cm)
+end
+
+let
+    fig = Figure(size = (400, length(pairs) * 20 + 10))
+    Label(fig[1, 0], "RMSD"; tellheight = false, rotation = pi/2, font = :bold)
+    Label(fig[2, 0], "GMC"; tellheight = false, rotation = pi/2, font = :bold)
+    yticks = (eachindex(id_pairs), [rich("$src \u2013 $trg", fontsize = 8) for (src, trg) in id_pairs])
+    axs = (rmsd = Axis(fig[1, 1]; yticks), gmc = Axis(fig[2, 1]; yticks))
+    hidexdecorations!(axs.rmsd)
+    linkaxes!(axs.rmsd, axs.gmc)
+    nmax = maximum(maximum, norms)
+    colormap = :lisbon
+    Colorbar(fig[1:2, 2]; colormap, colorrange = (0, nmax), label = "distance of corresponding atoms [Å]")
+    for method in [:rmsd, :gmc]
+        heatmap!(axs[method], norms[method][:, orders.rmsd]; colorrange = (0, nmax), colormap, rasterize = 10)
+    end
+    # GLMakie.activate!(); display(fig)
+    CairoMakie.activate!(pdf_version = "1.5");
+    save("../../paper/bioinformatics/src/img/pdb-heatmaps.pdf", fig)
+end
+
 
 function show_all(pcs)
     fig = Figure()
-    states = collect.([X, Y])
     ax = Axis3(fig[1, 1]; aspect = :data)
     sl = Slider(fig[2, 1]; range = eachindex(pcs))
     meshscatter!(ax, @lift(pcs[$(sl.value)].points); markersize = 3, color = eachindex(pcs[1].points))
@@ -68,12 +143,22 @@ norms = map(registered_pointclouds_per_method) do reg_pcs
         norm.(target.points .- reg_pc.points)
     end
 end
+# dissimilar_mask = vec(sqrt.(mean(norms.rmsd .^ 2; dims = 1)) .> 10)
+# norms_filtered = map(norms) do ns
+#     ns[:, dissimilar_mask]
+# end
 
-qs = [.75, .5, .25]
-normqs = map(norms) do ns
+qs = [.25, .5, .75] |> reverse
+normqs = map(norms_filtered) do ns
     stack(eachrow(ns)) do row
         [quantile(row, q) for q in qs]
     end |> permutedims
+end
+normqs_avrgd = map(normqs) do nqs
+    w = 30
+    mapreduce(vcat, 1:lastindex(nqs, 1) - w) do offset
+        mean(@view(nqs[offset:min(offset + w, end), :]), dims = 1)
+    end
 end
 
 let
@@ -90,6 +175,23 @@ let
             band!(ax, 1:length(nqs), zeros(length(nqs)), nqs)
         end
     end
+    GLMakie.activate!(); display(fig)
+end
+
+let
+    methods = [:rmsd, :gmc] |> reverse
+    colors = (rmsd = :tomato, gmc = :cornflowerblue)
+    fig = Figure()
+    ax = Axis(fig[1, 1])
+    for method in methods
+        series!(ax, norms[method]'; color = fill(colors[method], 59)#=, linewidth = 0, markersize = 3=#)
+        # for nqs in eachcol(norms[method])
+        #     lines!(ax, nqs; color = colors[method], alpha = .2)
+        #     # band!(ax, 1:length(nqs), zeros(length(nqs)), nqs)
+        # end
+    end
+    # axislegend(ax)
+    Legend(fig[1, 1], [LineElement(color = colors[method], linewidth = 3) for method in methods], uppercase.(string.(methods)); tellwidth = false, tellheight = false, valign = :top, halign = :right, margin = ntuple(Returns(10), 4))
     GLMakie.activate!(); display(fig)
 end
 

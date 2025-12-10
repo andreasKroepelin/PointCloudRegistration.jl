@@ -76,3 +76,11 @@ function _register_rmsd(
     covariance -= target_mean * source_mean'
     transformation_from_moments(covariance, source_mean, target_mean)
 end
+
+function evaluate_rmsd(source::PointCloud{N}, target::PointCloud{N}, transformation = identity_transformation(source, target)) where {N}
+    @argcheck eachindex(source.points) == eachindex(target.points)
+    ssd = mapreduce(+, source.points, source.weights, target.points, target.weights) do src, src_w, trg, trg_w
+        src_w * trg_w * sqeuclidean(transformation(src), trg)
+    end
+    sqrt(ssd / length(source.points))
+end

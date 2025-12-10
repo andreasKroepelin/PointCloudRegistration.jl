@@ -68,5 +68,11 @@ function identity_transformation(::Type{<:AffineMap{R, L}}) where {R, L}
     AffineMap(one(R), zero(L))
 end
 identity_transformation(::A) where {A <: AffineMap} = identity_transformation(A)
+function identity_transformation(
+    source::PointCloud{N},
+    target::PointCloud{N},
+) where {N}
+    AffineMap(one(rotation_type(source, target)), zero(eltype(target.points)) - zero(eltype(source.points)))
+end
 
 const RigidTransformation{N} = AffineMap{Rot, Transl} where {Rot <: Rotation{N}, Transl <: StaticVector{N}}

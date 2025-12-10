@@ -2,7 +2,7 @@
 
 julia_version = "1.12.2"
 manifest_format = "2.0"
-project_hash = "d909efa1b91202d6129724965aa52c6506df9c9e"
+project_hash = "a50f34369ed93dc16cc022b00151eab8adca7d03"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "8be2ae325471fc20b11c27bb34b518541d07dd3a"
@@ -305,6 +305,12 @@ weakdeps = ["SparseArrays"]
     [deps.ChainRulesCore.extensions]
     ChainRulesCoreSparseArraysExt = "SparseArrays"
 
+[[deps.Clustering]]
+deps = ["Distances", "LinearAlgebra", "NearestNeighbors", "Printf", "Random", "SparseArrays", "Statistics", "StatsBase"]
+git-tree-sha1 = "3e22db924e2945282e70c33b75d4dde8bfa44c94"
+uuid = "aaaa29a8-35af-508c-8bc3-b662a17a0fe5"
+version = "0.15.8"
+
 [[deps.CodeTracking]]
 deps = ["InteractiveUtils", "UUIDs"]
 git-tree-sha1 = "9ce926a33a8608421a4d45c012884165b3fcd3ee"
@@ -455,6 +461,12 @@ weakdeps = ["Compiler"]
 
     [deps.Cthulhu.extensions]
     CthulhuCompilerExt = "Compiler"
+
+[[deps.DSSP_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Zlib_jll"]
+git-tree-sha1 = "48a249fcd3cc9032191d08216e1acc2d5ca5a321"
+uuid = "74334e00-59ce-546d-b517-81f3b7e1d491"
+version = "4.4.0+1"
 
 [[deps.DataAPI]]
 git-tree-sha1 = "abe83f3a2f1b857aac70ef8b269080af17764bbe"
@@ -1801,6 +1813,12 @@ git-tree-sha1 = "fbb92c6c56b34e1a2c4c36058f68f332bec840e7"
 uuid = "92933f4c-e287-5a05-a399-4b506db050ca"
 version = "1.11.0"
 
+[[deps.ProteinSecondaryStructures]]
+deps = ["DSSP_jll", "STRIDE_jll", "TestItems"]
+git-tree-sha1 = "da7a6710aff45dfab7c4b7da921ef49aa1605364"
+uuid = "c298f58b-271f-48cb-96ac-5442ca7c67d9"
+version = "2.0.3"
+
 [[deps.ProtoBuf]]
 deps = ["BufferedStreams", "Dates", "EnumX", "TOML"]
 git-tree-sha1 = "eabdb811dbacadc9d7e0dee9ac11c1a12705e12a"
@@ -1948,6 +1966,12 @@ deps = ["PrecompileTools"]
 git-tree-sha1 = "e24dc23107d426a096d3eae6c165b921e74c18e4"
 uuid = "fdea26ae-647d-5447-a871-4b548cad5224"
 version = "3.7.2"
+
+[[deps.STRIDE_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl"]
+git-tree-sha1 = "d5f4a36ba095f235070ad651434e74d4de3d63fe"
+uuid = "850473c1-9ef0-5df9-a957-757f4cde8b8b"
+version = "1.0.0+0"
 
 [[deps.ScopedValues]]
 deps = ["HashArrayMappedTries", "Logging"]
@@ -2195,6 +2219,11 @@ version = "0.1.7"
 deps = ["InteractiveUtils", "Logging", "Random", "Serialization"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 version = "1.11.0"
+
+[[deps.TestItems]]
+git-tree-sha1 = "42fd9023fef18b9b78c8343a4e2f3813ffbcefcb"
+uuid = "1c621080-faea-4a02-84b6-bbd5e436b8fe"
+version = "1.0.0"
 
 [[deps.The2DShapeStructureDataset]]
 deps = ["Downloads", "JSON3", "ZipArchives"]
