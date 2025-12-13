@@ -331,6 +331,30 @@ Kabsch vs. GMC, KC vs. ICP, juliacall vs. native Python implementations
 \end{figure}
 
 \subsection{Fitting RNAs into ribosomal electron microscopy map}
+Next, let us demonstrate working with point clouds and density maps.
+To this end, we fit two pointclouds representing the 23S- and 16S-rRNA (PDB
+identifiers 8ZFG\_22 and 8ZFG\_1) into a density map representing the whole
+bacterial ribosome (EMDB identifier 60060). \cite{ribosome}
+
+The density map has to be converted into a point cloud, which is achieved by
+first placing a point at every voxel center with the voxel's value as its
+weight and then thinning the point cloud to a resolution of 10\,Å.
+Points with a weight below a threshold are removed.
+For the rRNAs, we collect their 3'-C atom coordinates with uniform weights and
+apply a random rigid transformation to them as they are already positioned at
+the correct pose in the PDB.
+
+Using the larger 23S-rRNA as the source and the full ribosome as the target, we
+now rigidly register the rRNA onto the ribosome by maximizing the kernel
+correlation.
+Success can be validated by comparing the registered rRNA coordinates to the
+original PDB coordinates (RMSD $4.2\,$Å).
+
+Next, we reduce the target point cloud by removing all its points that are
+within 10\,Å of the fitted 23S-rRNA (we have ``used'' these now).
+Subsequently, we register the smaller 16S-rRNA onto the remaining target via
+the kernel correlation.
+Again, we closely match the original PDB coordinates (RMSD $2.6\,$Å).
 
 \subsection{Aligning micrographs with frame shift}
 By turning images into weighted two dimensional point clouds, we can apply

@@ -66,8 +66,10 @@ sources = [
 ];
 sort!(sources, by = pc -> length(pc.points), rev = true);
 sources = sources[1:2]
-sources = [PointCloudRegistration.rand_transformation(Random.default_rng(), src, src)(src) for src in sources]
-# fake_target = mapreduce(identity, vcat, sources)
+randomized_sources = [
+    PointCloudRegistration.rand_transformation(src)(src)
+    for src in sources
+]
 
 let
     fig = Figure()
@@ -92,7 +94,7 @@ end
 
 prepd_target = prepare_target_kc(target_thinned; scale = [2resolution, resolution]);
 
-Ts = map(sources) do source
+Ts = map(randomized_sources) do source
     Threads.@spawn begin
         T = register_kc(source, prepd_target; restarts = RandomRestarts(500), smm = Smm(50))
         @info "next source" T
@@ -116,11 +118,11 @@ end
 Ts, artificial_targets = let Ts = []
     atargets = []
     artificial_target = target_thinned
-    for source in sources
+    for source in randomized_sources
         target_prepd = prepare_target_kc(artificial_target; scale = [2resolution, resolution])
         T = register_kc(source, target_prepd; restarts = RandomRestarts(500), smm = Smm(50))
         push!(Ts, T)
-        @info "next source" T
+        # @info "next source" T
         new_target_points = similar(artificial_target.points) |> empty!
         new_target_weights = similar(artificial_target.weights) |> empty!
         tree = KDTree(T(source).points)
@@ -137,6 +139,12 @@ Ts, artificial_targets = let Ts = []
     Ts, atargets
 end
 
+rmsds = map(Ts, randomized_sources, sources) do T, randomized_source, source
+    a = source.points
+    b = T(randomized_source).points
+    sqrt(mean(norm_sqr, a .- b))
+end
+
 let
     fig = Figure()
     ax = Axis3(fig[1, 1]; aspect = :data)
@@ -148,7 +156,7 @@ let
         color = :lightgray,
         label = "target"
     )
-    for (i, (source, T)) in enumerate(zip(sources, Ts))
+    for (i, (source, T)) in enumerate(zip(randomized_sources, Ts))
         meshscatter!(ax, source.points, markersize = 3, label = string(i), visible = false)
         meshscatter!(ax, T(source).points, markersize = 3, label = string("T", i), visible = false)
     end

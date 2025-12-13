@@ -40,7 +40,7 @@ function rand_rotation(rng, ::Val{N}, ::Type{T}) where {N, T}
 end
 
 function rand_transformation(
-    rng,
+    rng::AbstractRNG,
     source::PointCloud{N},
     target::PointCloud{N},
 ) where {N}
@@ -52,6 +52,15 @@ function rand_transformation(
 
     AffineMap(rotation, translation)::transformation_type(source, target)
 end
+
+function rand_transformation(
+    source::PointCloud{N},
+    target::PointCloud{N},
+) where {N}
+    rand_transformation(Random.default_rng(), source, target)
+end
+
+rand_transformation(pc::PointCloud) = rand_transformation(Random.default_rng(), pc, pc)
 
 function simple_transformation(
     source::PointCloud{N},
