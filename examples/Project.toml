@@ -17,5 +17,7 @@ projects = [
   "units",
   "ribosome-puzzle",
   "frame-shift",
+  "box-lid",
+  "biotisr",
   "EmdbHelper"
 ]
