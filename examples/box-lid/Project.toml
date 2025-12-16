@@ -1,0 +1,8 @@
+[deps]
+GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
+NPZ = "15e1cf62-19b3-5cfa-8e77-841668bca605"
+PointCloudRegistration = "afb9b67c-ae14-49fb-afbe-36d52467eca1"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+
+[sources]
+PointCloudRegistration = {path = "../.."}
