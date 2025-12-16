@@ -106,7 +106,7 @@ orders = map(norms) do ns
 end
 
 let
-    fig = Figure(size = (400, length(pairs) * 20 + 10))
+    fig = Figure(size = (600, length(pairs) * 20 + 10))
     Label(fig[1, 0], "RMSD"; tellheight = false, rotation = pi/2, font = :bold)
     Label(fig[2, 0], "GMC"; tellheight = false, rotation = pi/2, font = :bold)
     yticks = (eachindex(id_pairs), [rich("$src \u2013 $trg", fontsize = 8) for (src, trg) in id_pairs])

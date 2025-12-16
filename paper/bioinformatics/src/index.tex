@@ -321,14 +321,39 @@ It is specifically tested to make sure this integration works properly.
 Kabsch vs. GMC, KC vs. ICP, juliacall vs. native Python implementations
 
 \subsection{Superimposing proteins based on sequence alignment}
+As we have seen in the previous section, minimizing the RMSD is faster than
+minimizing the Geman-McClure cost.
+However, being more robust against outliers can help with macromolecular
+structures that differ by large-scale movement of entire domains.
+We demonstrate this using PDB structures of the $\text{Ca}^{2+}$-ATPase that
+conincide in their sequence but differ structurally.
+
+The fifteen point clouds were pairwise rigidly superimposed by minimizing the
+RMSD and the Geman-McClure cost (GMC).
+In Figure \ref{fig:pdb-distances}, the heatmaps show the distance of
+corresponding atoms after superimposing for each pair of point clouds and both
+methods.
+Note how for the RMSD the distances are spread rather evenly without clear
+patterns.
+For the GMC, on the other hand, we see very low and very high distances that
+tend to group together for consecutive stretches of the proteins that are
+somewhat stable over different pairs.
 
 \begin{figure}[h]
 \centering
-\includegraphics[width=.8\linewidth]{img/pdb-heatmaps.pdf}
+\includegraphics[width=\linewidth]{img/pdb-heatmaps.pdf}
 \caption{
-    Distances
+    For each pair of point clouds representing different $\text{Ca}^{2+}$-ATPase
+    structures (indicated by their PDB identifiers), the heatmaps show the
+    color-coded distances of corresponding $\text{C}\alpha$-atoms along the
+    protein sequence after rigidly registering the pair by minimizing either the
+    RMSD or the Geman-McClure cost (GMC).
 }\label{fig:pdb-distances}
 \end{figure}
+
+This means that optimizing the RMSD leads to a ``compromise'' fit while the GMC
+matches a ``core'' and ignores heavily displaced domains.
+This is arguably more useful for the biological application.
 
 \subsection{Fitting RNAs into ribosomal electron microscopy map}
 Next, let us demonstrate working with point clouds and density maps.
