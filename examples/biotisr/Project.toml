@@ -1,11 +1,15 @@
 [deps]
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+CoordinateTransformations = "150eb455-5306-5404-9cee-2592286d6298"
 GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
+ImageCore = "a09fc81d-aa75-5fe9-8630-4744c3626534"
+ImageTransformations = "02fcd773-0e25-5acc-982a-7f6622650795"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 NPZ = "15e1cf62-19b3-5cfa-8e77-841668bca605"
 PointCloudRegistration = "afb9b67c-ae14-49fb-afbe-36d52467eca1"
 PythonCall = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d"
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+Rotations = "6038ab10-8711-5258-84ad-4b1120ba62dc"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [sources]
