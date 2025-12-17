@@ -190,7 +190,11 @@ function thin_kmeans(
     PointCloud(centers, weightsums)
 end
 
-function thin_droplowweight(pc::PointCloud, p)
+function thin_droplowweight(pc::PointCloud, p::Number)
     threshold = p * maximum(pc.weights)
     pc[pc.weights .>= threshold]
+end
+
+function thin_droplowweight(p::Number)
+    Base.Fix2(thin_droplowweight, p)
 end
