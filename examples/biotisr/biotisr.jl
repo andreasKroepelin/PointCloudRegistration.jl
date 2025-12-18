@@ -9,6 +9,7 @@ using CoordinateTransformations
 using ImageTransformations
 using ImageCore
 using PythonCall
+using Chain
 
 # data source: https://zenodo.org/records/13843670/files/BioTISR_Mitochondria.zip?download=1
 
@@ -49,18 +50,11 @@ let
     fig
 end
 
-pointclouds_dense = map(imgs) do img
-    points = CartesianIndices(img) |> vec .|> Tuple .|> SVector .|> float
-    weights = vec(img)
-    PointCloud(points, weights) |> thin_droplowweight(.4)
-end
-
-# pointclouds = pointclouds_dense
-pointclouds = map(enumerate(pointclouds_dense)) do (i, pc)
-    Threads.@spawn begin
-        pc = thin_kmeans(pc, 500)
-        @info "done $i"
-        pc
+@time pointclouds = map(imgs) do img
+    Threads.@spawn @chain img begin
+        density2pointcloud
+        drop_low_weight(_; proportion = .4)
+        thin_to_number(_, 500)
     end
 end .|> fetch
 
@@ -84,9 +78,9 @@ end
 
 target = pointclouds[1]
 # sources = [invT(pc) for (invT, pc) in zip(invTs, pointclouds)]
-prepd_target = prepare_target_kc(target; scale = [2, 1] .* resolution)
+@time prepd_target = prepare_target_kc(target; scale = [2, 1] .* resolution);
 
-Ts = map(pointclouds) do src
+@time Ts = map(pointclouds) do src
     Threads.@spawn begin
         register_kc(src, prepd_target; smm = Smm(50), restarts = RandomRestarts(200))
     end

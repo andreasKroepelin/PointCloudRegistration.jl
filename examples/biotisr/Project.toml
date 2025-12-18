@@ -1,5 +1,6 @@
 [deps]
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
 CoordinateTransformations = "150eb455-5306-5404-9cee-2592286d6298"
 GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 ImageCore = "a09fc81d-aa75-5fe9-8630-4744c3626534"
