@@ -31,9 +31,10 @@ export PointCloud,
     FixedRestarts,
     NoSmm,
     Smm,
-    thin_dpmeans,
-    thin_kmeans,
-    thin_droplowweight
+    thin_to_distance,
+    thin_to_number,
+    drop_low_weight,
+    density2pointcloud
 
 public VecOfSVec
 

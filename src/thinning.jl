@@ -98,7 +98,7 @@ end
 
 numclusters(dp::DpMeansState) = length(dp.centers)
 
-function thin_dpmeans(
+function thin_to_distance(
     pc::PointCloud{N},
     cutoffdist;
     iterations = 100,
@@ -146,7 +146,7 @@ function thin_dpmeans(
     PointCloud(state.centers, state.weightsums)
 end
 
-function thin_kmeans(
+function thin_to_number(
     pc::PointCloud,
     numclusters;
     iterations = 100,
@@ -199,11 +199,9 @@ function thin_kmeans(
     PointCloud(centers, weightsums)
 end
 
-function thin_droplowweight(pc::PointCloud, p::Number)
-    threshold = p * maximum(pc.weights)
+function drop_low_weight(pc::PointCloud; threshold::Number = -Inf, proportion::Number = 0)
+    if proportion > zero(proportion)
+        threshold = max(threshold, proportion * maximum(pc.weights))
+    end
     pc[pc.weights .>= threshold]
-end
-
-function thin_droplowweight(p::Number)
-    Base.Fix2(thin_droplowweight, p)
 end

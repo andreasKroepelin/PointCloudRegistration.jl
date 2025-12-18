@@ -307,3 +307,9 @@ function Base.vcat(pc1::PointCloud{N}, pc2::PointCloud{N}) where {N}
         pc1.sum_of_weights + pc2.sum_of_weights,
     )
 end
+
+function density2pointcloud(density::AbstractArray)
+    points = CartesianIndices(density) |> vec .|> Tuple .|> SVector .|> float
+    weights = vec(density)
+    PointCloud(points, weights)
+end
