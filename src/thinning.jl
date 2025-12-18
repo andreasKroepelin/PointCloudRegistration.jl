@@ -155,7 +155,8 @@ function thin_kmeans(
 ) where {RI}
     # state = DpMeansState(pc)
     centers = sample(pc.points, numclusters; replace = false)
-    weightsums = fill(zero(pc.sum_of_weights), numclusters)
+    weightsums = zeros(typeof(pc.sum_of_weights), numclusters)
+    clustersizes = zeros(Int, numclusters)
     indicators = ones(Int, length(pc.points))
     for iteration in 1:iterations
         change = 0.0
@@ -177,14 +178,22 @@ function thin_kmeans(
 
         fill!(centers, zero(eltype(centers)))
         fill!(weightsums, zero(eltype(weightsums)))
+        fill!(clustersizes, zero(eltype(clustersizes)))
         for i in eachindex(pc.points, pc.weights, indicators)
             w = pc.weights[i]
             iszero(w) && continue
             l = indicators[i]
             centers[l] += w * pc.points[i]
             weightsums[l] += w
+            clustersizes[l] += 1
         end
         centers ./= weightsums
+        for l in eachindex(centers, weightsums, clustersizes)
+            clustersizes[l] > 0 && continue
+            i = rand(eachindex(pc.points, pc.weights))
+            centers[l] = pc.points[i]
+            weightsums[l] = pc.weights[i]
+        end
     end
 
     PointCloud(centers, weightsums)
