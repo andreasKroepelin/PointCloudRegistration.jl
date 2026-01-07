@@ -381,48 +381,46 @@ Subsequently, we register the smaller 16S-rRNA onto the remaining target via
 the kernel correlation.
 Again, we closely match the original PDB coordinates (RMSD $2.6\,$Å).
 
-\subsection{Aligning micrographs with frame shift}
+\subsection{Aligning micrographs}
 By turning images into weighted two dimensional point clouds, we can apply
 point cloud registration to image registration as well.
-We demonstrate that using a data set by \cite{baar}.
-In their publication, they used a deep learning architecture to align frames of
-microscopic time-lapse observations.
-The same can be achieved by optimising the kernel correlation of these
-micrographs (turned point clouds).
-Figure \ref{fig:frame-shift-imgs} shows ten such time-lapse micrographs
-(recolored so that the background is white).
-By placing a point at every pixel with the pixel's darkness as the value,
-we turn each image into an equivalent point cloud.
-For computational efficiency, points with very low weight were dropped and the
-point clouds were thinned to a certain resolution.
-In Figure \ref{fig:frame-shift-pointclouds}, the resulting point clouds are
-displayed on top of each other (left).
-Note how the plot looks ``blurry'' due to the frame shift happening between the
-images.
-Without assuming correspondences and by optimizing the kernel correlation
-between all these point clouds and the (arbitrarily chosen) first one, we
-obtain the point clouds on the right of Figure \ref{fig:frame-shift-pointclouds}.
-The remaining ``blurryness'' is visibly lower and due to actual movement of the
-observed objects.
+We demonstrate that using micrographs of mitochondria from the BioTISR data set
+by \cite{biotisr-data}.
+For the 20 time-lapse images, 20 rigid 2D-transformations
+$T_1, \ldots, T_{20} \in \operatorname{SE}(2)$ were drawn randomly and the
+images were transformed by the respective transformation.
+In this modified data set, the images now differed in (artificial) rigid
+transformations and (actual) movements of the depicted objects.
+The transformed images were then (after smoothing and removing the background
+via Otsu-binarization) turned into point clouds by placing a point at every
+pixel with the pixel's intensity as the weight.
+For computational efficiency, points with low weight (less than 40\,\% of the
+maximum weight) were dropped and the point clouds were thinned to 2600 points.
 
-
+To perform the registration, we arbitrarily picked the first point cloud as the
+target and then maximized the kernel correlation of every point cloud with the
+target, obtaining transformations
+$T'_1, \ldots, T'_{20} \in \operatorname{SE}(2)$.
+For a successful registration, we have $T'_i \circ T_i \approx T_1$ or,
+equivalently, $T'_i \circ T_i \circ T^{-1}_1 \approx \operatorname{id}$ for
+every $i = 1, \ldots, 20$.
+That is, we can analyze the success by observing the ``residual'' transformation
+$T'_i \circ T_i \circ T^{-1}_1$, see Figure \ref{fig:biotisr-overlay}.
+Note how the original images match the ones transformed by this residual
+transformation very closely.
 
 
 \begin{figure}[h]
 \centering
-\includegraphics[width=.8\linewidth]{img/frame-shift-imgs.pdf}
+\includegraphics[width=\linewidth]{img/biotisr.png}
 \caption{
-    Time-lapse micrographs from \cite{baar}.
-}\label{fig:frame-shift-imgs}
-\end{figure}
-
-\begin{figure}[h]
-\centering
-\includegraphics[width=.8\linewidth]{img/frame-shift-pointclouds.pdf}
-\caption{
-    All micrographs turned into point clouds and plotted on top of each other,
-    first in their original pose and then rigidly registered.
-}\label{fig:frame-shift-pointclouds}
+    Mitochondria images from the BioTISR data set.
+    Each panel shows the same section for one of twenty time-lapse images.
+    The original image with index $i$ is displayed in green and, on top of it,
+    it is transformed by the ``residual'' transformation
+    $T'_i \circ T_i \circ T^{-1}_1$, displayed in blue.
+    Sharper overlayed images indicate a better registration.
+}\label{fig:biotisr-overlay}
 \end{figure}
 
 \begin{appendices}

@@ -3,11 +3,12 @@ using PointCloudRegistration
 using Makie
 import GLMakie
 using Statistics
+using LinearAlgebra
 using StaticArrays
 using Rotations
 using CoordinateTransformations
-using ImageTransformations
-using ImageCore
+import Images: warp, mapwindow, binarize, Otsu, RGB, paddedviews, colorview, zeroarray
+import Images
 using PythonCall
 using Chain
 
@@ -19,11 +20,15 @@ const mrcfile = pyimport("mrcfile")
 mrc = pyconvert(Array, mrcfile.read("BioTISR_Mitochondria/Cell_006/SIM_gt.mrc"));
 orig_imgs = eachslice(permutedims(mrc, (3, 2, 1)); dims = 3)
 
+# orig_imgs_edges = [canny(img, (Percentile(80), Percentile(40)), 10) for img in orig_imgs]
+# orig_imgs_edges = [mapwindow(median!, img, (11, 11)) for img in orig_imgs]
+orig_imgs_edges = [Images.binarize(mapwindow(median!, img, (5, 5)), Images.Otsu()) for img in orig_imgs]
+
 let
     fig = Figure()
     ax = Axis(fig[1, 1]; autolimitaspect = 1)
     sl = Slider(fig[1, 2]; horizontal = false, range = eachindex(orig_imgs))
-    im = image!(ax, @lift(orig_imgs[$(sl.value)]))
+    im = image!(ax, @lift(orig_imgs_edges[$(sl.value)]))
     fig
 end
 
@@ -34,6 +39,9 @@ imgs = map(orig_imgs, invTs) do orig_img, invT
     lo, hi = extrema(img)
     img .-= lo
     img ./= hi - lo
+    img = mapwindow(median!, img, (5, 5))
+    mask = binarize(img, Otsu())
+    img[iszero.(mask)] .= 0
     warp(img, inv(invT), 0)
 end
 
@@ -53,20 +61,22 @@ end
 function run_experiment(numbers)
     results = []
     for number in numbers
+        @info "Running next experiment" number
         time = @elapsed begin
             pointclouds = map(imgs) do img
                 Threads.@spawn @chain img begin
                     density2pointcloud
-                    drop_low_weight(_; proportion = .4)
+                    drop_low_weight(_; proportion = .1)
                     thin_to_number(_, number)
                 end
             end .|> fetch
             resolution = minimum(pc -> PointCloudRegistration.avg_nn_dist(pc), pointclouds)
             target = pointclouds[1]
-            prepd_target = prepare_target_kc(target; scale = [2, 1] .* resolution);
+            # prepd_target = prepare_target_kc(target; scale = [2, 1] .* resolution);
+            prepd_target = prepare_target_kc(target)
             Ts = map(pointclouds) do src
                 Threads.@spawn begin
-                    register_kc(src, prepd_target; smm = Smm(50), restarts = RandomRestarts(number))
+                    register_kc(src, prepd_target; smm = Smm(50), restarts = RandomRestarts(50))
                 end
             end .|> fetch
         end
@@ -95,15 +105,15 @@ end
 #     T(pc)
 # end
 
-results = run_experiment(100:200:2000);
+results = run_experiment(100:500:4000);
 
 reg_imgs = map(results) do result
     map(imgs, result.Ts) do img, T
         Timg = warp(img, inv(T), 0)
-        Timg[iszero.(Timg)] .= NaN
+        # Timg[iszero.(Timg)] .= NaN
         Timg
     end
-end
+end;
 
 
 let
@@ -170,13 +180,13 @@ let
         result = results[ri]
         pc = result.pointclouds[i]
         T = result.Ts[i]
-        factor = 1 * PointCloudRegistration.min_nn_dist(pc) / maximum(pc.weights)
+        factor = 5 * PointCloudRegistration.min_nn_dist(pc) / maximum(pc.weights)
         PointCloud(T(pc).points, pc.weights .* factor)
     end
     pc_points = @lift ($pc).points
     pc_weights = @lift ($pc).weights
     im = image!(ax, lim1, lim2, arr; label = "image")
-    sp = scatter!(ax, pc_points; markersize = res, markerspace = :data, color = :lime, label = "pointcloud")
+    sp = scatter!(ax, pc_points; markersize = pc_weights, markerspace = :data, color = :lime, label = "pointcloud")
     axislegend(ax)
     fig
 end
@@ -193,16 +203,58 @@ let
     max_deviations = map(results) do result
         norms = maximum(T -> norm(T.translation), result.residualTs)
     end
-    scatter!(ax, max_deviations, [r.time for r in results])
+    scatter!(ax, [r.number for r in results], max_deviations)
     fig
 end
 
 let
     fig = Figure()
-    ax = Axis(fig[1, 1]; yscale = log10)
+    ax = Axis(fig[1, 1])
+    # ax = Axis(fig[1, 1]; yscale = log10)
     for result in results
         norms = map(T -> norm(T.translation), result.residualTs)
-        scatterlines!(ax, norms ./ result.resolution)
+        scatterlines!(ax, norms ./ result.resolution; label = string(result.number))
     end
+    axislegend(ax; position = :rb)
     fig
+end
+
+function diff_view(img1, img2)
+    # p1, p2 = paddedviews(0, float.(img1 .> 0), float.(img2 .> 0))
+    p1, p2 = paddedviews(0, img1, img2)
+    # 1 .- abs.(p1 .- p2)
+    g = similar(p1)
+    g .= 0
+    d = collect(colorview(RGB, p1, g, p2))
+    d[iszero.(d)] .= RGB(1, 1, 1)
+    d
+end
+
+let
+    result_idx = 6
+    result = results[result_idx]
+    limits = ((500, 1000), (800, 980))
+    sz = map(splat(-) ∘ reverse, limits)
+    # fig = Figure(size = (4, 5) .* sz .÷ 2)
+    fig = Figure()
+    @info "showing images for result" result.number result.resolution
+    for img_idx in eachindex(orig_imgs)
+        ax = Axis(
+            fig[Tuple(CartesianIndices((5, 4))[img_idx])...];
+            aspect = DataAspect(),
+            limits,
+            width = sz[1] ÷ 2,
+            height = sz[2] ÷ 2,
+        )
+        hidedecorations!(ax)
+        img1 = orig_imgs[img_idx]
+        img2 = warp(orig_imgs[img_idx], result.residualTs[img_idx], 0)
+        for (img, cmap, alpha) in ((img1, :greens, 1.), (img2, :blues, .5))
+            image!(ax, extrema(axes(img, 1)), extrema(axes(img, 2)), img; colormap = cmap, alpha)
+        end
+    end
+    rowgap!(fig.layout, 5)
+    colgap!(fig.layout, 5)
+    resize_to_layout!(fig)
+    save("../../paper/bioinformatics/src/img/biotisr.png", fig)
 end
