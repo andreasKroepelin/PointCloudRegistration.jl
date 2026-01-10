@@ -4,7 +4,9 @@ version = "0.1.0"
 authors = ["Andreas Kröpelin <andreas-kroepelin@gmx.de>"]
 
 [deps]
+Downloads = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 MRCFile = "c18c01d3-0ab9-49c3-bd2d-8f2e64a2b7a5"
 
 [compat]
+Downloads = "1.7.0"
 MRCFile = "0.1.4"

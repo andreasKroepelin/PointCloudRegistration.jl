@@ -2,7 +2,7 @@
 
 julia_version = "1.12.3"
 manifest_format = "2.0"
-project_hash = "37e9255f576e266bf91016326eabe24aa8830eb4"
+project_hash = "1d3f68b84e1f64ac36e164bda754bcc927ce666a"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "8be2ae325471fc20b11c27bb34b518541d07dd3a"
@@ -721,7 +721,7 @@ uuid = "5ae413db-bbd1-5e63-b57d-d24a61df00f5"
 version = "2.2.4+0"
 
 [[deps.EmdbHelper]]
-deps = ["MRCFile"]
+deps = ["Downloads", "MRCFile"]
 path = "examples/EmdbHelper"
 uuid = "73a1ea5e-8760-4b79-adba-eb192829ad00"
 version = "0.1.0"

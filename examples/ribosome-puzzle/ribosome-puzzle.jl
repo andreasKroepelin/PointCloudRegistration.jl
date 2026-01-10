@@ -13,10 +13,11 @@ function report_iteration(; iteration, relchange, numclusters, additions)
     )
 end
 
-target_mrc = EmdbHelper.load_map("60060");
-target = thin_droplowweight(PointCloud(target_mrc; threshold = 0.0244f0), .001)
-resolution = 10f0
-target_thinned = thin_dpmeans(target, resolution; report_iteration)
+target_mrc = EmdbHelper.load_map("49998");
+target = drop_low_weight(PointCloud(target_mrc; threshold = 0.046f0); proportion = .001)
+
+target_thinned = thin_to_number(target, 10000)
+resolution = PointCloudRegistration.avg_nn_dist(target_thinned)
 
 let
     fig = Figure()
@@ -27,7 +28,7 @@ let
         lims...,
         target_mrc.data;
         algorithm = :iso,
-        isovalue = 0.0244f0,
+        isovalue = 0.046f0,
         isorange = 0.001f0
     )
     meshscatter!(
@@ -40,7 +41,7 @@ let
     fig
 end
 
-source_pdb = retrievepdb("8zfg")
+source_pdb = retrievepdb("9o17")
 source_chains = source_pdb |> chains |> values
 
 function isprotein(chain)
@@ -66,10 +67,10 @@ sources = [
 ];
 sort!(sources, by = pc -> length(pc.points), rev = true);
 sources = sources[1:2]
-randomized_sources = [
-    PointCloudRegistration.rand_transformation(src)(src)
-    for src in sources
-]
+# randomized_sources = [
+#     PointCloudRegistration.rand_transformation(src)(src)
+#     for src in sources
+# ]
 
 let
     fig = Figure()

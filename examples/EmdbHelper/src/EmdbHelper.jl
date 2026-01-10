@@ -1,6 +1,7 @@
 module EmdbHelper
 
 using MRCFile
+using Downloads
 
 function load_map(id)
     filename = "emd_$id.map.gz"
