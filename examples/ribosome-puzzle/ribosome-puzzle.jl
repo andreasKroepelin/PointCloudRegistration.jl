@@ -4,6 +4,7 @@ using BioStructures
 using MRCFile
 using EmdbHelper
 using NearestNeighbors
+using DimensionalData
 using GLMakie
 using Random
 using Statistics
@@ -16,11 +17,14 @@ function report_iteration(; iteration, relchange, numclusters, additions)
 end
 
 target_mrc = EmdbHelper.load_map("49998");
-target = drop_low_weight(PointCloud(target_mrc; threshold = 0.046f0); proportion = .001)
+target_dimarr = EmdbHelper.mrc2dimarr(target_mrc)
+author_threshold = 0.046f0
+target_full = density2pointcloud(target_dimarr)
+target = drop_low_weight(target_full; threshold = author_threshold)
 
-resolution = 10.0f0
+resolution = 5.0f0
 target_thinned = thin_to_distance(target, resolution; report_iteration)
-# resolution = PointCloudRegistration.avg_nn_dist(target_thinned)
+@info "\"empirical resolution\"" PointCloudRegistration.avg_nn_dist(target_thinned)
 
 let
     fig = Figure()
@@ -143,7 +147,7 @@ Ts, artificial_targets = let Ts = []
         new_target_weights = similar(artificial_target.weights) |> empty!
         tree = KDTree(T(source).points)
         for (point, weight) in zip(artificial_target.points, artificial_target.weights)
-            if isempty(inrange(tree, point, 2.0f0 * resolution))
+            if isempty(inrange(tree, point, 1.0f0 * resolution))
                 push!(new_target_weights, weight)
                 push!(new_target_points, point)
             end

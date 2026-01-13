@@ -4,9 +4,11 @@ version = "0.1.0"
 authors = ["Andreas Kröpelin <andreas-kroepelin@gmx.de>"]
 
 [deps]
+DimensionalData = "0703355e-b756-11e9-17c0-8b28908087d0"
 Downloads = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 MRCFile = "c18c01d3-0ab9-49c3-bd2d-8f2e64a2b7a5"
 
 [compat]
+DimensionalData = "0.29.25"
 Downloads = "1.7.0"
 MRCFile = "0.1.4"

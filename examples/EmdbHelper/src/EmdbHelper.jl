@@ -1,6 +1,7 @@
 module EmdbHelper
 
 using MRCFile
+using DimensionalData
 using Downloads
 
 function load_map(id)
@@ -13,6 +14,12 @@ function load_map(id)
         )
     end
     read(filename, MRCData)
+end
+
+function mrc2dimarr(mrc)
+    axs = voxelaxes(header(mrc))
+    dimaxs = map((D, ax) -> D(ax), (X, Y, Z), axs)
+    DimArray(mrc.data, dimaxs)
 end
 
 end # module EmdbHelper
