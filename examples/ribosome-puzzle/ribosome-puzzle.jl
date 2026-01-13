@@ -6,6 +6,8 @@ using EmdbHelper
 using NearestNeighbors
 using GLMakie
 using Random
+using Statistics
+import LinearAlgebra: norm_sqr
 
 function report_iteration(; iteration, relchange, numclusters, additions)
     println(
@@ -16,8 +18,9 @@ end
 target_mrc = EmdbHelper.load_map("49998");
 target = drop_low_weight(PointCloud(target_mrc; threshold = 0.046f0); proportion = .001)
 
-target_thinned = thin_to_number(target, 10000)
-resolution = PointCloudRegistration.avg_nn_dist(target_thinned)
+resolution = 10.0f0
+target_thinned = thin_to_distance(target, resolution; report_iteration)
+# resolution = PointCloudRegistration.avg_nn_dist(target_thinned)
 
 let
     fig = Figure()
@@ -67,10 +70,14 @@ sources = [
 ];
 sort!(sources, by = pc -> length(pc.points), rev = true);
 sources = sources[1:2]
-# randomized_sources = [
-#     PointCloudRegistration.rand_transformation(src)(src)
-#     for src in sources
-# ]
+
+trueinvTs = [
+    PointCloudRegistration.rand_transformation(src) # |> PointCloudRegistration.identity_transformation
+    for src in sources
+]
+randomized_sources = map(sources, trueinvTs) do src, trueinvT
+    trueinvT(src)
+end
 
 let
     fig = Figure()
@@ -85,6 +92,13 @@ let
     # )
     meshscatter!(
         ax,
+        target_thinned.points;
+        markersize = resolution .* target_thinned.weights
+            ./ maximum(target_thinned.weights),
+        color = :orange,
+    )
+    meshscatter!(
+        ax,
         @lift(sources[$(sl.value)].points);
         markersize = 3,
         # label = @lift(string("source ", $(sl.value))),
@@ -96,6 +110,7 @@ end
 prepd_target = prepare_target_kc(target_thinned; scale = [2resolution, resolution]);
 
 Ts = map(randomized_sources) do source
+# Ts = map(sources) do source
     Threads.@spawn begin
         T = register_kc(source, prepd_target; restarts = RandomRestarts(500), smm = Smm(50))
         @info "next source" T
@@ -128,7 +143,7 @@ Ts, artificial_targets = let Ts = []
         new_target_weights = similar(artificial_target.weights) |> empty!
         tree = KDTree(T(source).points)
         for (point, weight) in zip(artificial_target.points, artificial_target.weights)
-            if isempty(inrange(tree, point, 1.0f0 * resolution))
+            if isempty(inrange(tree, point, 2.0f0 * resolution))
                 push!(new_target_weights, weight)
                 push!(new_target_points, point)
             end
@@ -138,6 +153,10 @@ Ts, artificial_targets = let Ts = []
         @info "shrinked target" size(artificial_target)
     end
     Ts, atargets
+end
+
+residualTs = map(trueinvTs, Ts) do trueinvT, T
+    T ∘ trueinvT
 end
 
 rmsds = map(Ts, randomized_sources, sources) do T, randomized_source, source
