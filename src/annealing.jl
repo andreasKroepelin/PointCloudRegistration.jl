@@ -60,8 +60,10 @@ annealing_plan(::PointCloud{N, T}, scale::Number) where {N, T} =
 annealing_plan(::PointCloud{N, T}, scales::AbstractVector) where {N, T} =
     T.(scales) .^ 2
 
-annealing_plan(target, ann::TargetScales) =
-    annealing_plan(target, DownTo(avg_nn_dist_fast(target) / 2, ann.steps))
+function annealing_plan(target, ann::TargetScales)
+    lo = avg_nn_dist(target) ^ 2
+    (4 * lo, lo)
+end
 
 function annealing_plan(target::PointCloud{N, T}, ann::DownTo) where {N, T}
     hi = maxcoveigval(target)
