@@ -1,8 +1,25 @@
-using Revise
+# # Fitting a point cloud into a density map
+# In this example, we will demonstrate how to deal with structures that are not
+# directly available as point clouds but rather as density maps.
+#
+# This prominently occurs in cryo electron microscopy.
+# We will use a cryo density describing the *Methanosarcina acetivorans* 70S
+# ribosome, available on the EMDB with id 49998, as the target.
+# For the source, we will use the 23S and 16S ribosomal RNAs, available on the
+# PDB with id 9o17.
+#
+# The general strategy will be to convert the target density into a point cloud,
+# then extract the source point clouds and randomly transform then, such that
+# we can then do the actual registration and assess if we were successful.
+#
+# ## Packages
+# Let us load some packages first.
+
+using Revise # hide
 using PointCloudRegistration
 using BioStructures
 using MRCFile
-using EmdbHelper
+using EmdbHelper # a local helper package to download data from the EMDB
 using NearestNeighbors
 using DimensionalData
 using GLMakie
@@ -10,33 +27,71 @@ using Random
 using Statistics
 import LinearAlgebra: norm_sqr
 
-function report_iteration(; iteration, relchange, numclusters, additions)
-    println(
-        "Iteration $iteration -- relative change $relchange -- $numclusters clusters ($additions newly added).",
-    )
-end
+# ## The target
+
+# First, we obtain the target density from the EMDB.
+# The helper package `EmdbHelper` makes this very convenient and provides us
+# with an `MRCData` object from MRCFiles.jl.
+# We convert it into a `DimArray` from DimesionalData.jl such that it is easier
+# to handle.
 
 target_mrc = EmdbHelper.load_map("49998");
 target_dimarr = EmdbHelper.mrc2dimarr(target_mrc)
+
+# We can get a first visual impression using a volume plot.
+# For this, we make use of the *author thresold* that is provided by the EMDB,
+# telling us what threshold the authors of the EMDB entry used to discern
+# background and structure.
+
 author_threshold = 0.046f0
+volume(
+    target_dimarr;
+    algorithm = :iso,
+    isovalue = author_threshold + .01f0,
+    isorange = .01f0,
+)
+
+# Next, we convert the density map into a point cloud.
+# This happens in two steps:
+# First, we use the function `density2pointcloud` from PointCloudRegistration.jl
+# to do a very naive conversion.
+# We simply place a point at every voxel and use the voxel's value as the
+# weight.
+# We additionally drop all points that have a weight below `author_threshold`
+# to again follow the practise of the authors observing the structure.
+
 target_full = density2pointcloud(target_dimarr)
 target = drop_low_weight(target_full; threshold = author_threshold)
 
+# The second step is to perform thinning on the target to reduce the
+# computational burden later on.
+# We define a target resolution of 5 Å and thin our pointcloud to that nearest
+# neighbor distance:
+
 resolution = 5.0f0
-target_thinned = thin_to_distance(target, resolution; report_iteration)
-@info "\"empirical resolution\"" PointCloudRegistration.avg_nn_dist(target_thinned)
+target_thinned = thin_to_distance(target, resolution)
+
+# We can check that it worked by measuring the average nearest neighbor distance
+# in the result.
+
+PointCloudRegistration.avg_nn_dist(target_thinned)
+
+# We now have a much smaller point cloud
+
+length(target_thinned.points) / length(target_full.points)
+
+# that still describes the full ribosome well, as we can see when plotting
+# `target_dimarr` and `target_thinned` together:
 
 let
     fig = Figure()
     ax = Axis3(fig[1, 1]; aspect = :data)
-    lims = map(r -> (first(r), last(r)), voxelaxes(header(target_mrc)))
     volume!(
         ax,
-        lims...,
-        target_mrc.data;
+        target_dimarr;
         algorithm = :iso,
-        isovalue = 0.046f0,
-        isorange = 0.001f0
+        isovalue = author_threshold + .01f0,
+        isorange = .01f0,
     )
     meshscatter!(
         ax,
@@ -48,120 +103,138 @@ let
     fig
 end
 
+# ## The sources
+# Next, we need the 23S and 16S ribosomal RNAs as our sources.
+# They are part of the PDB structure 9o17, which we can get using
+# BioStructures.jl.
+
 source_pdb = retrievepdb("9o17")
-source_chains = source_pdb |> chains |> values
 
-function isprotein(chain)
-    any(r -> r.name in ("ALA", "GLY"), values(residues(chain)))
-end
-function isrna(chain)
-    any(r -> r.name in ("A", "C"), values(residues(chain)))
-end
-function sensible_selector(chain)
-    if isprotein(chain)
-        calphaselector
-    elseif isrna(chain)
-        Base.Fix2(atomnameselector, tuple("C3'"))
-    else
-        error("Could not recognize type of chain. ", chain)
-    end
-end
+# On [this page](https://www.ebi.ac.uk/pdbe/entry/pdb/9o17?activeTab=macromolecules),
+# we can see that the 23S rRNA has chain ID `BA` and the 16S rRNA has chain ID
+# `AA`.
 
-sources = [
-    PointCloud(coordarray(chain, sensible_selector(chain)))
-    # PointCloud(coordarray(chain))
-    for chain in source_chains
-];
-sort!(sources, by = pc -> length(pc.points), rev = true);
-sources = sources[1:2]
+chain_ids = (rRNA23S = "BA", rRNA16S = "AA")
+source_chains = map(key -> chains(source_pdb)[key], chain_ids)
 
-trueinvTs = [
-    PointCloudRegistration.rand_transformation(src) # |> PointCloudRegistration.identity_transformation
-    for src in sources
-]
-randomized_sources = map(sources, trueinvTs) do src, trueinvT
-    trueinvT(src)
-end
+# Let us extract only the `C3'` atoms from both chains and collect them into
+# two point clouds.
+
+threeprimeselector(atom) = atomnameselector(atom, tuple("C3'"))
+sources = map(source_chains) do chain
+    PointCloud(coordarray(chain, threeprimeselector))
+end;
+#-
+sources.rRNA23S
+#-
+sources.rRNA16S
+
+# In principle, we are good to go now and we could perform the rigid
+# registration.
+# However, it would be a bit pointless, since the PDB data and the EMDB density
+# are already perfectly aligned since the former is computed from the latter:
 
 let
     fig = Figure()
     ax = Axis3(fig[1, 1]; aspect = :data)
-    sl = Slider(fig[2, 1]; range = eachindex(sources))
-    # meshscatter!(
-    #     ax,
-    #     fake_target.points;
-    #     markersize = 1,
-    #     color = :lightgray,
-    #     label = "all sources",
-    # )
     meshscatter!(
         ax,
         target_thinned.points;
         markersize = resolution .* target_thinned.weights
             ./ maximum(target_thinned.weights),
-        color = :orange,
+        color = :lightgray,
+        label = "full ribosome",
     )
-    meshscatter!(
-        ax,
-        @lift(sources[$(sl.value)].points);
-        markersize = 3,
-        # label = @lift(string("source ", $(sl.value))),
-    )
-    # axislegend(ax)
+    meshscatter!(ax, sources.rRNA23S.points; markersize = 3, label = "23S")
+    meshscatter!(ax, sources.rRNA16S.points; markersize = 3, label = "16S")
+    axislegend(ax)
     fig
 end
 
-prepd_target = prepare_target_kc(target_thinned; scale = [2resolution, resolution]);
+# Instead, we draw a random rigid transformation for every source:
+
+trueinvTs = map(PointCloudRegistration.rand_transformation, sources)
+
+# ... and use it to transform the two point clouds.
+
+randomized_sources = map((src, invT) -> invT(src), sources, trueinvTs)
+
+# ## The registration
+# We can now finally demonstrate how to fit the rRNA sources into the full
+# ribosome target.
+# Since we obviously have no correspondence information, we use the kernel
+# correlation method.
+
+prepd_target = prepare_target_kc(target_thinned);
 
 Ts = map(randomized_sources) do source
-# Ts = map(sources) do source
-    Threads.@spawn begin
-        T = register_kc(source, prepd_target; restarts = RandomRestarts(500), smm = Smm(50))
-        @info "next source" T
-        T
-    end
-end .|> fetch
-
-Ts = let Ts = []
-    artificial_target = target_thinned
-    for source in sources
-        target_prepd = prepare_target_kc(artificial_target; scale = [2resolution, resolution])
-        T = register_kc(source, target_prepd; restarts = RandomRestarts(500), smm = Smm(50))
-        push!(Ts, T)
-        @info "next source" T
-        anti_source = PointCloud(T(source).points, fill(-1f1, length(source.points)))
-        artificial_target = vcat(artificial_target, anti_source)
-    end
-    Ts
+    register_kc(source, prepd_target; restarts = RandomRestarts(500))
 end
 
-Ts, artificial_targets = let Ts = []
-    atargets = []
-    artificial_target = target_thinned
-    for source in randomized_sources
-        target_prepd = prepare_target_kc(artificial_target; scale = [2resolution, resolution])
-        T = register_kc(source, target_prepd; restarts = RandomRestarts(500), smm = Smm(50))
-        push!(Ts, T)
-        # @info "next source" T
-        new_target_points = similar(artificial_target.points) |> empty!
-        new_target_weights = similar(artificial_target.weights) |> empty!
-        tree = KDTree(T(source).points)
-        for (point, weight) in zip(artificial_target.points, artificial_target.weights)
-            if isempty(inrange(tree, point, 1.0f0 * resolution))
-                push!(new_target_weights, weight)
-                push!(new_target_points, point)
-            end
-        end
-        artificial_target = PointCloud(new_target_points, new_target_weights)
-        push!(atargets, artificial_target)
-        @info "shrinked target" size(artificial_target)
-    end
-    Ts, atargets
-end
+# We should now see that the `Ts` are the inverses of `trueinvTs` and their
+# composition is the identity transformation:
 
 residualTs = map(trueinvTs, Ts) do trueinvT, T
     T ∘ trueinvT
+end;
+#-
+residualTs.rRNA23S.linear
+#-
+residualTs.rRNA23S.translation
+#-
+residualTs.rRNA16S.linear
+#-
+residualTs.rRNA16S.translation
+
+# So this worked great for the larger rRNA.
+# For the smaller one... not so much.
+# The issue is that the target ribosome is just too large and it is hard to find
+# this comparatively small substructure.
+#
+# ### The trick
+# However, we can employ additional domain knowledge.
+# Namely, the 23S and 16S rRNAs do not overlap.
+# We can thus remove parts of the target that likely belong to the 23S rRNA
+# (which we can successfully register) and superimpose the 16S rRNA with the
+# remaining target.
+
+target_without_23S = let
+    points = eltype(target_thinned.points)[]
+    weights = eltype(target_thinned.weights)[]
+    tree = KDTree(Ts.rRNA23S(randomized_sources.rRNA23S).points)
+    for (point, weight) in zip(target_thinned.points, target_thinned.weights)
+        idx_, dist = nn(tree, point)
+        if dist > resolution
+            push!(points, point)
+            push!(weights, weight)
+        end
+    end
+    PointCloud(points, weights)
 end
+
+# Perform the registration:
+
+T_16S_better = register_kc(
+    randomized_sources.rRNA16S,
+    target_without_23S;
+    restarts = RandomRestarts(500)
+)
+
+# And let's do the check again:
+
+residual_T_16S_better = T_16S_better ∘ trueinvTs.rRNA16S;
+#-
+residual_T_16S_better.linear
+#-
+residual_T_16S_better.translation
+
+# This looks great now!
+#
+# To finish off, we can also compute how close we got to the original PDB based
+# point clouds in terms of the RMSD:
+
+Ts = (; Ts.rRNA23S, rRNA16S = T_16S_better)
+#-
 
 rmsds = map(Ts, randomized_sources, sources) do T, randomized_source, source
     a = source.points
@@ -169,46 +242,4 @@ rmsds = map(Ts, randomized_sources, sources) do T, randomized_source, source
     sqrt(mean(norm_sqr, a .- b))
 end
 
-let
-    fig = Figure()
-    ax = Axis3(fig[1, 1]; aspect = :data)
-    meshscatter!(
-        ax,
-        target_thinned.points;
-        markersize = resolution .* target_thinned.weights
-            ./ maximum(target_thinned.weights),
-        color = :lightgray,
-        label = "target"
-    )
-    for (i, (source, T)) in enumerate(zip(randomized_sources, Ts))
-        meshscatter!(ax, source.points, markersize = 3, label = string(i), visible = false)
-        meshscatter!(ax, T(source).points, markersize = 3, label = string("T", i), visible = false)
-    end
-    axislegend(ax, nbanks = 5)
-    fig
-end
-
-let
-    fig = Figure()
-    ax = Axis3(fig[1, 1]; aspect = :data)
-    sl = Slider(fig[2, 1]; range = eachindex(artificial_targets))
-    factor = resolution / maximum(target_thinned.weights)
-    target_plt = meshscatter!(
-        ax,
-        target_thinned.points;
-        markersize = factor .* target_thinned.weights,
-        color = :lightgray,
-        label = "target"
-    )
-    source_plt = meshscatter!(ax, PointCloud{3, Float32}().points, markersize = 3)
-    on(sl.value) do i
-        Makie.update!(target_plt; arg1 = artificial_targets[i].points, markersize = factor .* artificial_targets[i].weights)
-        Makie.update!(source_plt; arg1 = Ts[i](sources[i]).points)
-    end
-    # for (i, (source, T)) in enumerate(zip(sources, Ts))
-    #     meshscatter!(ax, source.points, markersize = 3, label = string(i), visible = false)
-    #     meshscatter!(ax, T(source).points, markersize = 3, label = string("T", i), visible = false)
-    # end
-    # axislegend(ax, nbanks = 5)
-    fig
-end
+# So we achieved a very close result, far below our chosen resolution.
