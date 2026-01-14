@@ -1,17 +1,13 @@
 function avg_nn_dist(pc::PointCloud)
-    tree = KDTree(pc.points, Euclidean(); reorder = true)
-    # the nearest neighbour is always the point itself, so query for the
-    # nearest two
-    _, dists2 = knn(tree, pc.points, 2)
-    mean(first, dists2)
+    tree = KDTree(pc.points)
+    _idcs, dists = allnn(tree)
+    mean(dists)
 end
 
 function min_nn_dist(pc::PointCloud)
-    tree = KDTree(pc.points, Euclidean(); reorder = true)
-    # the nearest neighbour is always the point itself, so query for the
-    # nearest two
-    _, dists2 = knn(tree, pc.points, 2)
-    minimum(first, dists2)
+    tree = KDTree(pc.points)
+    _idcs, dists = allnn(tree)
+    minimum(dists)
 end
 
 function avg_nn_dist_fast(pc::PointCloud)
