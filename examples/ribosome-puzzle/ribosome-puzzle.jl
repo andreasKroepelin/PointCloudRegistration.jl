@@ -36,11 +36,13 @@ import LinearAlgebra: norm_sqr
 # to handle.
 
 target_mrc = EmdbHelper.load_map("49998");
-target_dimarr = EmdbHelper.mrc2dimarr(target_mrc)
+target_dimarr = EmdbHelper.mrc2dimarr(target_mrc);
+show(IOContext(stdout, :limit => true), MIME"text/plain"(), target_dimarr) # hide
 
 # We can get a first visual impression using a volume plot.
-# For this, we make use of the *author thresold* that is provided by the EMDB,
-# telling us what threshold the authors of the EMDB entry used to discern
+# For this, we make use of the *author thresold* that is provided by the EMDB
+# ([here](https://www.ebi.ac.uk/emdb/EMD-49998?tab=experiment) under Map/Contour
+# list), telling us what threshold the authors of the EMDB entry used to discern
 # background and structure.
 
 author_threshold = 0.046f0
@@ -157,7 +159,7 @@ trueinvTs = map(PointCloudRegistration.rand_transformation, sources)
 
 # ... and use it to transform the two point clouds.
 
-randomized_sources = map((src, invT) -> invT(src), sources, trueinvTs)
+randomized_sources = map((src, invT) -> invT(src), sources, trueinvTs);
 
 # ## The registration
 # We can now finally demonstrate how to fit the rRNA sources into the full
@@ -174,9 +176,7 @@ end
 # We should now see that the `Ts` are the inverses of `trueinvTs` and their
 # composition is the identity transformation:
 
-residualTs = map(trueinvTs, Ts) do trueinvT, T
-    T ∘ trueinvT
-end;
+residualTs = map(∘, Ts, trueinvTs);
 #-
 residualTs.rRNA23S.linear
 #-
@@ -199,17 +199,14 @@ residualTs.rRNA16S.translation
 # remaining target.
 
 target_without_23S = let
-    points = eltype(target_thinned.points)[]
-    weights = eltype(target_thinned.weights)[]
     tree = KDTree(Ts.rRNA23S(randomized_sources.rRNA23S).points)
-    for (point, weight) in zip(target_thinned.points, target_thinned.weights)
-        idx_, dist = nn(tree, point)
-        if dist > resolution
-            push!(points, point)
-            push!(weights, weight)
-        end
+    ## Find all points in `target_thinned` that are at least `resolution` away
+    ## from the closest point in the 23S rRNA:
+    mask = map(target_thinned.points) do point
+        _nnidx, dist = nn(tree, point)
+        dist > resolution
     end
-    PointCloud(points, weights)
+    target_thinned[mask]
 end
 
 # Perform the registration:
@@ -219,21 +216,21 @@ T_16S_better = register_kc(
     target_without_23S;
     restarts = RandomRestarts(500)
 )
+Ts = (; Ts.rRNA23S, rRNA16S = T_16S_better)
 
 # And let's do the check again:
 
-residual_T_16S_better = T_16S_better ∘ trueinvTs.rRNA16S;
+residualTs = map(∘, Ts, trueinvTs);
 #-
-residual_T_16S_better.linear
+residualTs.rRNA16S.linear
 #-
-residual_T_16S_better.translation
+residualTs.rRNA16S.translation
 
 # This looks great now!
 #
 # To finish off, we can also compute how close we got to the original PDB based
 # point clouds in terms of the RMSD:
 
-Ts = (; Ts.rRNA23S, rRNA16S = T_16S_better)
 #-
 
 rmsds = map(Ts, randomized_sources, sources) do T, randomized_source, source
