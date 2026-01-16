@@ -13,19 +13,22 @@
 # we can then do the actual registration and assess if we were successful.
 #
 # ## Packages
-# Let us load some packages first.
+# Let us set up the environment first.
 
-using Revise # hide
+using Revise
 using PointCloudRegistration
 using BioStructures
 using MRCFile
 using EmdbHelper # a local helper package to download data from the EMDB
 using NearestNeighbors
 using DimensionalData
-using GLMakie
+using WGLMakie
+import Bonito
 using Random
 using Statistics
 import LinearAlgebra: norm_sqr
+
+Bonito.Page(; exportable = true, offline = true)
 
 # ## The target
 
@@ -37,21 +40,7 @@ import LinearAlgebra: norm_sqr
 
 target_mrc = EmdbHelper.load_map("49998");
 target_dimarr = EmdbHelper.mrc2dimarr(target_mrc);
-show(IOContext(stdout, :limit => true), MIME"text/plain"(), target_dimarr) # hide
-
-# We can get a first visual impression using a volume plot.
-# For this, we make use of the *author thresold* that is provided by the EMDB
-# ([here](https://www.ebi.ac.uk/emdb/EMD-49998?tab=experiment) under Map/Contour
-# list), telling us what threshold the authors of the EMDB entry used to discern
-# background and structure.
-
-author_threshold = 0.046f0
-volume(
-    target_dimarr;
-    algorithm = :iso,
-    isovalue = author_threshold + .01f0,
-    isorange = .01f0,
-)
+show(IOContext(stdout, :limit => true), MIME"text/plain"(), target_dimarr)
 
 # Next, we convert the density map into a point cloud.
 # This happens in two steps:
@@ -59,10 +48,14 @@ volume(
 # to do a very naive conversion.
 # We simply place a point at every voxel and use the voxel's value as the
 # weight.
-# We additionally drop all points that have a weight below `author_threshold`
-# to again follow the practise of the authors observing the structure.
+# We additionally drop all points that have a weight below the *author
+# threshold* that is provided by the EMDB
+# ([here](https://www.ebi.ac.uk/emdb/EMD-49998?tab=experiment) under Map/Contour
+# list), telling us what threshold the authors of the EMDB entry used to discern
+# background and structure.
 
 target_full = density2pointcloud(target_dimarr)
+author_threshold = 0.046f0
 target = drop_low_weight(target_full; threshold = author_threshold)
 
 # The second step is to perform thinning on the target to reduce the
@@ -70,7 +63,7 @@ target = drop_low_weight(target_full; threshold = author_threshold)
 # We define a target resolution of 5 Å and thin our pointcloud to that nearest
 # neighbor distance:
 
-resolution = 5.0f0
+resolution = 10.0f0
 target_thinned = thin_to_distance(target, resolution)
 
 # We can check that it worked by measuring the average nearest neighbor distance
@@ -78,32 +71,14 @@ target_thinned = thin_to_distance(target, resolution)
 
 PointCloudRegistration.avg_nn_dist(target_thinned)
 
-# We now have a much smaller point cloud
+# We now have a much smaller point cloud:
 
 length(target_thinned.points) / length(target_full.points)
 
-# that still describes the full ribosome well, as we can see when plotting
-# `target_dimarr` and `target_thinned` together:
+# And this is how the target looks:
 
-let
-    fig = Figure()
-    ax = Axis3(fig[1, 1]; aspect = :data)
-    volume!(
-        ax,
-        target_dimarr;
-        algorithm = :iso,
-        isovalue = author_threshold + .01f0,
-        isorange = .01f0,
-    )
-    meshscatter!(
-        ax,
-        target_thinned.points;
-        markersize = resolution .* target_thinned.weights
-            ./ maximum(target_thinned.weights),
-        color = :orange,
-    )
-    fig
-end
+target_markersize = resolution .* target_thinned.weights ./ maximum(target_thinned.weights)
+meshscatter(target_thinned.points; markersize = target_markersize)
 
 # ## The sources
 # Next, we need the 23S and 16S ribosomal RNAs as our sources.
@@ -137,20 +112,16 @@ sources.rRNA16S
 # are already perfectly aligned since the former is computed from the latter:
 
 let
-    fig = Figure()
-    ax = Axis3(fig[1, 1]; aspect = :data)
-    meshscatter!(
-        ax,
+    plt = meshscatter(
         target_thinned.points;
-        markersize = resolution .* target_thinned.weights
-            ./ maximum(target_thinned.weights),
+        markersize = target_markersize,
         color = :lightgray,
         label = "full ribosome",
     )
-    meshscatter!(ax, sources.rRNA23S.points; markersize = 3, label = "23S")
-    meshscatter!(ax, sources.rRNA16S.points; markersize = 3, label = "16S")
-    axislegend(ax)
-    fig
+    meshscatter!(plt.axis, sources.rRNA23S.points; markersize = 3, label = "23S")
+    meshscatter!(plt.axis, sources.rRNA16S.points; markersize = 3, label = "16S")
+    axislegend(plt.axis)
+    plt
 end
 
 # Instead, we draw a random rigid transformation for every source:
@@ -228,6 +199,21 @@ residualTs.rRNA16S.translation
 
 # This looks great now!
 #
+# We can also assess the registration visually.
+
+function truth_and_fitted(key)
+    plt = meshscatter(sources[key].points; markersize = 3, label = "truth")
+    meshscatter!(plt.axis, Ts[key](randomized_sources[key]).points; markersize = 3, label = "fitted")
+    axislegend(plt.axis)
+    plt
+end
+
+# For the 23S rRNA:
+truth_and_fitted(:rRNA23S)
+
+# For the 16S rRNA:
+truth_and_fitted(:rRNA16S)
+
 # To finish off, we can also compute how close we got to the original PDB based
 # point clouds in terms of the RMSD:
 

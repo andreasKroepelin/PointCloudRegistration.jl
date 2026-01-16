@@ -21,6 +21,7 @@ EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
 OUTPUT_DIR = joinpath(@__DIR__, "src", "generated")
 examples = [
     "ribosome-puzzle/ribosome-puzzle.jl",
+    # "wglmakie-test/wglmakie-test.jl",
 ]
 jlcmd = Base.julia_cmd()
 for example in examples
@@ -39,6 +40,7 @@ makedocs(;
         "index.md",
         "Examples" => [
             "generated/ribosome-puzzle.md",
+            "generated/wglmakie-test.md",
         ],
     ],
     remotes = nothing,
@@ -49,6 +51,7 @@ makedocs(;
         assets = [asset("assets/logo.png"; islocal = true, class = :ico)],
         size_threshold_ignore = [
             "generated/ribosome-puzzle.md",
+            "generated/wglmakie-test.md",
         ],
     ),
 )
