@@ -199,9 +199,18 @@ function thin_to_number(
     PointCloud(centers, weightsums)
 end
 
-function drop_low_weight(pc::PointCloud; threshold::Number = -Inf, proportion::Number = 0)
-    if proportion > zero(proportion)
-        threshold = max(threshold, proportion * maximum(pc.weights))
-    end
+function drop_threshold(pc::PointCloud, threshold::Number)
     pc[pc.weights .>= threshold]
+end
+
+function drop_proportion(pc::PointCloud, proportion::Number)
+    @argcheck zero(proportion) <= proportion <= oneunit(proportion)
+    threshold = proportion * maximum(pc.weights)
+    drop_threshold(pc, threshold)
+end
+
+function drop_quantile(pc::PointCloud, q::Number)
+    @argcheck zero(q) <= q <= oneunit(q)
+    threshold = quantile(pc.weights, q)
+    drop_threshold(pc, threshold)
 end
