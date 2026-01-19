@@ -132,7 +132,7 @@ struct PointCloud{
     WT,
     W <: AbstractVector,
     WC <: AbstractVector,
-} <: AbstractMatrix{T}
+}
     points::P
     weights::W
     weights_cumsum::WC
@@ -210,6 +210,13 @@ Base.@propagate_inbounds function Base.getindex(
 end
 Base.axes(pc::PointCloud{N}) where {N} = (SOneTo(N), eachindex(pc.points))
 dimension(::PointCloud{N}) where {N} = N
+Base.eltype(::PointCloud{N, T}) where {N, T} = T
+
+struct OneOffLazyStack{T, V <: AbstractVector{<: AbstractVector{T}}} <: AbstractMatrix{T}
+    vecs::V
+end
+Base.size(ools::OneOffLazyStack) = (length(first(ools.vecs)), length(ools.vecs))
+Base.getindex(ools::OneOffLazyStack, i, j) = ools.vecs[j][i]
 
 function Base.show(
     io::IO,
@@ -225,7 +232,7 @@ function Base.show(
         " points of eltype ",
         T,
     )
-    Base.print_matrix(mat_io, pc)
+    Base.print_matrix(mat_io, OneOffLazyStack(pc.points))
     println(io)
     if pc.weights isa Trues || pc.weights isa Ones
         println(io, "and unit weights")
