@@ -33,7 +33,9 @@ export PointCloud,
     Smm,
     thin_to_distance,
     thin_to_number,
-    drop_low_weight,
+    drop_threshold,
+    drop_proportion,
+    drop_quantile,
     density2pointcloud
 
 public VecOfSVec
