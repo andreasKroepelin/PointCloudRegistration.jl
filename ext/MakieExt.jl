@@ -3,24 +3,51 @@ using PointCloudRegistration
 using PointCloudRegistration: avg_nn_dist
 using Makie
 
-@recipe PointCloudPlot (pointcloud::PointCloud,) begin
-    color = @inherit markercolor
-    Makie.mixin_generic_plot_attributes()...
+function _plotsizes(pc::PointCloud)
+    sizefactor = avg_nn_dist(pc) / maximum(pc.weights)
+    sizefactor .* pc.weights
 end
 
-function Makie.plot!(plot::PointCloudPlot)
+maybe_collect(xs::AbstractVector) = collect(xs)
+maybe_collect(xs::Vector) = xs
+
+const PointCloud2Or3 = Union{<:PointCloud{2}, <:PointCloud{3}}
+
+@recipe PointCloudPlotFlat (pointcloud::PointCloud2Or3,) begin
+    Makie.documented_attributes(Scatter)...
+end
+
+function Makie.plot!(plot::PointCloudPlotFlat)
     map!(plot.attributes, [:pointcloud], [:positions, :sizes]) do pc
-        sizefactor = avg_nn_dist(pc) / maximum(pc.weights)
-        (pc.points, sizefactor .* pc.weights)
+        (pc.points, maybe_collect(_plotsizes(pc)))
     end
     scatter!(
         plot,
+        plot.attributes,
         plot.positions;
         markersize = plot.sizes,
-        markerspace = :data, plot.color
+        markerspace = :data,
     )
 end
 
-Makie.plottype(::PointCloud) = PointCloudPlot
+@recipe PointCloudPlotMesh (pointcloud::PointCloud{3},) begin
+    Makie.documented_attributes(MeshScatter)...
+end
+
+function Makie.plot!(plot::PointCloudPlotMesh)
+    map!(plot.attributes, [:pointcloud], [:positions, :sizes]) do pc
+        (pc.points, maybe_collect(_plotsizes(pc)))
+    end
+    meshscatter!(
+        plot,
+        plot.attributes,
+        plot.positions;
+        markersize = plot.sizes,
+    )
+end
+
+Makie.plottype(::PointCloud{2}) = PointCloudPlotFlat
+Makie.plottype(::PointCloud{3}) = PointCloudPlotMesh
+Makie.preferred_axis_type(::PointCloudPlotMesh) = Makie.LScene
 
 end
