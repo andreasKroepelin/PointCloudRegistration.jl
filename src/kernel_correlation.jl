@@ -358,9 +358,9 @@ function register_kc(
     target;
     scale::ScaleType = default_scale(),
     axisalign::Bool = default_axisalign(),
-    restarts::AbstractRestarts = default_restarts(),
-    iterations::Int = default_iterations(),
-    smm = NoSmm(),
+    restarts::AbstractRestarts = RandomRestarts(50),
+    iterations::Int = 100,
+    smm = Smm(50),
     report_iteration::RI = no_report,
     report_restart::RR = no_report,
 ) where {RI, RR}
@@ -395,9 +395,9 @@ Use this function if you plan to register multiple sources to the same target.
 function register_kc(
     source,
     prepared_target::PreparedTarget;
-    restarts::AbstractRestarts = default_restarts(),
-    iterations::Int = default_iterations(),
-    smm = NoSmm(),
+    restarts::AbstractRestarts = RandomRestarts(50),
+    iterations::Int = 100,
+    smm = Smm(50),
     report_iteration::RI = no_report,
     report_restart::RR = no_report,
 ) where {RI, RR}
