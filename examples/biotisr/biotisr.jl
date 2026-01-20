@@ -23,10 +23,8 @@ using StaticArrays
 using Rotations
 using CoordinateTransformations
 using DimensionalData
-import Images: warp, mapwindow, binarize, Otsu, RGB, paddedviews, colorview, zeroarray
-import Images
-using PythonCall
-using Chain
+using Extents
+using JLD2
 
 
 # ## Loading the images
@@ -36,78 +34,91 @@ using Chain
 # them.
 # Instead, we use the Python package mrcfile via PythonCall.jl:
 
-const mrcfile = pyimport("mrcfile")
-mrc = pyconvert(Array, mrcfile.read("BioTISR_Mitochondria/Cell_006/SIM_gt.mrc"))
-
 # After permuting the dimensions (Python and Julia have reverse array dimension
 # orders) and slicing along the last dimension, we obtain our images.
 # We also wrap them with `DimArray`s from DimensionalData.jl to track
 # transformations later.
 
-orig_imgs = map(eachslice(permutedims(mrc, (3, 2, 1)); dims = 3)) do slice
+@load "biotisr-mitochondria-sim-gt-006.jld2" img_tensor
+
+orig_imgs = map(eachslice(img_tensor; dims = 3)) do slice
     DimArray(slice, (X, Y))
-end
+end;
 
 # We can use Makie to display them:
 
-image(orig_imgs[1])
+let
+    fig = Figure()
+    ax = Axis(fig[1, 1]; aspect = DataAspect())
+    hidedecorations!(ax)
+    idx = Observable(1)
+    image!(ax, @lift(orig_imgs[$idx]))
+    Record(fig, eachindex(orig_imgs); framerate = 10) do i
+        idx[] = i
+    end
+end
 
 # ## Transforming the images
 # To make the registration interesting, we first randomly transform our images.
-# We need a rigid transformation for every image:
+# We need a rigid transformation for every image but leave the first image
+# untransformed to have it as a reference orientation.
 
-trueinvTs = [
-    Translation(1000 * randn(SVector{2})) ∘ LinearMap(rand(RotMatrix2))
-    for _ in orig_imgs[2:end]
-]
-pushfirst!(trueinvTs, Translation(SA[0., 0.]) ∘ LinearMap(one(RotMatrix2{Float64})))
+trueinvTs = map(eachindex(orig_imgs)) do i
+    if i == 1
+        R = one(RotMatrix2{Float64})
+        t = zero(SVector{2})
+    else
+        R = rand(RotMatrix2)
+        t = 1000 * randn(SVector{2})
+    end
+    AffineMap(R, t)
+end
 
-# We can apply a transformtion to an image using the `warp` function from
-# Images.jl.
-# Note that it interprets transformation inversely to how we do here,
-# so we have to apply its inverse.
-# The necessarily arising parts of the rectangular image not covered by the
-# actual image we fill with zeros (third argument to `warp`).
-# Additionally, we shift the intensities of each pixel such that they are
-# non-negative.
+# The following function transforms an image represented as a `DimArray` by some
+# transformation.
+# We first calculate the necessary rectangular bounding box and then fill each
+# pixel by looking up the corresponding pixel in the original image (hence the
+# inverted transformation).
+# Parts of the image without a correspondence in the original are filled with
+# zeros.
 
 function transform_img(img::DimMatrix, T)
-    (xlo, xhi), (ylo, yhi) = extrema.(dims(img))
+    xlo, xhi  = DimensionalData.bounds(img, X)
+    ylo, yhi  = DimensionalData.bounds(img, Y)
     corners = [SA[xlo, ylo], SA[xhi, ylo], SA[xlo, yhi], SA[xhi, yhi]]
     newlo, newhi = PointCloudRegistration.bbox(T.(corners))
-    xs = newlo[1]:newhi[1]
-    ys = newlo[2]:newhi[2]
     invT = inv(T)
-    raw = map(Iterators.product(xs, ys)) do (Tx, Ty)
-        x, y = invT(SA[Tx, Ty])
-        if xlo <= x <= xhi && ylo <= y <= yhi
-            img[X = Near(x), Y = Near(y)]
-        else
-            zero(eltype(img))
+    [
+        let
+            x, y = invT(SA[Tx, Ty])
+            if xlo <= x <= xhi && ylo <= y <= yhi
+                img[X = Near(x), Y = Near(y)]
+            else
+                zero(eltype(img))
+            end
         end
-    end
-    DimArray(raw, (X(xs), Y(ys)))
+        for Tx in X(newlo[1]:newhi[1]), Ty in Y(newlo[2]:newhi[2])
+    ]
 end
+
+# We apply the function to all our images and additionally shift the intensities
+# of each pixel such that they are non-negative.
 
 imgs = map(orig_imgs, trueinvTs) do orig_img, trueinvT
     img = orig_img .- minimum(orig_img)
     transform_img(img, trueinvT)
 end;
 
-# Translation is represented by the images being `OffsetArray`s:
-
-typeof(imgs[1])
-
 # It looks like this:
 
-image(imgs[1])
+image(imgs[2]; axis = (;aspect = DataAspect()))
 
 # ## Conversion to point clouds
 # To apply this package, we need to work with point clouds.
 # The naive first step is to place a point at every pixel and use the pixel's
 # intensity as the weight.
 # This is done by the function `density2pointcloud` provided by this package.
-# It also handles the offset axes.
+# It also handles the special axes.
 
 pointclouds_full = map(density2pointcloud, imgs);
 
@@ -115,112 +126,151 @@ pointclouds_full = map(density2pointcloud, imgs);
 # To be able to see anything at all, we need to zoom into a fairly small region.
 
 let
-    plt = image(imgs[1]; axis = (;aspect = DataAspect()))
-    plot!(plt.axis, pointclouds_full[1]; color = :lime)
-    limits!(plt.axis, (630, 680), (790, 850))
-    plt
+    fig = Figure()
+    ax = Axis(fig[1, 1]; aspect = DataAspect(), limits = ((630, 680), (790, 850)))
+    image!(ax, imgs[1])
+    plot!(ax, pointclouds_full[1]; color = :lime)
+    fig
 end
 
 # As we can see, there are very many points that don't contribute to a valuable
 # description of the image.
-# Hence, let us drop all points with a weight below the 95 % quantile per point
-# cloud.
+# Hence, let us drop all points with a weight below the 99.5 % quantile per
+# point cloud.
 
 pointclouds_foreground = map(pointclouds_full) do pc
-    PointCloudRegistration.drop_quantile(pc, .995)
-    # PointCloudRegistration.drop_proportion(pc, .4)
+    drop_quantile(pc, .995)
 end;
 
 # The same region from before now looks like this:
 
 let
-    plt = image(imgs[1]; axis = (;aspect = DataAspect()))
-    plot!(plt.axis, pointclouds_foreground[1]; color = :lime)
-    limits!(plt.axis, (630, 680), (790, 850))
-    plt
+    fig = Figure()
+    ax = Axis(fig[1, 1]; aspect = DataAspect(), limits = ((630, 680), (790, 850)))
+    image!(ax, imgs[1])
+    plot!(ax, pointclouds_foreground[1]; color = :lime)
+    fig
 end
 
 # Lastly, we can observe that the "resolution" of our point clouds is
 # unnecessarily high.
-# We can thin them to a nearest neighbor distance of roughly 20 (pixels).
+# We can thin them to a nearest neighbor distance of roughly 10 (pixels).
 
 pointclouds_thinned = map(pointclouds_foreground) do pc
-    thin_to_distance(pc, 20.)
+    thin_to_distance(pc, 10.)
 end;
 
 # This looks much less cluttered now:
 
 let
-    plt = image(imgs[1]; axis = (;aspect = DataAspect()))
-    plot!(plt.axis, pointclouds_thinned[1]; color = :lime)
-    limits!(plt.axis, (630, 680), (790, 850))
-    plt
+    fig = Figure()
+    ax = Axis(fig[1, 1]; aspect = DataAspect(), limits = ((630, 680), (790, 850)))
+    image!(ax, imgs[1])
+    plot!(ax, pointclouds_thinned[1]; color = :lime)
+    fig
 end
 
 # We can take a look at the full point cloud as well:
 
 let
-    plt = image(imgs[1]; axis = (;aspect = DataAspect()))
-    plot!(plt.axis, pointclouds_thinned[1]; color = :lime)
-    plt
+    fig = Figure()
+    ax = Axis(fig[1, 1]; aspect = DataAspect())
+    image!(ax, imgs[1])
+    plot!(ax, pointclouds_thinned[1]; color = :lime)
+    fig
 end
 
 # # Registering the point clouds.
-# Since there is no inherently true reference coordinate system, we might as
-# well pick one of the point clouds as the targets.
+# As noted above, we use the first point cloud as our target reference.
+# Since we don't know correspondences between the point clouds, we use the
+# kernel correlation method.
+# We can speed up the registration by preparing the karget for computing the
+# kernel correlation.
 
 target = pointclouds_thinned[1]
 prepd_target = prepare_target_kc(target);
-
 Ts = map(pointclouds_thinned) do src
-    Threads.@spawn begin
-        register_kc(src, prepd_target; smm = Smm(50), restarts = RandomRestarts(50))
-    end
+    Threads.@spawn register_kc(src, prepd_target; restarts = RandomRestarts(100))
 end .|> fetch
 
-residualTs = Ts .∘ trueinvTs .∘ (inv(trueinvTs[1]), )
+# We can check if the registration worked by comparing `Ts` with `trueinvTs`
+# from above.
+# In case of success, they should cancel each other, i.e. their composition
+# should be the identity transformation with rotation angle and translation norm
+# zero.
+
+residualTs = Ts .∘ trueinvTs
+rotation_angles = [rad2deg(rotation_angle(resT.linear)) for resT in residualTs]
+#-
+translation_norms = [norm(resT.translation) for resT in residualTs]
+
+# Let us use the `Ts` to transform all our images as well as point clouds.
 
 reg_imgs = transform_img.(imgs, Ts);
-
 reg_pointclouds = map((T, pc) -> T(pc), Ts, pointclouds_thinned);
 
-let
-    fig = Figure()
-    ax = Axis(fig[1, 1]; aspect = DataAspect())
-    sl = Slider(fig[1, 2]; range = eachindex(imgs), horizontal = false)
-    image!(ax, @lift(reg_imgs[$(sl.value)]))
-    plot!(ax, @lift(reg_pointclouds[$(sl.value)]); color = :lime)
-    fig
-end
+# We can check the registration visually by animating the time lapse with the
+# registered images and point clouds:
 
 let
     fig = Figure()
     ax = Axis(fig[1, 1]; aspect = DataAspect())
-    idx = 19
-    image!(ax, orig_imgs[idx]; colormap = :greens)
-    image!(ax, transform_img(imgs[idx], Ts[idx]); colormap = :blues, alpha = .3)
-    fig
+    hidedecorations!(ax)
+    # sl = Slider(fig[1, 2]; range = eachindex(imgs), horizontal = false) #src
+    idx = Observable(1)
+    image!(ax, @lift(reg_imgs[$idx]))
+    plot!(ax, @lift(reg_pointclouds[$idx]); color = :lime)
+    resize_to_layout!(fig)
+    Record(fig, eachindex(imgs); framerate = 10) do i
+        idx[] = i
+    end
+    # fig #src
 end
+
+# To analyse the results in detail, let us write a short helper function
+# that takes to gray-scale images and produces a color image with the first
+# input as the green channel and the second one as the blue channel.
+
+function diffview(img1, img2)
+    newbounds = Extents.bounds(Extents.union(extent(img1), extent(img2)))
+    greens, blues = map([img1, img2]) do img
+        xlo, xhi  = DimensionalData.bounds(img, X)
+        ylo, yhi  = DimensionalData.bounds(img, Y)
+        maxintensity = maximum(img)
+        [
+            if xlo <= x <= xhi && ylo <= y <= yhi
+                img[X = Near(x), Y = Near(y)] / maxintensity
+            else
+                zero(eltype(img))
+            end
+            for x in X(range(newbounds.X...)), y in Y(range(newbounds.Y...))
+        ]
+    end
+    Makie.RGB.(0, greens, blues)
+end
+
+# We can use this function to view a small section of all twenty time lapse
+# images where we show the original image (green channel) and the randomly
+# transformed and then registered image (blue channel) together.
 
 let
     limits = ((500, 1000), (800, 980))
     sz = map(splat(-) ∘ reverse, limits)
     fig = Figure()
-    for img_idx in eachindex(orig_imgs)
+    for idx in eachindex(orig_imgs)
         ax = Axis(
-            fig[Tuple(CartesianIndices((5, 4))[img_idx])...];
+            fig[Tuple(CartesianIndices((5, 4))[idx])...];
             aspect = DataAspect(),
             limits,
             width = sz[1] ÷ 2,
             height = sz[2] ÷ 2,
         )
         hidedecorations!(ax)
-        image!(ax, orig_imgs[img_idx]; colormap = :greens)
-        image!(ax, transform_img(imgs[img_idx], Ts[img_idx]); colormap = :blues, alpha = .3)
+        image!(ax, diffview(orig_imgs[idx], transform_img(imgs[idx], Ts[idx])))
     end
     rowgap!(fig.layout, 5)
     colgap!(fig.layout, 5)
     resize_to_layout!(fig)
-    # save("../../paper/bioinformatics/src/img/biotisr.png", fig)
+    # save("../../paper/bioinformatics/src/img/biotisr.png", fig) #src
     fig
 end
