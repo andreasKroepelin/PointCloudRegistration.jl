@@ -15,7 +15,7 @@
 # ## Packages
 # Let us set up the environment first.
 
-using Revise
+using Revise #hide
 using PointCloudRegistration
 using BioStructures
 using MRCFile
@@ -28,7 +28,7 @@ using Random
 using Statistics
 import LinearAlgebra: norm_sqr
 
-Bonito.Page(; exportable = true, offline = true)
+Bonito.Page(; exportable = true, offline = true) #hide
 
 # ## The target
 
@@ -40,7 +40,7 @@ Bonito.Page(; exportable = true, offline = true)
 
 target_mrc = EmdbHelper.load_map("49998");
 target_dimarr = EmdbHelper.mrc2dimarr(target_mrc);
-show(IOContext(stdout, :limit => true), MIME"text/plain"(), target_dimarr)
+show(IOContext(stdout, :limit => true), MIME"text/plain"(), target_dimarr) #hide
 
 # Next, we convert the density map into a point cloud.
 # This happens in two steps:
@@ -56,14 +56,14 @@ show(IOContext(stdout, :limit => true), MIME"text/plain"(), target_dimarr)
 
 target_full = density2pointcloud(target_dimarr)
 author_threshold = 0.046f0
-target = drop_low_weight(target_full; threshold = author_threshold)
+target = drop_threshold(target_full, author_threshold)
 
 # The second step is to perform thinning on the target to reduce the
 # computational burden later on.
 # We define a target resolution of 5 Å and thin our pointcloud to that nearest
 # neighbor distance:
 
-resolution = 10.0f0
+resolution = 5.0f0
 target_thinned = thin_to_distance(target, resolution)
 
 # We can check that it worked by measuring the average nearest neighbor distance
@@ -77,8 +77,7 @@ length(target_thinned.points) / length(target_full.points)
 
 # And this is how the target looks:
 
-target_markersize = resolution .* target_thinned.weights ./ maximum(target_thinned.weights)
-meshscatter(target_thinned.points; markersize = target_markersize)
+plot(target_thinned)
 
 # ## The sources
 # Next, we need the 23S and 16S ribosomal RNAs as our sources.
@@ -112,14 +111,9 @@ sources.rRNA16S
 # are already perfectly aligned since the former is computed from the latter:
 
 let
-    plt = meshscatter(
-        target_thinned.points;
-        markersize = target_markersize,
-        color = :lightgray,
-        label = "full ribosome",
-    )
-    meshscatter!(plt.axis, sources.rRNA23S.points; markersize = 3, label = "23S")
-    meshscatter!(plt.axis, sources.rRNA16S.points; markersize = 3, label = "16S")
+    plt = plot(target_thinned; color = :lightgray, label = "full ribosome")
+    plot!(plt.axis, sources.rRNA23S; label = "23S")
+    plot!(plt.axis, sources.rRNA16S; label = "16S")
     axislegend(plt.axis)
     plt
 end
@@ -202,8 +196,8 @@ residualTs.rRNA16S.translation
 # We can also assess the registration visually.
 
 function truth_and_fitted(key)
-    plt = meshscatter(sources[key].points; markersize = 3, label = "truth")
-    meshscatter!(plt.axis, Ts[key](randomized_sources[key]).points; markersize = 3, label = "fitted")
+    plt = plot(sources[key]; label = "truth")
+    plot!(plt.axis, Ts[key](randomized_sources[key]); label = "fitted")
     axislegend(plt.axis)
     plt
 end
