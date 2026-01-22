@@ -386,26 +386,25 @@ By turning images into weighted two dimensional point clouds, we can apply
 point cloud registration to image registration as well.
 We demonstrate that using micrographs of mitochondria from the BioTISR data set
 by \cite{biotisr-data}.
-For the 20 time-lapse images, 20 rigid 2D-transformations
-$T_1, \ldots, T_{20} \in \operatorname{SE}(2)$ were drawn randomly and the
+For the 20 time-lapse images, 19 rigid 2D-transformations
+$T_2, \ldots, T_{20} \in \operatorname{SE}(2)$ were drawn randomly and the
 images were transformed by the respective transformation.
+To keep a global reference frame, we chose $T_1 = \operatorname{id}$.
 In this modified data set, the images now differed in (artificial) rigid
 transformations and (actual) movements of the depicted objects.
-The transformed images were then (after smoothing and removing the background
-via Otsu-binarization) turned into point clouds by placing a point at every
-pixel with the pixel's intensity as the weight.
-For computational efficiency, points with low weight (less than 40\,\% of the
-maximum weight) were dropped and the point clouds were thinned to 2600 points.
+The transformed images were then turned into point clouds by placing a point at
+every pixel with the pixel's intensity as the weight.
+For computational efficiency, points with low weight (below the 99.5\,\% weight
+quantile) were dropped and the point clouds were thinned to a nearest neighbor
+distance of 10 pixels.
 
-To perform the registration, we arbitrarily picked the first point cloud as the
-target and then maximized the kernel correlation of every point cloud with the
-target, obtaining transformations
-$T'_1, \ldots, T'_{20} \in \operatorname{SE}(2)$.
-For a successful registration, we have $T'_i \circ T_i \approx T_1$ or,
-equivalently, $T'_i \circ T_i \circ T^{-1}_1 \approx \operatorname{id}$ for
-every $i = 1, \ldots, 20$.
+To perform the registration, we set the first point cloud as the target and then
+maximized the kernel correlation of every point cloud with it, obtaining
+transformations $T'_1, \ldots, T'_{20} \in \operatorname{SE}(2)$.
+For a successful registration, we have $T'_i \circ T_i \approx \operatorname{id}$,
+for every $i = 1, \ldots, 20$.
 That is, we can analyze the success by observing the ``residual'' transformation
-$T'_i \circ T_i \circ T^{-1}_1$, see Figure \ref{fig:biotisr-overlay}.
+$T'_i \circ T_i$, see Figure \ref{fig:biotisr-overlay}.
 Note how the original images match the ones transformed by this residual
 transformation very closely.
 
@@ -416,10 +415,11 @@ transformation very closely.
 \caption{
     Mitochondria images from the BioTISR data set.
     Each panel shows the same section for one of twenty time-lapse images.
-    The original image with index $i$ is displayed in green and, on top of it,
-    it is transformed by the ``residual'' transformation
-    $T'_i \circ T_i \circ T^{-1}_1$, displayed in blue.
-    Sharper overlayed images indicate a better registration.
+    The original image with index $i$ is displayed in the green channel and
+    itself transformed by the ``residual'' transformation $T'_i \circ T_i$
+    displayed in the blue channel.
+    Bright green or blue regions indicate poor registration whereas cyan regions
+    signal a good overlap of the images.
 }\label{fig:biotisr-overlay}
 \end{figure}
 

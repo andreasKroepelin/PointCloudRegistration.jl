@@ -271,6 +271,6 @@ let
     rowgap!(fig.layout, 5)
     colgap!(fig.layout, 5)
     resize_to_layout!(fig)
-    # save("../../paper/bioinformatics/src/img/biotisr.png", fig) #src
+    save("../../paper/bioinformatics/src/img/biotisr.png", fig) #src
     fig
 end
