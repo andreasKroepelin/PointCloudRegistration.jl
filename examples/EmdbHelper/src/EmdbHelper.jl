@@ -22,4 +22,10 @@ function mrc2dimarr(mrc)
     DimArray(mrc.data, dimaxs)
 end
 
+function animate_plot_rotation(fig, ax; framerate = 30)
+    Record(fig, range(0, 2pi; length = 100); framerate) do azimuth
+        ax.azimuth[] = azimuth
+    end
+end
+
 end # module EmdbHelper
