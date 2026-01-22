@@ -22,6 +22,7 @@ using MRCFile
 using EmdbHelper # a local helper package to download data from the EMDB
 using NearestNeighbors
 using DimensionalData
+## using Unitful: Å
 using WGLMakie
 import Bonito
 using Random
@@ -29,6 +30,8 @@ using Statistics
 import LinearAlgebra: norm_sqr
 
 Bonito.Page(; exportable = true, offline = true) #hide
+#-
+Random.seed!(3) #hide
 
 # ## The target
 
@@ -36,10 +39,14 @@ Bonito.Page(; exportable = true, offline = true) #hide
 # The helper package `EmdbHelper` makes this very convenient and provides us
 # with an `MRCData` object from MRCFiles.jl.
 # We convert it into a `DimArray` from DimesionalData.jl such that it is easier
-# to handle.
+# to handle and also attach units of Angstrom (Å) to the axes.
 
 target_mrc = EmdbHelper.load_map("49998");
 target_dimarr = EmdbHelper.mrc2dimarr(target_mrc);
+## target_dimarr = set(
+##     target_dimarr,
+##     [d => dims(target_dimarr, d) .* Å for d in (X, Y, Z)]...
+## );
 show(IOContext(stdout, :limit => true), MIME"text/plain"(), target_dimarr) #hide
 
 # Next, we convert the density map into a point cloud.
@@ -63,7 +70,7 @@ target = drop_threshold(target_full, author_threshold)
 # We define a target resolution of 5 Å and thin our pointcloud to that nearest
 # neighbor distance:
 
-resolution = 5.0f0
+resolution = 5.0f0 # Å
 target_thinned = thin_to_distance(target, resolution)
 
 # We can check that it worked by measuring the average nearest neighbor distance
@@ -94,11 +101,11 @@ chain_ids = (rRNA23S = "BA", rRNA16S = "AA")
 source_chains = map(key -> chains(source_pdb)[key], chain_ids)
 
 # Let us extract only the `C3'` atoms from both chains and collect them into
-# two point clouds.
+# two point clouds, again adding Angstrom units.
 
 threeprimeselector(atom) = atomnameselector(atom, tuple("C3'"))
 sources = map(source_chains) do chain
-    PointCloud(coordarray(chain, threeprimeselector))
+    PointCloud(coordarray(chain, threeprimeselector) #= .* Å =#)
 end;
 #-
 sources.rRNA23S
