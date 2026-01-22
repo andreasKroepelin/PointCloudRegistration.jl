@@ -20,7 +20,7 @@ links = InterLinks(
 EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
 OUTPUT_DIR = joinpath(@__DIR__, "src", "generated")
 examples = [
-    "ribosome-puzzle/ribosome-puzzle.jl",
+    # "ribosome-puzzle/ribosome-puzzle.jl",
     # "biotisr/biotisr.jl",
     # "wglmakie-test/wglmakie-test.jl",
 ]
