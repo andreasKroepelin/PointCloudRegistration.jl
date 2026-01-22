@@ -4,7 +4,7 @@ using PointCloudRegistration: avg_nn_dist
 using Makie
 
 function _plotsizes(pc::PointCloud)
-    sizefactor = avg_nn_dist(pc) / maximum(pc.weights)
+    sizefactor = avg_nn_dist(pc) / maximum(pc.weights) / 2
     sizefactor .* pc.weights
 end
 
