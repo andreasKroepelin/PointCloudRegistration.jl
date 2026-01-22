@@ -49,8 +49,7 @@ function remove_empty!(dp::DpMeansState; relabel::Bool)
 end
 
 function closest_cluster(dp::DpMeansState, point)
-    knn!(dp.nn_idcs, dp.nn_dists, dp.tree[], point, 1)
-    dp.nn_idcs[1], dp.nn_dists[1]
+    nn(dp.tree[], point)
 end
 
 function setlabel!(dp::DpMeansState, i, j)
