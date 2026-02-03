@@ -21,10 +21,12 @@ export PointCloud,
     register_kc,
     register_icp,
     register_cpd,
+    register_sinkhorn,
+    correspondences,
+    displacements,
+    apply_displacements,
     prepare_target_kc,
     guess_correspondences,
-    BestTransformation,
-    AllTransformations,
     DownTo,
     TargetScales,
     RandomRestarts,
@@ -51,6 +53,7 @@ include("kabsch.jl")
 include("robust.jl")
 include("kernel_correlation.jl")
 include("iterative_closest_point.jl")
+include("nonrigid.jl")
 include("coherent_point_drift.jl")
 include("guess_correspondences.jl")
 include("thinning.jl")
