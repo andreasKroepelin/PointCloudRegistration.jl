@@ -9,4 +9,5 @@ end
 function correspondences end
 
 function register_sinkhorn end
+function register_divfree end
 
