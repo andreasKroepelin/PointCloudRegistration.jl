@@ -4,7 +4,13 @@
   font: "Gentium",
   number-type: "old-style",
 )
-#show math.equation: set text(font: "TeX Gyre Pagella Math")
+// #show math.equation: set text(font: "TeX Gyre Pagella Math")
+#show math.equation: set text(
+  font: (
+    (name: "TeX Gyre Pagella Math", covers: regex("[ℝ|ℤ]")),
+    "Libertinus Math",
+  ),
+)
 #show raw: set text(font: "Atkinson Hyperlegible Mono", size: 1.1em)
 
 #set heading(numbering: "1.1")
@@ -222,6 +228,130 @@ with a cut off distance $D$.
 
 == Non-rigid registration
 === Coherent Point Drift
+
+=== Divergence Free Interpolation
+We implement the method described in @divfree.
+It presents a parameterization of a displacement field that is inherently
+divergence free.
+The paper elaborates the three-dimensional case, which we will generalize to
+arbitrary dimensions $D$ in what follows.
+
+Given source points $bold(y)_1, ..., bold(y)_J in RR^D$ and target points
+$bold(x)_1, ..., bold(x)_I in RR^D$, we want to find a velocity field
+$bold(v): [0, 1]^D -> RR^D$ such that $hat(bold(y))_j = bold(t)_j (1)$ where
+$bold(t)_j: RR -> RR^D$ is a solution of the initial value problem
+$
+  bold(t)'_j (bold(z)) &= bold(v)(z) \
+  bold(t)_j (0) &= bold(y)_j
+$
+and the $bold(x)_i$ have a high likelihood in the Gaussian mixture centered at
+the $hat(bold(y))_j$.
+
+We want $bold(v)$ to have the following two properties.
+It is divergence free ($op("div") bold(v) equiv 0$) and there is no flow in and
+out of the domain $[0, 1]^D$.
+The idea is to construct $bold(v)$ as the sum of basis functions that fulfill
+these properties and exploit their linearity to make them hold for $bold(v)$ as
+well.
+
+First, we set a maximum frequency $F in ZZ_(>0)$.
+Then, for every $bold(f) in {1, ..., F}^D$ and every unordered pair ${m, n}
+subset {1, ..., D}$, we define a basis function
+$
+  bold(v)_{m, n}^bold(f) (bold(z))
+  =
+  c_n^bold(f) (bold(z)) bold(e)_m
+  -
+  c_m^bold(f) (bold(z)) bold(e)_n
+$
+where $bold(e)_i$ is the $i$-th canonical basis vector and $c_i^bold(f)$ is
+defined as
+$
+  c_i^bold(f) (bold(z))
+  =
+  1 / 2^D f_i pi cos(f_i pi z_i)
+  dot
+  product_(j = 1 \ j != i)^D
+  sin(f_j pi z_j)
+  .
+$
+With coefficients $a_{m, n}^bold(f) in RR$, we construct the velocity field as
+$
+  bold(v)(bold(z))
+  =
+  sum_(bold(f) in {1, ..., F}^D)
+  sum_(m, n in {1, ..., D} \ m < n)
+  a_{m, n}^bold(f) bold(v)_{m, n}^bold(f) (bold(z))
+  .
+$
+Note that there are $F^D dot binom(D, 2)$ basis vectors/coefficents.
+
+We show that $op("div") bold(v)_{m, n}^bold(f) equiv 0$ always holds.
+Recall that the divergence is the sum of the partial derivatives of the
+respective output dimensions, i.e. we have:
+$
+  op("div") bold(v)_{m, n}^bold(f) (bold(z))
+  =
+  partial_(z_m) c_n^bold(f) (bold(z))
+  -
+  partial_(z_n) c_m^bold(f) (bold(z))
+  .
+$
+The two partial derivatives turn out to be equal:
+$
+  partial_(z_m) c_n^bold(f) (bold(z))
+  &=
+  1 / 2^D f_n pi cos(f_n pi z_n)
+  dot
+  f_m pi cos(f_m pi z_m)
+  dot
+  product_(j = 1 \ j != m, n)^D
+  sin(f_j pi z_j)
+  \
+  partial_(z_n) c_m^bold(f) (bold(z))
+  &=
+  1 / 2^D f_m pi cos(f_m pi z_m)
+  dot
+  f_n pi cos(f_n pi z_n)
+  dot
+  product_(j = 1 \ j != m, n)^D
+  sin(f_j pi z_j)
+$
+Thus, the divergence of the basis function is zero.
+
+To show that there is no flow in and out of the domain $[0, 1]^D$, we have to
+ensure $chevron.l bold(v)(bold(z)), bold(n)(bold(z)) chevron.r = 0$ for every
+$bold(z) in partial [0, 1]^D$ on the boundary of the unit cube and its normal
+vector $bold(n)$.
+Note that $bold(z)$ is on the boundary iff one of its components is zero or one.
+Suppose the $k$-th entry of $bold(z)$ is zero or one.
+The normal vector of the $(D - 1)$-dimensional face $bold(z)$ sits on is either
+$bold(e)_k$ or $-bold(e)_k$ where the sign is irrelevant for checking that the
+dot product vanishes.
+Again, due to the linearity of the dot product, it suffices to show
+$chevron.l bold(v)_{m, n}^bold(f) (bold(z)), bold(e)_k chevron.r = 0$ for every
+$bold(f) in {1, ..., F}^D$ and $1 <= m < n <= D$.
+
+$bold(v)_{m, n}^bold(f) (bold(z))$ is trivially zero in every entry except the
+$m$-th and $n$-th ones so the dot product is zero unless $k = m$ or $k = n$.
+Let now $k = m$ (the case $k = n$ is analogous).
+Recall that the $m$-th entry in the velocity basis vector is
+$
+  c_n^bold(f) (bold(z))
+  =
+  1 / 2^D f_n pi cos(f_n pi z_n)
+  dot
+  product_(j = 1 \ j != n)^D
+  sin(f_j pi z_j)
+  ,
+$
+so it contains a factor $sin(f_m pi z_m)$.
+By assumption, $z_m = 0$ or $z_m = 1$, i.e. $z_m in ZZ$.
+Since also $f_m in ZZ$ and $sin(i pi) = 0$ for all $i in ZZ$, it follows that
+the $m$-th entry of the basis vector is zero and thus the whole dot product
+with the normal vector vanishes.
+
+
 == Thinning
 === DP-means
 === $k$-means
