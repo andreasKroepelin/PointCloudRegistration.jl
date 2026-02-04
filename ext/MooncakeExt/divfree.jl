@@ -220,11 +220,11 @@ function PointCloudRegistration.register_divfree(
     target;
     scale = nothing,
     degree::Int = 3,
-) where {N}
+)
     source_pc = PointCloud(source)
     target_pc = PointCloud(target)
     if isnothing(scale)
-        scale = PointCloudRegistration.avg_nn_dist(target)
+        scale = PointCloudRegistration.avg_nn_dist(target_pc)
     end
     _register_divfree(source_pc, target_pc, scale, degree)
 end
