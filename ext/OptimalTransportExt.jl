@@ -30,7 +30,7 @@ function _register_sinkhorn(
     source_normalized::PointCloud{N, TS},
     target_normalized::PointCloud{N, TT},
     epsilon
-)
+) where {N, TS, TT}
     sqdists = pairwise(
         euclidean,
         target_normalized.points,
@@ -52,7 +52,7 @@ function PointCloudRegistration.correspondences(sr::SinkhornRegistration)
 end
 
 function PointCloudRegistration.displacements(sr::SinkhornRegistration)
-    map(eachcolumn(sr.transport), sr.source.points) do tcol, src
+    map(eachcol(sr.transport), sr.source.points) do tcol, src
         totalt = zero(eltype(tcol))
         dsrc = zero(src)
         for (t, trg) in zip(tcol, sr.target.points)
