@@ -1,0 +1,7 @@
+[deps]
+GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
+Mooncake = "da2b9cff-9c12-43a0-ae48-6db2b0edb7d6"
+OptimalTransport = "7e02d93a-ae51-4f58-b602-d97af76e3b33"
+PointCloudRegistration = "afb9b67c-ae14-49fb-afbe-36d52467eca1"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
