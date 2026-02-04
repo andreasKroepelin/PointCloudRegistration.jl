@@ -10,4 +10,5 @@ function correspondences end
 
 function register_sinkhorn end
 function register_divfree end
+function register_kc_springs end
 
