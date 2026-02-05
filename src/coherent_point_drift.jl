@@ -164,3 +164,11 @@ function _register_cpd(
         target_representatives,
     )
 end
+
+function _register_bcpd()
+    # links:
+    # https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8985307
+    # https://ieeexplore.ieee.org/ielx7/34/9448371/8985307/supp1-2971687.pdf?arnumber=8985307
+    # https://proceedings.neurips.cc/paper/2000/file/19de10adbaa1b2ee13f77f679fa1483a-Paper.pdf
+    # https://en.wikipedia.org/wiki/Low-rank_matrix_approximations
+end
