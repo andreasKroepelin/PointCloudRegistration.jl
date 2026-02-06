@@ -165,6 +165,42 @@ function _register_cpd(
     )
 end
 
+struct LargeAffinityMatrixPrep
+    target_kdtree
+    target_affinity_matrix
+    sigma_threshold
+end
+
+struct NystromAffinityApproximation
+    source_sample_affinity_matrix
+    sample_affinity_matrix
+    sample_target_affinity_matrix
+end
+
+struct SparseAffinityApproximation{T}
+    affinity_matrix::SparseMatrixCSC{T, Int}
+end
+
+function build_affinity_matrix(prep, source, target, sigma)
+    if sigma < prep.sigma_threshold
+        idcss = inrange(prep.target_kdtree, source.points, 3sigma)
+        sort!.(idcss)
+        values = mapreduce(vcat, idcss, source.points) do idcs, src
+            map(idcs) do idx
+                exp(sqeuclidean(src, target.points[idx]) / (-2sigma^2))
+            end
+        end
+        return SparseMatrixCSC(
+            length(target.points),
+            length(source.points),
+            [1; cumsum(length.(idcss)) .+ 1],
+            reduce(vcat, idcss),
+            values
+        )
+    else
+    end
+end
+
 function _register_bcpd()
     # links:
     # https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8985307
