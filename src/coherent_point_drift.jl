@@ -173,33 +173,47 @@ end
 
 struct NystromAffinityApproximation
     source_sample_affinity_matrix
-    sample_affinity_matrix
+    inv_sample_affinity_matrix
     sample_target_affinity_matrix
+end
+
+function NystromAffinityApproximation(prep, source, target, sigma)
+    num_samples = 1000
 end
 
 struct SparseAffinityApproximation{T}
     affinity_matrix::SparseMatrixCSC{T, Int}
 end
 
+function SparseAffinityApproximation(prep, source, target, sigma)
+    idcss = inrange(prep.target_kdtree, source.points, 3sigma)
+    sort!.(idcss)
+    values = mapreduce(vcat, idcss, source.points) do idcs, src
+        map(idcs) do idx
+            exp(sqeuclidean(src, target.points[idx]) / (-2sigma^2))
+        end
+    end
+    matrix = SparseMatrixCSC(
+        length(target.points),
+        length(source.points),
+        [1; cumsum(length.(idcss)) .+ 1],
+        reduce(vcat, idcss),
+        values
+    )
+
+    return SparseAffinityApproximation(matrix)
+end
+
 function build_affinity_matrix(prep, source, target, sigma)
     if sigma < prep.sigma_threshold
-        idcss = inrange(prep.target_kdtree, source.points, 3sigma)
-        sort!.(idcss)
-        values = mapreduce(vcat, idcss, source.points) do idcs, src
-            map(idcs) do idx
-                exp(sqeuclidean(src, target.points[idx]) / (-2sigma^2))
-            end
-        end
-        return SparseMatrixCSC(
-            length(target.points),
-            length(source.points),
-            [1; cumsum(length.(idcss)) .+ 1],
-            reduce(vcat, idcss),
-            values
-        )
+        SparseAffinityApproximation(prep, source, target, sigma)
     else
+        NystromAffinityApproximation(prep, source, target, sigma)
     end
 end
+
+dense_affinity_matrix(points1, points2, sqsigma) =
+    [exp(sqeuclidean(p1, p2) / (-2sqsigma)) for p1 in points1, p2 in points2]
 
 function _register_bcpd()
     # links:
@@ -207,4 +221,41 @@ function _register_bcpd()
     # https://ieeexplore.ieee.org/ielx7/34/9448371/8985307/supp1-2971687.pdf?arnumber=8985307
     # https://proceedings.neurips.cc/paper/2000/file/19de10adbaa1b2ee13f77f679fa1483a-Paper.pdf
     # https://en.wikipedia.org/wiki/Low-rank_matrix_approximations
+
+    displaced_source_points = similar(source.points)
+    aligned_target_points = similar(source.points)
+    I = length(target.points)
+    J = length(source.points)
+    sqsigma = 1/N * mean(
+        splat(sqeuclidean),
+        Iterators.product(source.points, target.points),
+    )
+    G = dense_affinity_matrix(source.points, source.points, sqregscale)
+    b = fill(exp(-N / 2sqsigma) / J, J)
+    outlier_preterm = outlier_p / (1 - outlier_p) / bbox_hypervolume(target)
+    correspondences = zeros(J, I)
+    correspondences_col_sums = similar(correspondences, 1, I)
+    correspondences_row_sums = similar(correspondences, J, 1)
+
+    for iter in 1:100
+        S = dense_affinity_matrix(displaced_source_points, target.points)
+        for j in 1:J, i in 1:I
+            dsrc = displaced_source_points[j]
+            trg = target.points[i]
+            src_w = source.weights[j]
+            trg_w = target.weights[i]
+            kernel = exp(sqeuclidean(dsrc, trg) / (-2sqsigma))
+            correspondences[j, i] = trg_w * src_w * b[j] * kernel
+        end 
+        sum!(correspondences_col_sums, correspondences)
+        outlier_term = outlier_preterm * (2pi * sqsigma)^(N / 2)
+        correspondences ./= outlier_term .+ correspondences_col_sums
+        correspondences_col_sums ./= outlier_term .+ correspondences_col_sums
+        sum!(correspondences_row_sums, correspondences)
+        aligned_target_rows = eachrow(to_matrix(aligned_target_points))
+        target_rows = eachrow(to_matrix(target.points))
+        for (atrow, trow) in zip(aligned_target_rows, target_rows)
+            mul!(atrow, correspondences, trow)
+        end
+    end
 end

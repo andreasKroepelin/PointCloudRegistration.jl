@@ -46,6 +46,8 @@ to_vec_of_svec(arg::Any) = throw(
     ),
 )
 
+to_matrix(vecs::VecOfSVec{N, T}) = reinterpret(reshape, T, vecs)
+
 """
 Representation of a weighted point cloud.
 An instance `pc` of `PointCloud{N, T}` stores `N`-dimensional points with
