@@ -227,7 +227,23 @@ with a cut off distance $D$.
 
 
 == Non-rigid registration
-=== Coherent Point Drift
+=== Bayesian Coherent Point Drift
+It is convenient to collect the target points $bold(x)_1, ..., bold(x)_I in
+RR^D$ and the source points $bold(y)_1, ..., bold(y)_J in RR^D$ into matrices
+$bold(X) in RR^(D times I)$ and $bold(Y) in RR^(D times J)$, respectively.
+Compute $bold(G) in RR^(J times J)$ with entries
+$
+  g_(i j) = exp(- norm(bold(y)_i - bold(y)_j)^2 / (2 beta^2)) .
+$
+
+Initialize:
+- $sigma^2 = 1 / (I J D) sum_(i j) norm(bold(x)_i - bold(y)_j)^2$
+- $bold(Sigma) = bold(I) in RR^(J times J)$
+- $bold(b) = 1 / J exp(- D / (2sigma^2)) bold(1) in RR^J$
+- $bold(v)_1, ..., bold(v)_J = bold(0) in RR^D$
+
+In every iteration:
+- Set $p_(j i) = b_j exp(- norm(bold(y)_j + bold(v)_j - bold(x)_i)^2 / (2 sigma^2))$
 
 === Divergence Free Interpolation
 We implement the method described in @divfree.

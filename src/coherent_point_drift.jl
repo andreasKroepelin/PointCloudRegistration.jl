@@ -223,6 +223,7 @@ function _register_bcpd()
     # https://en.wikipedia.org/wiki/Low-rank_matrix_approximations
 
     displaced_source_points = similar(source.points)
+    displacements = similar(source.points)
     aligned_target_points = similar(source.points)
     I = length(target.points)
     J = length(source.points)
@@ -231,11 +232,13 @@ function _register_bcpd()
         Iterators.product(source.points, target.points),
     )
     G = dense_affinity_matrix(source.points, source.points, sqregscale)
+    lambda_invG = Symmetric(regcoeff * inv(G))
     b = fill(exp(-N / 2sqsigma) / J, J)
     outlier_preterm = outlier_p / (1 - outlier_p) / bbox_hypervolume(target)
     correspondences = zeros(J, I)
     correspondences_col_sums = similar(correspondences, 1, I)
     correspondences_row_sums = similar(correspondences, J, 1)
+    unregularized_displacements = similar(to_matrix(source.points))
 
     for iter in 1:100
         S = dense_affinity_matrix(displaced_source_points, target.points)
@@ -257,5 +260,11 @@ function _register_bcpd()
         for (atrow, trow) in zip(aligned_target_rows, target_rows)
             mul!(atrow, correspondences, trow)
         end
+
+        invSigma = sqsimga * lambda_invG + Diagonal(vec(correspondences_row_sums))
+        Sigma = inv(invSigma)
+
+        unregularized_displacements .= to_matrix(aligned_target_points)
+        unregularized_displacements .-= to_matrix(source.points) * Diagonal(vec(correspondences_row_sums))
     end
 end
