@@ -7,6 +7,7 @@ using CoordinateTransformations
 using Rotations
 using Distances
 using NearestNeighbors
+using SpecialFunctions
 using SparseArrays
 using LinearAlgebra
 using Random

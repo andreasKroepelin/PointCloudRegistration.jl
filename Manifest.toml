@@ -1,8 +1,8 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.12.4"
+julia_version = "1.12.5"
 manifest_format = "2.0"
-project_hash = "e3aaaaa47442f00b65d95592cd239e504cc4b493"
+project_hash = "74032e0e60afa45a4611de0902b0ca8dfded3dad"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "f7304359109c768cf32dc5fa2d371565bb63b68a"
@@ -2038,7 +2038,7 @@ uuid = "42171d58-473b-503a-8d5f-782019eb09ec"
 version = "1.2.0"
 
 [[deps.PointCloudRegistration]]
-deps = ["Accessors", "ArgCheck", "CoordinateTransformations", "Distances", "FillArrays", "LinearAlgebra", "NearestNeighbors", "PrecompileTools", "Random", "Rotations", "StaticArrays", "Statistics", "StatsBase"]
+deps = ["Accessors", "ArgCheck", "CoordinateTransformations", "Distances", "FillArrays", "LinearAlgebra", "NearestNeighbors", "PrecompileTools", "Random", "Rotations", "SparseArrays", "StaticArrays", "Statistics", "StatsBase"]
 path = "."
 uuid = "afb9b67c-ae14-49fb-afbe-36d52467eca1"
 version = "0.1.0"
@@ -2384,9 +2384,9 @@ version = "0.1.2"
 
 [[deps.SpecialFunctions]]
 deps = ["IrrationalConstants", "LogExpFunctions", "OpenLibm_jll", "OpenSpecFun_jll"]
-git-tree-sha1 = "f2685b435df2613e25fc10ad8c26dddb8640f547"
+git-tree-sha1 = "5acc6a41b3082920f79ca3c759acbcecf18a8d78"
 uuid = "276daf66-3868-5448-9aa4-cd146d93841b"
-version = "2.6.1"
+version = "2.7.1"
 weakdeps = ["ChainRulesCore"]
 
     [deps.SpecialFunctions.extensions]

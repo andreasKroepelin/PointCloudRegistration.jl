@@ -212,8 +212,10 @@ function build_affinity_matrix(prep, source, target, sigma)
     end
 end
 
-dense_affinity_matrix(points1, points2, sqsigma) =
-    [exp(sqeuclidean(p1, p2) / (-2sqsigma)) for p1 in points1, p2 in points2]
+struct BcpdRegistration{C, D}
+    correspondences::C
+    displacements::D
+end
 
 function _register_bcpd()
     # links:
@@ -224,47 +226,53 @@ function _register_bcpd()
 
     displaced_source_points = similar(source.points)
     displacements = similar(source.points)
+    unregularized_displacements = similar(source.points)
+    fill!(displacements, zero(eltype(displacements)))
     aligned_target_points = similar(source.points)
     I = length(target.points)
     J = length(source.points)
-    sqsigma = 1/N * mean(
-        splat(sqeuclidean),
-        Iterators.product(source.points, target.points),
-    )
-    G = dense_affinity_matrix(source.points, source.points, sqregscale)
+    R = [sqeuclidean(src, trg) for src in source.points, trg in target.points]
+    sqsigma = sum(R) / (I * J * N)
+    G = [
+        exp(sqeuclidean(src1, src2) / (-2sqregscale))
+        for src1 in source.points, src2 in source.points
+    ]
     lambda_invG = Symmetric(regcoeff * inv(G))
     b = fill(exp(-N / 2sqsigma) / J, J)
     outlier_preterm = outlier_p / (1 - outlier_p) / bbox_hypervolume(target)
-    correspondences = zeros(J, I)
-    correspondences_col_sums = similar(correspondences, 1, I)
-    correspondences_row_sums = similar(correspondences, J, 1)
-    unregularized_displacements = similar(to_matrix(source.points))
+    C = float.(target.weights .* source.weights')
+    e = sum(C; dims = 1)
+    d = sum(C; dims = 2)
+    Z = sum(d)
+    avg_displacement_sqsigma = 0
 
     for iter in 1:100
-        S = dense_affinity_matrix(displaced_source_points, target.points)
-        for j in 1:J, i in 1:I
-            dsrc = displaced_source_points[j]
-            trg = target.points[i]
-            src_w = source.weights[j]
-            trg_w = target.weights[i]
-            kernel = exp(sqeuclidean(dsrc, trg) / (-2sqsigma))
-            correspondences[j, i] = trg_w * src_w * b[j] * kernel
-        end 
-        sum!(correspondences_col_sums, correspondences)
-        outlier_term = outlier_preterm * (2pi * sqsigma)^(N / 2)
-        correspondences ./= outlier_term .+ correspondences_col_sums
-        correspondences_col_sums ./= outlier_term .+ correspondences_col_sums
-        sum!(correspondences_row_sums, correspondences)
-        aligned_target_rows = eachrow(to_matrix(aligned_target_points))
-        target_rows = eachrow(to_matrix(target.points))
-        for (atrow, trow) in zip(aligned_target_rows, target_rows)
-            mul!(atrow, correspondences, trow)
+        for j in 1:J
+            dsrc = source.points[j] + displacements[j]
+            for i in 1:I
+                trg = target.points[i]
+                R[i, j] = sqeuclidean(dsrc, trg)
+            end
         end
+        sqsigma = dot(vec(R), vec(C)) / (Z * N) + avg_displacement_sqsigma
+        expfactor = inv(-2 * sqsigma)
+        @. C = target.weights * source.weights' * b' * exp(expfactor * R)
+        sum!(d, C)
+        outlier_term = outlier_preterm * (2pi * sqsigma)^(N / 2)
+        C ./= outlier_term .+ d
+        d ./= outlier_term .+ d
+        sum!(e, C)
+        Z = sum(e)
+        mul!(to_matrix(aligned_target_points), to_matrix(target.points), C)
+        unregularized_displacements .= aligned_target_points .- e .* source.points
 
-        invSigma = sqsimga * lambda_invG + Diagonal(vec(correspondences_row_sums))
+        invSigma = lambda_invG + Diagonal(vec(e) ./ sqsigma)
         Sigma = inv(invSigma)
-
-        unregularized_displacements .= to_matrix(aligned_target_points)
-        unregularized_displacements .-= to_matrix(source.points) * Diagonal(vec(correspondences_row_sums))
+        mul!(to_matrix(displacements), to_matrix(unregularized_displacements), Sigma)
+        displacements ./= sqsigma
+        diag_Sigma = diagview(Sigma)
+        @. b = exp(digamma(1 + e) - digamma(J + Z) + expfactor * N * diag_Sigma)
     end
+
+    return BcpdRegistration(C, displacements)
 end

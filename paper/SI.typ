@@ -1,3 +1,4 @@
+#import "@preview/lovelace:0.3.0": pseudocode-list
 // #set page(margin: 1mm, width: 210mm - 25mm, height: 297mm - 25mm)
 #set text(
   size: 13pt,
@@ -28,6 +29,7 @@
 
 #let SE = $op("SE")$
 #let trp = $upright(sans(T))$
+#let Diag = $op("Diag")$
 
 #[
   #set align(center)
@@ -235,15 +237,60 @@ Compute $bold(G) in RR^(J times J)$ with entries
 $
   g_(i j) = exp(- norm(bold(y)_i - bold(y)_j)^2 / (2 beta^2)) .
 $
+Compute the volume $B$ of the target's bounding box.
 
 Initialize:
-- $sigma^2 = 1 / (I J D) sum_(i j) norm(bold(x)_i - bold(y)_j)^2$
 - $bold(Sigma) = bold(I) in RR^(J times J)$
+- $macron(sigma)^2 = 0$
 - $bold(b) = 1 / J exp(- D / (2sigma^2)) bold(1) in RR^J$
 - $bold(v)_1, ..., bold(v)_J = bold(0) in RR^D$
+- $c_(i j) = 1$
+- $Z = I J$
 
 In every iteration:
-- Set $p_(j i) = b_j exp(- norm(bold(y)_j + bold(v)_j - bold(x)_i)^2 / (2 sigma^2))$
+#pseudocode-list[
+  + $r_(i j) := norm(bold(y)_j + bold(v)_j - bold(x)_i)^2$
+  + $sigma^2 := 1 / (Z D) sum_(i j) c_(i j) r_(i j) quad + quad macron(sigma)^2$
+  + Set $c_(i j) := p_i q_j b_j exp(- r_(i j) / (2 sigma^2))$
+  + Set $o := omega / ((1 - omega) B) (2pi sigma^2)^(D slash 2)$
+  + Set $d_i := sum_j c_(i j)$
+  + Set $c_(i j) := c_(i j) slash (d_i + o)$
+  + Set $d_i := d_i slash (d_i + o)$
+  + Set $e_j := sum_i c_(i j)$
+  + $Z := sum_j e_j$
+  + Set $hat(bold(X)) := bold(X) bold(C)$
+  // + Set $hat(bold(V)) := hat(bold(X)) - bold(Y) Diag(bold(e))$
+  + $hat(bold(v))_j := hat(bold(x))_j - e_j bold(y)_j$
+  + Set $bold(Sigma) := (lambda G^(-1) + 1/sigma^2 Diag(bold(e)))^(-1)$
+  + $bold(V) := 1 / sigma^2 hat(bold(V)) bold(Sigma)$
+  + $b_j := exp(psi(kappa + e_j) - psi(kappa J + Z) - (D sigma_j^2) / (2 sigma^2))$
+  + $macron(sigma)^2 := 1 / Z sum_j e_j sigma_j^2$
+]
+
+$
+  sigma^2 &:=
+  1 / (hat(I) D)
+  ( sum_i d_i bold(x)_i^trp bold(x)_i
+    - 2sum_(i j) c_(j i) bold(x)_i^trp (bold(y)_j + bold(v)_j)
+    + sum_j e_j (bold(y)_j + bold(v)_j)^trp (bold(y)_j + bold(v)_j) )
+  + macron(sigma)^2
+  \ &=
+  1 / (hat(I) D)
+  ( sum_(i j) c_(j i) bold(x)_i^trp bold(x)_i
+    - 2sum_(i j) c_(j i) bold(x)_i^trp (bold(y)_j + bold(v)_j)
+    + sum_(i j) c_(j i) (bold(y)_j + bold(v)_j)^trp (bold(y)_j + bold(v)_j) )
+  + macron(sigma)^2
+  \ &=
+  1 / (hat(I) D)
+  sum_(i j) c_(j i) (bold(x)_i^trp bold(x)_i
+    - 2 bold(x)_i^trp (bold(y)_j + bold(v)_j)
+    + (bold(y)_j + bold(v)_j)^trp (bold(y)_j + bold(v)_j) )
+  + macron(sigma)^2
+  \ &=
+  1 / (hat(I) D)
+  sum_(i j) c_(j i) norm(bold(y)_j + bold(v)_j - bold(x)_i)^2
+  + macron(sigma)^2
+$
 
 === Divergence Free Interpolation
 We implement the method described in @divfree.
