@@ -8,13 +8,14 @@ using GLMakie
 # X, Y = PointCloudRegistration.Assets.load_1ake_A_4ake_A()
 # X, Y = PointCloudRegistration.Assets.load_1su4_A_1iwo_A()
 X, Y = PointCloudRegistration.Assets.load_1ih7_A_1ig9_A()
-X = PointCloud(collect(X.points))
-Y = PointCloud(collect(Y.points))
+X = PointCloud(collect(map(x -> Float64.(x), X.points)))
+Y = PointCloud(collect(map(x -> Float64.(x), Y.points)))
 T_rigid = register_kc(Y, X)
 Y = T_rigid(Y)
 
 registrations = (
     kc_springs = register_kc_springs(Y, X; stiffness = 1//100, iterations = 10_000),
+    divfree = register_divfree(Y, X; scale = 3.0, degree = 3),
     sinkhorn = register_sinkhorn(Y, X),
     bcpd = register_bcpd(Y, X; corr_length = 10., expected_displacement = 6.5, outlier_proportion = .01),
 )
