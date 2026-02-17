@@ -1,4 +1,4 @@
-# using Revise
+using Revise
 using PointCloudRegistration
 using Mooncake
 using OptimalTransport
@@ -6,12 +6,20 @@ using LinearAlgebra
 using GLMakie
 
 # X, Y = PointCloudRegistration.Assets.load_1ake_A_4ake_A()
+# X, Y = PointCloudRegistration.Assets.load_1su4_A_1iwo_A()
 X, Y = PointCloudRegistration.Assets.load_1ih7_A_1ig9_A()
 X = PointCloud(collect(X.points))
 Y = PointCloud(collect(Y.points))
 T_rigid = register_kc(Y, X)
 Y = T_rigid(Y)
 
+registrations = (
+    kc_springs = register_kc_springs(Y, X; stiffness = 1//100, iterations = 10_000),
+    sinkhorn = register_sinkhorn(Y, X),
+    bcpd = register_bcpd(Y, X; corr_length = 10., expected_displacement = 6.5, outlier_proportion = .01),
+)
+
+#=
 function report_iteration(; iter, gradient, displaced_source_points, kwargs...)
     mod(iter, 100) == 0 || return
     @info "iteration" iter norm(gradient)
@@ -39,6 +47,23 @@ let
     axislegend(ax)
     fig
 end
+=#
 
-registration = register_sinkhorn(Y, X)
-Y_disp = apply_displacements(Y, displacements(registration))
+
+heatmap(correspondences(registrations.bcpd))
+
+Ys_disp = map(registrations) do registration
+    apply_displacements(Y, displacements(registration))
+end
+
+let
+    key = :sinkhorn
+    fig = Figure()
+    ax = Axis3(fig[1, 1]; aspect = :data)
+    src_plt = plot!(ax, Y; label = "source")
+    trg_plt = plot!(ax, X; label = "target")
+    # plot!(ax, Ys_disp[key]; label = "displaced source")
+    arrows3d!(ax, Y.points, displacements(registrations[key]); label = "displacement")
+    axislegend(ax)
+    fig
+end
