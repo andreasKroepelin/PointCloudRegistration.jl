@@ -1,0 +1,4 @@
+build:
+	pandoc src/content.typ --output src/content.tex
+	sed -i "s/mathbf/bm/g" src/content.tex
+	tectonic -X build

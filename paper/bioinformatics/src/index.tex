@@ -65,11 +65,10 @@ Supplementary data are available at \textit{Bioinformatics} online.
 
 \maketitle
 
-\section{Introduction}
+\input{content.tex}
 
-\section{Scope of the package}
-
-This package adresses researchers and practioners within structural
+\section{Old}
+This package addresses researchers and practioners within structural
 bioinformatics and beyond who work with point cloud data.
 Point clouds representing biological macromolecules were a prime consideration
 during the development but no biological features are specifically assumed.
@@ -246,7 +245,18 @@ to experiments.
 \section{Non-rigid registration}
 
 To adress more finegrained differences between the source and target point
-cloud, the package also offers a function to perform non-rigid registration.
+cloud, the package also offers functions to perform non-rigid registration.
+Here, the task is to find new source points $\hat{\bm{y}}_1, ..., \hat{\bm{y}}_J
+\in \mathbb{R}^d$ that establish a trade-off between matching the target and
+bearing a resemblance to the source.
+Different approaches to non-rigid registration quantify these two objectives
+differently.
+
+\subsection{Coherent Point Drift}
+Several methods estimate soft correspondences between source and target during
+the non-rigid registration.
+In an expectation-maximization fashion, this estimation is alternated with
+finding displacement
 We opted for implementing the \emph{Coherent Point Drift} method.
 This estimates a displacement vector $\bm{v}_j \in \mathbb{R}^d$ for every
 point in the source cloud such that the displaced source matches the target

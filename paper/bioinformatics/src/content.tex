@@ -1,0 +1,39 @@
+\section{Introduction}
+
+Point clouds, i.e. sets of points in some \(D\)-dimensional space, are a
+versatile model for physical objects in many disciplines, from laser
+scans in computer vision to particle models of molecules in structural
+biology. Typical operations on pairs of point clouds, such as their
+union, intersection, or more complex comparisons, rely on a common
+reference frame. However, the observation process generating the point
+coordinates often cannot easily provide it. Hence, \emph{registration}
+of point clouds (also known as \emph{alignment} or \emph{superimposing})
+is a key tool at the beginning of many analysis workflows. This can
+consist of either \emph{rigid} registration (one point cloud can be
+rotated and translated to match the other) or \emph{non-rigid}
+registration (more intricate transformations are allowed).
+
+For performance critical computations involving point clouds,
+researchers and practitioners might turn to the fast and
+research-appropriate language Julia. While different packages in its
+ecosystem provide implementations of basic registration algorithms,
+there is no comprehensive library covering the diverse use cases of
+rigid and non-rigid registration, to our knowledge. The presented
+package aims to fill this gap.
+
+\section{Scope of the package}
+
+PointCloudRegistration.jl addresses applications within structural
+biology and beyond concerning point cloud data. Point clouds
+representing biological macromolecules were a prime consideration during
+the development but no biological features are specifically assumed.
+This also means that no surface or normal information is required or
+used.
+
+The package is intended for the following general setting: Given two
+weighted \(D\)-dimensional point clouds, a \emph{target} \(X\) with
+points \({\bm{x}}_{1},\ldots,{\bm{x}}_{I} \in {\mathbb{R}}^{D}\)
+and weights \(p_{1},\ldots,p_{I}\) as well as a \emph{source} with
+points \({\bm{y}}_{1},\ldots,{\bm{y}}_{J} \in {\mathbb{R}}^{D}\)
+and weights \(q_{1},\ldots,q_{J}\), we want to find a rigid or non-rigid
+transformation that maps the source onto the target in some optimal way.
