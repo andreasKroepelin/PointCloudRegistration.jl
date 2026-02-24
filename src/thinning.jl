@@ -27,6 +27,9 @@ function remove_empty!(dp::DpMeansState; relabel::Bool)
     (; centers, weightsums, indicators, permutation, tree) = dp
     n = length(centers)
     first_empty_idx = count(!iszero, weightsums) + 1
+    if first_empty_idx > n
+        return nothing
+    end
     if first_empty_idx > 1
         resize!(permutation, n)
         sortperm!(permutation, weightsums; by = iszero)
@@ -128,6 +131,7 @@ function thin_to_distance(
                 change += w
             end
         end
+        recenter!(state, pc)
         relchange = change/pc.sum_of_weights
         report_iteration(;
             iteration,
@@ -137,7 +141,6 @@ function thin_to_distance(
         )
         relchange < convergence && break
 
-        recenter!(state, pc)
         remove_empty!(state; relabel = true)
     end
 

@@ -139,7 +139,7 @@ end
 # point cloud.
 
 pointclouds_foreground = map(pointclouds_full) do pc
-    drop_quantile(pc, .995)
+    drop_quantile(pc, .92)
 end;
 
 # The same region from before now looks like this:
@@ -157,7 +157,7 @@ end
 # We can thin them to a nearest neighbor distance of roughly 10 (pixels).
 
 pointclouds_thinned = map(pointclouds_foreground) do pc
-    thin_to_distance(pc, 10.)
+    thin_to_distance(pc, 15.)
 end;
 
 # This looks much less cluttered now:
@@ -216,15 +216,16 @@ let
     fig = Figure()
     ax = Axis(fig[1, 1]; aspect = DataAspect())
     hidedecorations!(ax)
-    # sl = Slider(fig[1, 2]; range = eachindex(imgs), horizontal = false) #src
-    idx = Observable(1)
+    sl = Slider(fig[1, 2]; range = eachindex(imgs), horizontal = false) #src
+    idx = sl.value
+    # idx = Observable(1)
     image!(ax, @lift(reg_imgs[$idx]))
     plot!(ax, @lift(reg_pointclouds[$idx]); color = :lime)
     resize_to_layout!(fig)
-    Record(fig, eachindex(imgs); framerate = 10) do i
-        idx[] = i
-    end
-    # fig #src
+    # Record(fig, eachindex(imgs); framerate = 10) do i
+    #     idx[] = i
+    # end
+    fig #src
 end
 
 # To analyse the results in detail, let us write a short helper function
@@ -271,6 +272,32 @@ let
     rowgap!(fig.layout, 5)
     colgap!(fig.layout, 5)
     resize_to_layout!(fig)
-    save("../../paper/bioinformatics/src/img/biotisr.png", fig) #src
+    # save("../../paper/bioinformatics/src/img/biotisr.png", fig) #src
+    fig
+end
+
+source = reg_pointclouds[3]
+registration = register_bcpd(source, reg_pointclouds[1]; corr_length = 20.0, expected_displacement = 30.0, outlier_proportion = 0.01)
+# evals = register_bcpd(source, reg_pointclouds[1]; corr_length = 50.0, expected_displacement = 50.0, outlier_proportion = 0.01)
+
+heatmap(correspondences(registration))
+
+let
+    fig = Figure()
+    ax = Axis(fig[1, 1]; aspect = DataAspect())
+    img_toggle = Toggle(fig[2, 1]; tellwidth = false, tellheight = true)
+    img_plt = image!(ax, reg_imgs[1])
+    on(img_toggle.active) do is_active
+        if is_active
+            Makie.update!(img_plt; arg1 = reg_imgs[3])
+        else
+            Makie.update!(img_plt; arg1 = reg_imgs[1])
+        end
+    end
+    # plot!(ax, source)
+    # plot!(ax, reg_pointclouds[1])
+    # plot!(ax, apply_displacements(source, displacements(registration)))
+    smw = maximum(source.weights)
+    arrows2d!(ax, source.points, displacements(registration); color = [(:lime, w / smw) for w in source.weights])
     fig
 end
