@@ -37,3 +37,16 @@ and weights \(p_{1},\ldots,p_{I}\) as well as a \emph{source} with
 points \({\bm{y}}_{1},\ldots,{\bm{y}}_{J} \in {\mathbb{R}}^{D}\)
 and weights \(q_{1},\ldots,q_{J}\), we want to find a rigid or non-rigid
 transformation that maps the source onto the target in some optimal way.
+
+In summary, these features are provided by the package: Rigid
+registration with known point-to-point correspondences via minimizing
+the \emph{root mean square displacement}, the \emph{mean absolute
+displacement}, and the \emph{Geman-McClure loss}. Rigid registration
+with unknown correspondences via maximizing the \emph{kernel
+correlation} and the \emph{iterative closest point} method. Non-rigid
+registration via \emph{Bayesian coherent point drift}, \emph{divergence
+free shape interpolation}, \emph{optimal transport}, and \emph{kernel
+correlation maximization with a Gaussian network model}. Thinning of
+point clouds via \emph{\(k\)-means} and \emph{DP-means}.
+
+\section{Rigid registration}

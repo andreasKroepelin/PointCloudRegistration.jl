@@ -1,3 +1,8 @@
+#set page(columns: 2)
+#set text(font: "New Computer Modern")
+#set par(justify: true, spacing: .6em, first-line-indent: 1em)
+
+
 = Introduction
 Point clouds, i.e. sets of points in some $D$-dimensional space, are a versatile
 model for physical objects in many disciplines, from laser scans in computer
@@ -32,3 +37,19 @@ $𝒙_1, ..., 𝒙_I in RR^D$ and weights $p_1, ..., p_I$ as well as a _source_ 
 points $𝒚_1, ..., 𝒚_J in RR^D$ and weights $q_1, ..., q_J$, we want to find a
 rigid or non-rigid transformation that maps the source onto the target in some
 optimal way.
+
+In summary, these features are provided by the package:
+Rigid registration with known point-to-point correspondences via minimizing the
+_root mean square displacement_, the _mean absolute displacement_, and the
+_Geman-McClure loss_.
+Rigid registration with unknown correspondences via maximizing the _kernel
+correlation_ and the _iterative closest point_ method.
+Non-rigid registration via _Bayesian coherent point drift_, _divergence free
+shape interpolation_, _optimal transport_, and _kernel correlation maximization
+with a Gaussian network model_.
+Thinning of point clouds via _$k$-means_ and _DP-means_.
+
+= Rigid registration
+
+
+
