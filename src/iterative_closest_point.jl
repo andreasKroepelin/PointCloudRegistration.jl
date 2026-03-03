@@ -39,8 +39,6 @@ function _register_icp(
     T = promote_type(TS, TT)
 
     target_tree = KDTree(target.points)
-    idcs = [1]
-    dists = [zero(T)]
     best = worst(transformation_type(Val(N), T))
     restarts_iter = restarts_iterator(source, target, restarts)
     for (restart, transformation) in enumerate(restarts_iter)
@@ -55,12 +53,10 @@ function _register_icp(
 
             for j in eachindex(source.points)
                 src = source.points[j]
-                knn!(idcs, dists, target_tree, transformation(src), 1)
-                dist = only(dists)
+                i, dist = nn(target_tree, transformation(src))
                 if dist > dist_cutoff
                     continue
                 end
-                i = only(idcs)
                 trg = target.points[i]
                 w = source.weights[j] * target.weights[i]
 
