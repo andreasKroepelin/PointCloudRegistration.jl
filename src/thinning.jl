@@ -201,6 +201,26 @@ function thin_to_number(
     PointCloud(centers, weightsums)
 end
 
+function thin_to_grid(pc::PointCloud, gridsize)
+    lo, hi = bbox(pc)
+    grid = Grid(lo, hi, gridsize)
+    centers = zeros(eltype(pc.points), size(grid)...)
+    weightsums = zeros(typeof(pc.sum_of_weights), size(grid)...)
+    for (point, weight) in zip(pc.points, pc.weights)
+        idx = idx_on_grid(point, grid)
+        centers[idx] += weight * point
+        weightsums[idx] += weight
+    end
+    points = eltype(centers)[]
+    weights = eltype(weightsums)[]
+    for (center, weightsum) in zip(centers, weightsums)
+        iszero(weightsum) && continue
+        push!(points, center / weightsum)
+        push!(weights, weightsum)
+    end
+    return PointCloud(points, weights)
+end
+
 function drop_threshold(pc::PointCloud, threshold::Number)
     pc[pc.weights .>= threshold]
 end
