@@ -67,11 +67,11 @@ target = drop_threshold(target_full, author_threshold)
 
 # The second step is to perform thinning on the target to reduce the
 # computational burden later on.
-# We define a target resolution of 5 Å and thin our pointcloud to that nearest
-# neighbor distance:
+# We define a grid cell width of 5 Å and thin our pointcloud to a grid of that
+# size:
 
 resolution = 5.0f0 # Å
-target_thinned = thin_to_distance(target, resolution)
+target_thinned = thin_to_grid(target, resolution)
 
 # We can check that it worked by measuring the average nearest neighbor distance
 # in the result.
