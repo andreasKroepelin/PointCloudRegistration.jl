@@ -148,7 +148,7 @@ Wrap a list of points and explicit weights as a `PointCloud`.
 """
 function PointCloud(points::VecOfSVec, weights::AbstractVector)
     @argcheck length(points) == length(weights) "number of points must match number of weights"
-    @argcheck all(>=(0), weights) "weights must be non-negative"
+    any(<(0), weights) && @warn "weights must be non-negative" minimum(weights)
     weights_cumsum = cumsum(weights)
     sum_of_weights = if isempty(weights)
         zero(eltype(weights))
