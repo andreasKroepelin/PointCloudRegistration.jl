@@ -4,6 +4,8 @@ default_scale() = TargetScales()
 
 @inline no_report(; kwargs...) = nothing
 
+fillzeros!(arr) = fill!(arr, zero(eltype(arr)))
+
 wsum(points, weights) = wsum(identity, points, weights)
 
 function wsum(f, points::VecOfSVec, weights)

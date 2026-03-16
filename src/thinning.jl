@@ -73,8 +73,8 @@ function newcluster!(dp::DpMeansState{Vector{C}}, i::Int, center::C) where {C}
 end
 
 function recenter!(dp::DpMeansState, pc::PointCloud)
-    fill!(dp.weightsums, zero(eltype(dp.weightsums)))
-    fill!(dp.centers, zero(eltype(dp.centers)))
+    fillzeros!(dp.weightsums)
+    fillzeros!(dp.centers)
     for i in eachindex(dp.indicators, pc.points, pc.weights)
         w = pc.weights[i]
         # iszero(w) && continue
@@ -178,9 +178,9 @@ function thin_to_number(
         report_iteration(; iteration, relchange)
         relchange < convergence && break
 
-        fill!(centers, zero(eltype(centers)))
-        fill!(weightsums, zero(eltype(weightsums)))
-        fill!(clustersizes, zero(eltype(clustersizes)))
+        fillzeros!(centers)
+        fillzeros!(weightsums)
+        fillzeros!(clustersizes)
         for i in eachindex(pc.points, pc.weights, indicators)
             w = pc.weights[i]
             iszero(w) && continue

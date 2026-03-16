@@ -1,4 +1,5 @@
 module Adam
+using PointCloudRegistration: fillzeros!
 
 struct State{M}
     v::M
@@ -26,8 +27,8 @@ function step!(adam::State, g::AbstractVector, x::AbstractVector, k::Int)
 end
 
 function reset!(adam::State)
-    fill!(adam.v, zero(eltype(adam.v)))
-    fill!(adam.s, zero(eltype(adam.s)))
+    fillzeros!(adam.v)
+    fillzeros!(adam.s)
 
     return adam
 end

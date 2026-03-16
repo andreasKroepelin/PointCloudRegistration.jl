@@ -156,8 +156,8 @@ tail_idcs(ci::CartesianIndices) = CartesianIndices(Base.tail(ci.indices))
 ) where {N, T}
     init = quote
         (; grid, grid_idcs, sets_of_slices, buffer1, buffer2, gaussian) = kde!
-        fill!(buffer1, zero(T))
-        fill!(buffer2, zero(T))
+        fillzeros!(buffer1)
+        fillzeros!(buffer2)
         for (idx, weight) in zip(grid_idcs, weights)
             buffer1[idx] += weight
         end
