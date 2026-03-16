@@ -292,6 +292,71 @@ $
   + macron(sigma)^2
 $
 
+==== CPD as Gaussian Process regression
+Recall that, in Gaussian process regression, the posterior mean can be found by
+computing
+$
+  f(bold(z)_"test") = bold(G)_("test","train") (bold(G)_"train" + bold(N))^(-1) f(bold(z)_"train")
+$
+where $bold(G)_("test","train")$ is the Gram matrix of test and training data,
+$bold(G)_"train"$ is the Gram matrix of the training data with itself and
+$bold(N)$ is a diagonal matrix representing input noise.
+
+In CPD, the training _and_ test data are both the source points
+$bold(y)_1, ..., bold(y)_J$.
+The observed regression values are the difference vectors between these source
+points and their corresponding aligned target points
+$
+  hat(bold(x))_j = (sum_i c_(i j) bold(x)_i) / (sum_i c_(i j)),
+$
+i.e.
+$
+  hat(bold(v))_j = hat(bold(x))_j - bold(y)_j.
+$
+In matrix notation, we have
+$
+  hat(bold(V)) = bold(X) bold(C) underbrace(Diag(bold(1)_I^trp bold(C)), =: bold(Gamma))^(-1) - bold(Y).
+$
+Due to the coincidence of training and test data, we denote $bold(G) =
+bold(G)_("test","train") = bold(G)_"train"$ with entries
+$
+  G_(j j') = sigma_v^2 exp(- norm(bold(y)_j - bold(y)_(j'))^2 / (2 beta^2)).
+$
+The regression acts per dimension of the displacement.
+Therefore, the general GP regression posterior mean formula becomes:
+$
+  bold(V)_(k,:)^trp = bold(G) (bold(G) + bold(N))^(-1) hat(bold(V))_(k,:)^trp
+$
+for $k = 1, ..., D$.
+By concatenating these dimensions, we obtain the matrix expression
+$
+  bold(V)^trp = bold(G) (bold(G) + bold(N))^(-1) hat(bold(V))^trp
+$
+or equivalently (due to the symmetry of $bold(G)$ and $bold(N)$)
+$
+  bold(V) = hat(bold(V)) (bold(G) + bold(N))^(-1) bold(G)
+  = hat(bold(V)) (bold(G) + bold(N))^(-1) (bold(G)^(-1))^(-1)
+  = hat(bold(V)) (bold(G)^(-1) (bold(G) + bold(N)))^(-1)
+  = hat(bold(V)) (bold(I) + bold(G)^(-1) bold(N))^(-1).
+$
+
+We choose $bold(N) = sigma^2 bold(Gamma)^(-1)$ such that source
+points that correspond only weakly to target points have their displacement
+considered to be noisier.
+Let us manipulate the regression equation to decrease the computational effort.
+$
+  bold(V) &= hat(bold(V)) (bold(I) + bold(G)^(-1) bold(N))^(-1) \
+  &= hat(bold(V)) (bold(I) + bold(G)^(-1) sigma^2 bold(Gamma)^(-1))^(-1) \
+  &= hat(bold(V)) ((sigma^(-2) bold(Gamma) + bold(G)^(-1)) sigma^2 bold(Gamma)^(-1))^(-1) \
+  &= hat(bold(V)) sigma^(-2) bold(Gamma) (sigma^(-2) bold(Gamma) + bold(G)^(-1))^(-1) \
+  &= (bold(X) bold(C) bold(Gamma)^(-1) - bold(Y)) sigma^(-2) bold(Gamma) (sigma^(-2) bold(Gamma) + bold(G)^(-1))^(-1) \
+  &= sigma^(-2) (bold(X) bold(C) - bold(Y) bold(Gamma)) (sigma^(-2) bold(Gamma) + bold(G)^(-1))^(-1) \
+  &= sigma_v^2 / sigma^2 (bold(X) bold(C) - bold(Y) bold(Gamma)) (sigma_v^2 / sigma^2 bold(Gamma) + sigma_v^2 bold(G)^(-1))^(-1) \
+$
+The last reformulation helps with keeping certain operations such as the
+solution of the linear system unit-free.
+
+
 === Divergence Free Interpolation
 We implement the method described in @divfree.
 It presents a parameterization of a displacement field that is inherently
