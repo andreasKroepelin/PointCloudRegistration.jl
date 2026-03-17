@@ -98,7 +98,7 @@ function (analyzer::Analyzer)(lrt)
         ut = lo + urt * (hi - lo)
         first_mask = projected .<= ut
         first_slice = pc[first_mask]
-        T = register_kc(
+        T = rigid_kc(
             first_slice,
             prepd_second_slice;
             restarts = RandomRestarts(numrestarts),

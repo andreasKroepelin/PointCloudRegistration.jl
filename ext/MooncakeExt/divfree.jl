@@ -215,7 +215,7 @@ function PointCloudRegistration.displacements(dfr::DivFreeRegistration)
     end
 end
 
-function PointCloudRegistration.register_divfree(
+function PointCloudRegistration.nonrigid_divfree(
     source,
     target;
     scale = nothing,
@@ -226,10 +226,10 @@ function PointCloudRegistration.register_divfree(
     if isnothing(scale)
         scale = PointCloudRegistration.avg_nn_dist(target_pc)
     end
-    _register_divfree(source_pc, target_pc, scale, degree)
+    _nonrigid_divfree(source_pc, target_pc, scale, degree)
 end
 
-function _register_divfree(
+function _nonrigid_divfree(
     source::PointCloud{N},
     target::PointCloud{N},
     scale,

@@ -28,7 +28,7 @@ maxscale = 0.7 * sqrt(maximum(source.coveigvals))
 scales = logrange(maxscale, 5.0; length = 5)
 prepd_target = prepare_target_kc(target; scale = scales);
 
-twcs = register_kc(
+twcs = rigid_kc(
     source,
     prepd_target;
     accumulator = AllTransformations,
@@ -94,7 +94,7 @@ tricontourf!(
     colorscale = log10,
 )
 
-# best = register_kc(source, prepd_target; accumulator = BestTransformation, restarts = 10_000);
+# best = rigid_kc(source, prepd_target; accumulator = BestTransformation, restarts = 10_000);
 
 fig = Figure()
 ax = Axis(fig[1, 1]; autolimitaspect = 1)

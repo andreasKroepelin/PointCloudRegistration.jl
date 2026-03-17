@@ -10,7 +10,7 @@ struct SinkhornRegistration{N, C<:AbstractMatrix, PS <: PointCloud{N}, PT <: Poi
     target::PT
 end
 
-function PointCloudRegistration.register_sinkhorn(
+function PointCloudRegistration.nonrigid_sinkhorn(
     source, target; epsilon = 1.0,
 )
     source_pc = PointCloud(source)
@@ -23,10 +23,10 @@ function PointCloudRegistration.register_sinkhorn(
         target_pc.points,
         target_pc.weights ./ target_pc.sum_of_weights,
     )
-    _register_sinkhorn(source_normalized, target_normalized, epsilon)
+    _nonrigid_sinkhorn(source_normalized, target_normalized, epsilon)
 end
 
-function _register_sinkhorn(
+function _nonrigid_sinkhorn(
     source_normalized::PointCloud{N, TS},
     target_normalized::PointCloud{N, TT},
     epsilon

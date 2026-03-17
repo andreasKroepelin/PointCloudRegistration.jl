@@ -1,5 +1,5 @@
 # # Default parameters for Kernel Correlation
-# While the function [`register_kc`](@ref) has a couple of parameters to set,
+# While the function [`rigid_kc`](@ref) has a couple of parameters to set,
 # users can mostly rely on the defaults.
 # These we want to justify here.
 #
@@ -30,7 +30,7 @@ using LinearAlgebra
 using Statistics
 
 # ## Setup
-# Usually, we are only interested in the best result `register_kc` finds over
+# Usually, we are only interested in the best result `rigid_kc` finds over
 # all restarts.
 # Here, however, it makes a difference if it found a good result only once (we
 # got lucky!) or basically all the time (the choice of parameters almost
@@ -72,7 +72,7 @@ function eval_params(; source, prepd_target, iterations, smm_count)
     else
         NoSmm()
     end
-    T = register_kc(
+    T = rigid_kc(
         source,
         prepd_target;
         restarts = RandomRestarts(1000, Xoshiro(seed)),

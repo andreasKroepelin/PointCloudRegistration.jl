@@ -47,7 +47,7 @@ Ts = Dict([
     let
         @info "registering $key"
         source = pointclouds[key]
-        T = register_kc(
+        T = rigid_kc(
             source,
             prepd_target;
             restarts = PCReg.RandomRestarts(20),
@@ -87,7 +87,7 @@ let source = pointclouds["top3"]
         map(rot -> AffineMap(rot, target.mean - rot * source.mean), rotation)
     T_source = Observable{PointCloud{3, Float32}}(source)
     on(btn.clicks) do _
-        T = register_kc(
+        T = rigid_kc(
             source,
             prepd_target;
             restarts = PCReg.FixedRestarts([initT[]]),
@@ -148,7 +148,7 @@ let source = pointclouds["bun090"]
     scatter!(ax, target_sel)
     arrows2d!(ax, source_sel.points, target_sel.points .- source_sel.points)
     wait(display(fig))
-    T = register_gmc(source_sel, target_sel)
+    T = rigid_gmc(source_sel, target_sel)
     T_source_sel = T(source_sel)
     fig = Figure()
     ax = Axis3(fig[1, 1]; aspect = :data)
@@ -203,7 +203,7 @@ let
             second_slice;
             scale = logrange(0.02f0, 0.005f0; length = 5),
         )
-        T = register_kc(
+        T = rigid_kc(
             first_slice,
             prepd_second_slice;
             restarts = RandomRestarts(100),
@@ -247,7 +247,7 @@ let
                 ut = lo + urt * (hi - lo)
                 first_mask = projected .<= ut
                 first_slice = full_bunny_thinned[first_mask]
-                T = register_kc(
+                T = rigid_kc(
                     first_slice,
                     prepd_second_slice;
                     restarts = RandomRestarts(100),

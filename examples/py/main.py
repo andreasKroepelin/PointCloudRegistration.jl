@@ -23,15 +23,15 @@ def main():
     jl.seval("using PointCloudRegistration")
     print("loaded julia package")
     # for precompilation:
-    jl.register_kc(Y.T, X.T, scale=sigma, annealing=5, axisalign=True)
+    jl.rigid_kc(Y.T, X.T, scale=sigma, annealing=5, axisalign=True)
     with cl.take_time('PCR prep'):
         prepd_X = jl.prepare_target_kc(X.T, scale=sigma, annealing=5, axisalign=True)
     with cl.take_time('PCR run'):
-        transformation = jl.register_kc(Y.T, prepd_X, restarts=100)
+        transformation = jl.rigid_kc(Y.T, prepd_X, restarts=100)
     transformation.linear._jl_display()
     transformation.translation._jl_display()
     with cl.take_time('PCR kabsch'):
-        transformation = jl.register_rmsd(Y.T, X.T)
+        transformation = jl.rigid_rmsd(Y.T, X.T)
     transformation.linear._jl_display()
     transformation.translation._jl_display()
 

@@ -27,9 +27,9 @@ prepd_X = prepare_target_kc(X; scale = 0.01);
 Y = PointCloud(
     coordarray(retrievepdb("1iwo"; dir = tempdir())["A"], calphaselector),
 )
-PointCloudRegistration.register_kc_naive(Y, X; restarts = 100)
-transformation = register_kc(Y, X; restarts = 100).transformation
-transformation = PointCloudRegistration.register_kc_rff(
+PointCloudRegistration.rigid_kc_naive(Y, X; restarts = 100)
+transformation = rigid_kc(Y, X; restarts = 100).transformation
+transformation = PointCloudRegistration.rigid_kc_rff(
     Y,
     X;
     features = 50000,
@@ -45,7 +45,7 @@ cols = 2
 al = AnalysisLogger([])
 Logging.disable_logging(LogLevel(-2001))
 T = with_logger(al) do
-    register_kc(Y, prepd_X; iterations = 200, restarts = rows * cols - 1)
+    rigid_kc(Y, prepd_X; iterations = 200, restarts = rows * cols - 1)
 end
 Logging.disable_logging(Logging.Debug)
 

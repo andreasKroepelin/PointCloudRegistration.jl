@@ -32,7 +32,7 @@ end
 X = img2pc(logo, 1000)
 Y = img2pc(logo_mod, 1000)
 
-T = register_kc(Y, X)
+T = rigid_kc(Y, X)
 
 let
     fig = Figure()
@@ -46,7 +46,7 @@ end
 
 TY = T(Y)
 
-cpd = register_cpd(
+cpd = nonrigid_cpd(
     TY,
     X;
     scale = 5.0,

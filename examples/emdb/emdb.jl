@@ -129,7 +129,7 @@ target = pcs.IVA
 # prepd_target = prepare_target_kc(target; scale = DownTo(resolution));
 prepd_target = prepare_target_kc(target);
 
-T = register_kc(source, prepd_target; restarts = RandomRestarts(100))
+T = rigid_kc(source, prepd_target; restarts = RandomRestarts(100))
 
 function flipbook(pcs...; markersize = 2, interval = 0.1)
     fig = Figure()
@@ -159,7 +159,7 @@ prepd_source = PointCloudRegistration.prepare_source_cpd(
     source;
     regularizer_lengthscale = 10.0f0,
 )
-cpd = register_cpd(
+cpd = nonrigid_cpd(
     prepd_source,
     target;
     scale = resolution / 1,

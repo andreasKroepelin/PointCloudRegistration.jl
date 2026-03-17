@@ -105,7 +105,7 @@ prepd_target = prepare_target_kc(target; scale = DownTo(resolution));
 
 Ts = map(sources) do source
     Threads.@spawn begin
-        register_kc(source, prepd_target; restarts = RandomRestarts(30), smm = Smm(50))
+        rigid_kc(source, prepd_target; restarts = RandomRestarts(30), smm = Smm(50))
     end
 end .|> fetch
 
@@ -124,7 +124,7 @@ end
 
 cpds = map(sources, Ts) do source, T
     Threads.@spawn begin
-        register_cpd(target, T(source); scale = resolution, outlier_proportion = 0.01f0, regularizer_strength = .01f0, regularizer_lengthscale = 20f0)
+        nonrigid_cpd(target, T(source); scale = resolution, outlier_proportion = 0.01f0, regularizer_strength = .01f0, regularizer_lengthscale = 20f0)
     end
 end .|> fetch
 

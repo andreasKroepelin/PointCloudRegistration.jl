@@ -62,7 +62,7 @@ function PointCloudRegistration.displacements(ksr::KcSpringsRegistration)
     return ksr.displacements
 end
 
-function PointCloudRegistration.register_kc_springs(
+function PointCloudRegistration.nonrigid_kc_springs(
     source,
     target;
     scale = nothing,
@@ -80,7 +80,7 @@ function PointCloudRegistration.register_kc_springs(
         max_spring_length = 2scale
     end
 
-    _register_kc_springs(
+    _nonrigid_kc_springs(
         source_pc,
         target_pc,
         scale^2,
@@ -91,7 +91,7 @@ function PointCloudRegistration.register_kc_springs(
     )
 end
 
-function _register_kc_springs(
+function _nonrigid_kc_springs(
     source::PointCloud{N, T},
     target::PointCloud{N, T},
     sqscale,

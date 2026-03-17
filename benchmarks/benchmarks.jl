@@ -19,8 +19,8 @@ Y = [Y Y Y Y]
 Xs, Ys = HybridMatrix{3, StaticArrays.Dynamic()}.((X, Y))
 
 bms = (
-    pcreg = @benchmark(PCReg.register_rmsd($Y, $X)),
-    # pcreg_pc = @benchmark(PCReg.register_rmsd($Ypc, $Xpc)),
+    pcreg = @benchmark(PCReg.rigid_rmsd($Y, $X)),
+    # pcreg_pc = @benchmark(PCReg.rigid_rmsd($Ypc, $Xpc)),
     ct = @benchmark(CT.kabsch($Y => $X)),
     bios = @benchmark(BioS.Transformation($Y, $X)),
     k = @benchmark(K.kabsch($Y, $X)),
@@ -52,4 +52,4 @@ let
     save("../paper/bioinformatics/src/img/kabsch-benchmark.pdf", fig)
 end
 
-@btime PCReg.register_gmc($Y, $X)
+@btime PCReg.rigid_gmc($Y, $X)

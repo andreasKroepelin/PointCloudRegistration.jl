@@ -142,14 +142,14 @@ end
     @test PCReg.negative_last_column(A) == B
 end
 
-@testset "register_rmsd" begin
-    @test_throws ArgumentError register_rmsd(zeros(2, 5), zeros(2, 6))
+@testset "rigid_rmsd" begin
+    @test_throws ArgumentError rigid_rmsd(zeros(2, 5), zeros(2, 6))
 
     pc_1ake = load_1ake()
     rng = Random.Xoshiro(136)
     for _ in 1:10
         T_true = PCReg.rand_transformation(rng, pc_1ake, pc_1ake)
-        T = register_rmsd(pc_1ake, T_true(pc_1ake))
+        T = rigid_rmsd(pc_1ake, T_true(pc_1ake))
         @test isapprox(T_true, T)
     end
 end
@@ -164,18 +164,18 @@ end
     @test all(sqscale -> min_dist <= sqscale <= max_dist, sqscales)
 end
 
-@testset "register_gmc" begin
-    @test_throws ArgumentError register_gmc(zeros(2, 5), zeros(2, 6))
+@testset "rigid_gmc" begin
+    @test_throws ArgumentError rigid_gmc(zeros(2, 5), zeros(2, 6))
 
     pc_1ake = load_1ake()
     rng = Random.Xoshiro(136)
     for _ in 1:10
         T_true = PCReg.rand_transformation(rng, pc_1ake, pc_1ake)
-        T = register_gmc(pc_1ake, T_true(pc_1ake); scale = 1.0)
+        T = rigid_gmc(pc_1ake, T_true(pc_1ake); scale = 1.0)
         @test isapprox(T_true, T)
     end
 
-    alloc_wrapper(pc) = @allocations register_gmc(pc, pc; scale = 1.0)
+    alloc_wrapper(pc) = @allocations rigid_gmc(pc, pc; scale = 1.0)
     alloc_wrapper(pc_1ake)
     @test alloc_wrapper(pc_1ake) == 0
 end
@@ -289,13 +289,13 @@ end
     end
 end
 
-@testset "register_kc" begin
+@testset "rigid_kc" begin
     pc_1ake = load_1ake()
     prep_1ake = prepare_target_kc(pc_1ake)
     rng = Random.Xoshiro(136)
     for _ in 1:10
         T_true = PCReg.rand_transformation(rng, pc_1ake, pc_1ake)
-        T = register_kc(
+        T = rigid_kc(
             inv(T_true)(pc_1ake),
             prep_1ake;
             restarts = RandomRestarts(20, rng),
@@ -303,7 +303,7 @@ end
         @test isapprox(T_true, T, rtol = 5e-2)
     end
 
-    alloc_wrapper(pc, prep) = @allocations register_kc(pc, prep)
+    alloc_wrapper(pc, prep) = @allocations rigid_kc(pc, prep)
     alloc_wrapper(pc_1ake, prep_1ake)
     @test alloc_wrapper(pc_1ake, prep_1ake) == 0
 end

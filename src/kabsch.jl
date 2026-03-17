@@ -16,7 +16,7 @@ function transformation_from_moments(covariance, source_mean, target_mean)
 end
 
 """
-    register_rmsd(source, target)
+    rigid_rmsd(source, target)
 
 $REGISTER_DOCS_START
 minimizes the Root Mean Square Distance to
@@ -39,15 +39,15 @@ but is susceptible to outliers or wrong correspondences.
 Use this function if you do not expect outliers or wrong correspondences and
 you need maximum speed.
 """
-function register_rmsd(source, target)
+function rigid_rmsd(source, target)
     pc_source = PointCloud(source)
     pc_target = PointCloud(target)
     @argcheck size(pc_source) == size(pc_target)
 
-    _register_rmsd(pc_source, pc_target)
+    _rigid_rmsd(pc_source, pc_target)
 end
 
-function _register_rmsd(
+function _rigid_rmsd(
     source::PointCloud{N, TS},
     target::PointCloud{N, TT},
 ) where {N, TS, TT}

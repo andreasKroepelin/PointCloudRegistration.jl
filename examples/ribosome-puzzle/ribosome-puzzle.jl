@@ -142,7 +142,7 @@ randomized_sources = map((src, invT) -> invT(src), sources, trueinvTs);
 prepd_target = prepare_target_kc(target_thinned);
 
 Ts = map(randomized_sources) do source
-    register_kc(source, prepd_target; restarts = RandomRestarts(500))
+    rigid_kc(source, prepd_target; restarts = RandomRestarts(500))
 end
 
 # We should now see that the `Ts` are the inverses of `trueinvTs` and their
@@ -183,7 +183,7 @@ end
 
 # Perform the registration:
 
-T_16S_better = register_kc(
+T_16S_better = rigid_kc(
     randomized_sources.rRNA16S,
     target_without_23S;
     restarts = RandomRestarts(500)

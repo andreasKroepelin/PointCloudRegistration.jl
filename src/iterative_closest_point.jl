@@ -1,4 +1,4 @@
-function register_icp(
+function rigid_icp(
     source,
     target;
     dist_cutoff = Inf,
@@ -14,7 +14,7 @@ function register_icp(
     pc_source = PointCloud(source)
     pc_target = PointCloud(target)
 
-    _register_icp(
+    _rigid_icp(
         pc_source,
         pc_target,
         dist_cutoff,
@@ -26,7 +26,7 @@ function register_icp(
     )
 end
 
-function _register_icp(
+function _rigid_icp(
     source::PointCloud{N, TS},
     target::PointCloud{N, TT},
     dist_cutoff,

@@ -41,10 +41,10 @@ target = rotation * source .+ translation
     and translation.
 
 This is the simplest case.
-You can use [`register_rmsd`](@ref) to minimize the *Root Mean Square Deviation*:
+You can use [`rigid_rmsd`](@ref) to minimize the *Root Mean Square Deviation*:
 ```@repl howto
 using PointCloudRegistration
-T = register_rmsd(source, target)
+T = rigid_rmsd(source, target)
 T.linear
 T.translation
 ```
@@ -59,17 +59,17 @@ T.translation
     that they might be incorrect correspondences or they do correspond but
     cannot be explained by a global rotation and translation.
 
-You can use [`register_gmc`](@ref) to minimize the *Geman-McClure loss* which
+You can use [`rigid_gmc`](@ref) to minimize the *Geman-McClure loss* which
 is a variant of the RMSD that caps the influence of far-apart pairs:
 ```@repl howto
 using PointCloudRegistration
-T = register_gmc(source, target)
+T = rigid_gmc(source, target)
 T.linear
 T.translation
 ```
 
 This method works iteratively and has a few parameters you can tweak, see the
-documentation of [`register_gmc`](@ref).
+documentation of [`rigid_gmc`](@ref).
 All of them have sensible defaults, however.
 
 ### ... rigid registration with *unknown* correspondences
@@ -82,18 +82,18 @@ All of them have sensible defaults, however.
     All you know is that rotating and translating `source` as a whole should
     match `target` as a whole.
 
-You can use [`register_kc`](@ref) to maximize the *kernel correlation* which
+You can use [`rigid_kc`](@ref) to maximize the *kernel correlation* which
 can be thought of as a scalar product of the densities induced by `source` and
 `target`:
 ```@repl howto
 using PointCloudRegistration
-T = register_kc(source, target)
+T = rigid_kc(source, target)
 T.linear
 T.translation
 ```
 
-Like [`register_gmc`](@ref), this method works iteratively and has a few
-parameters you can tweak, see the documentation of [`register_kc`](@ref).
+Like [`rigid_gmc`](@ref), this method works iteratively and has a few
+parameters you can tweak, see the documentation of [`rigid_kc`](@ref).
 All of them have sensible defaults, again.
 
 Note that this method has a runtime complexity linear in the number of points
@@ -156,17 +156,17 @@ PointCloud
 PointCloud(points::Any)
 PointCloud(points::Any, weights::AbstractVector)
 PointCloud(::PointCloud)
-register_rmsd
-register_gmc
-register_kc
+rigid_rmsd
+rigid_gmc
+rigid_kc
 prepare_target_kc
 ```
 
 ## Common keyword arguments
 This packages implements registration with respect to two non-convex
 losses/scores.
-While they are inherently different, the respective `register_gmc` and
-`register_kc` functions share a common interface to deal with this
+While they are inherently different, the respective `rigid_gmc` and
+`rigid_kc` functions share a common interface to deal with this
 non-convexity, namely certain keyword arguments:
 
 ### `scale`
@@ -202,7 +202,7 @@ initial transformation.
 Default: `10`
 
 How many optimizaton iterations to perform per restart.
-For `register_kc`, fewer iterations may happen if convergence occurs.
+For `rigid_kc`, fewer iterations may happen if convergence occurs.
 
 ### `rng`
 Default: `Random.default_rng()`

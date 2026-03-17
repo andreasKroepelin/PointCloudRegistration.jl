@@ -17,15 +17,15 @@ using PrecompileTools: @compile_workload
 using ArgCheck
 
 export PointCloud,
-    register_rmsd,
-    register_mad,
-    register_gmc,
-    register_kc,
-    register_icp,
-    register_cpd,
-    register_sinkhorn,
-    register_divfree,
-    register_kc_springs,
+    rigid_rmsd,
+    rigid_mad,
+    rigid_gmc,
+    rigid_kc,
+    rigid_icp,
+    nonrigid_cpd,
+    nonrigid_sinkhorn,
+    nonrigid_divfree,
+    nonrigid_kc_springs,
     correspondences,
     displacements,
     apply_displacements,
@@ -71,9 +71,9 @@ include("assets.jl")
     Y3 = PointCloud(rand(3, 10), rand(10))
 
     for (Y, X) in ((Y2, X2), (Y3, X3))
-        register_rmsd(Y, X)
-        register_gmc(Y, X)
-        register_kc(Y, X)
+        rigid_rmsd(Y, X)
+        rigid_gmc(Y, X)
+        rigid_kc(Y, X)
     end
 end
 

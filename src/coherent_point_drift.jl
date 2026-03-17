@@ -60,7 +60,7 @@ function (cpd::CpdRegistration)(pc::PointCloud)
     return PointCloud(pc.points .+ displacements, pc.weights)
 end
 
-function register_cpd(
+function nonrigid_cpd(
     source,
     target;
     corr_length,
@@ -69,19 +69,19 @@ function register_cpd(
 )
     source_prepd = prepare_source_cpd(source; corr_length, expected_displacement)
     target_pc = PointCloud(target)
-    _register_cpd(source_prepd, target, outlier_proportion)
+    _nonrigid_cpd(source_prepd, target, outlier_proportion)
 end
 
-function register_cpd(
+function nonrigid_cpd(
     source_prepd::CpdPreparedSource,
     target;
     outlier_proportion = 0
 )
     target_pc = PointCloud(target)
-    _register_cpd(source_prepd, target, outlier_proportion)
+    _nonrigid_cpd(source_prepd, target, outlier_proportion)
 end
 
-function _register_cpd(
+function _nonrigid_cpd(
     prepd_source::CpdPreparedSource{<: PointCloud{N, TS}},
     target::PointCloud{N, TT},
     outlier_p,

@@ -299,7 +299,7 @@ dimension(::PreparedTarget{N}) where {N} = N
 """
     prepare_target_kc(target[; scale, axisalign])
 
-Perform all the necessary precomputation for `register_kc`.
+Perform all the necessary precomputation for `rigid_kc`.
 This function is especially useful if you plan to register multiple sources to
 the same target.
 
@@ -310,8 +310,8 @@ Y2 = PointCloud(rand(3, 130))
 
 prepd_X = prepare_target_kc(X) # this takes some time
 
-T1 = register_kc(prepd_X, Y1) # this is fast
-T2 = register_kc(prepd_X, Y2) # this is fast
+T1 = rigid_kc(prepd_X, Y1) # this is fast
+T2 = rigid_kc(prepd_X, Y2) # this is fast
 ```
 """
 function prepare_target_kc(
@@ -335,7 +335,7 @@ function _prepare_target(target_original, scale, axisalign)
 end
 
 """
-    register_kc(source, target[; scale, axisalign, restarts, iterations, rng, accumulator])
+    rigid_kc(source, target[; scale, axisalign, restarts, iterations, rng, accumulator])
 
 $REGISTER_DOCS_START
 maximizes the Kernel Correlation to `target`,
@@ -353,7 +353,7 @@ and you can learn about how to use the keyword arguments in
 
 Use this function if you do not know correspondences.
 """
-function register_kc(
+function rigid_kc(
     source,
     target;
     scale::ScaleType = default_scale(),
@@ -372,7 +372,7 @@ function register_kc(
 
     prepared_target = prepare_target_kc(pc_target; scale, axisalign)
 
-    _register_kc(
+    _rigid_kc(
         pc_source,
         prepared_target,
         restarts,
@@ -384,7 +384,7 @@ function register_kc(
 end
 
 """
-    register_kc(source, prepared_target[; restarts, iterations, rng, accumulator])
+    rigid_kc(source, prepared_target[; restarts, iterations, rng, accumulator])
 
 $REGISTER_DOCS_START
 maximizes the Kernel Correlation to `prepared_target` which was computed by
@@ -392,7 +392,7 @@ maximizes the Kernel Correlation to `prepared_target` which was computed by
 
 Use this function if you plan to register multiple sources to the same target.
 """
-function register_kc(
+function rigid_kc(
     source,
     prepared_target::PreparedTarget;
     restarts::AbstractRestarts = RandomRestarts(50),
@@ -406,7 +406,7 @@ function register_kc(
     pc_source = PointCloud(source)
     @argcheck dimension(pc_source) == dimension(prepared_target)
 
-    _register_kc(
+    _rigid_kc(
         pc_source,
         prepared_target,
         restarts,
@@ -417,7 +417,7 @@ function register_kc(
     )
 end
 
-function _register_kc(
+function _rigid_kc(
     source::PointCloud{N},
     prepared_target::PreparedTarget{N},
     restarts,

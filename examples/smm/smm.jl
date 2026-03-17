@@ -24,7 +24,7 @@ end
 empty!(transformations)
 empty!(restart_transformations)
 empty!(restart_costs)
-@time register_kc(
+@time rigid_kc(
     Y,
     pX;
     restarts = RandomRestarts(1000, Xoshiro(1)),

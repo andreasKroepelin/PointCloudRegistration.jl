@@ -19,7 +19,7 @@ cost_type(gm::GemanMcclure, Y::PointCloud, X::PointCloud) =
     typeof(cost(gm, first(Y.points), first(X.points)))
 
 """
-    register_gmc(source, target[; scale, restarts, iterations, rng, accumulator])
+    rigid_gmc(source, target[; scale, restarts, iterations, rng, accumulator])
 
 $REGISTER_DOCS_START
 minimizes the Geman-McClure loss to `target`,
@@ -43,7 +43,7 @@ how to use the keyword arguments in [this section](#Common-keyword-arguments).
 
 Use this function if you expect outliers or wrong correspondences.
 """
-function register_gmc(
+function rigid_gmc(
     source,
     target;
     scale::ScaleType = default_scale(),
@@ -61,7 +61,7 @@ function register_gmc(
     @argcheck size(pc_source) == size(pc_target)
 
     sqscales = annealing_plan(pc_target, scale)
-    _register_gmc(
+    _rigid_gmc(
         pc_source,
         pc_target,
         sqscales,
@@ -73,7 +73,7 @@ function register_gmc(
     )
 end
 
-function _register_gmc(
+function _rigid_gmc(
     source::PointCloud{N},
     target::PointCloud{N},
     sqscales,
@@ -154,7 +154,7 @@ function _register_gmc(
     return best.transformation
 end
 
-function register_mad(
+function rigid_mad(
     source,
     target;
     iterations::Int = default_iterations(),
@@ -167,10 +167,10 @@ function register_mad(
     pc_target = PointCloud(target)
     @argcheck size(pc_source) == size(pc_target)
 
-    _register_mad(pc_source, pc_target, iterations, report_iteration)
+    _rigid_mad(pc_source, pc_target, iterations, report_iteration)
 end
 
-function _register_mad(
+function _rigid_mad(
     source::PointCloud{N},
     target::PointCloud{N},
     iterations,

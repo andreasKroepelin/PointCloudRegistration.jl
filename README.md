@@ -19,18 +19,18 @@ The animation above shows first a rigid and then a nonrigid registration of the
 blue and green point clouds.
 
 Currently, the following four methods are implemented:
-* **`register_rmsd`:**
+* **`rigid_rmsd`:**
   Rigid registration that minimizes the *root mean square deviation* between
   `source` and `target`; assumes that equal-index points correspond to each
   other and that all pairs of points are equally relevant.
-* **`register_gmc`:**
+* **`rigid_gmc`:**
   Rigid registration that minimizes the *Geman-McClure loss* between `source`
   and `target`; assumes that equal-index points correspond to each
   other but caps the influence of far apart pairs of points (outliers).
-* **`register_kc`:**
+* **`rigid_kc`:**
   Rigid registration that maximizes the *kernel correlation* between `source`
   and `target`; assumes no correspondences and is robust against outliers.
-* **`register_cpd`:**
+* **`nonrigid_cpd`:**
   Nonrigid registration that estimates a *coherent point drift* from `source`
   to `target`; internally estimates correspondences and is configurable to
   account for outliers.
@@ -59,7 +59,7 @@ julia> source = target .+ 1
  0.804174  0.243962  -0.77237      9.11216   7.41248   8.25313
  1.18599   3.2701     3.06564      9.23514   7.98      8.02232
 
-julia> T = register_gmc(source, target) # returns an `AffineMap` from CoordinateTransformations.jl
+julia> T = rigid_gmc(source, target) # returns an `AffineMap` from CoordinateTransformations.jl
 AffineMap([0.9999999999999999 1.0075742162992266e-16 -1.2502288632455386e-15; 2.524927231180851e-16 1.0 7.771435197962951e-16; 1.1339360284051926e-15 -6.237558778696607e-16 1.0], [-0.9999999999999947, -1.0000000000000067, -1.000000000000007])
 
 julia> T.linear

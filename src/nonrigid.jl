@@ -13,7 +13,7 @@ end
 
 function correspondences end
 
-function register_sinkhorn end
-function register_divfree end
-function register_kc_springs end
+function nonrigid_sinkhorn end
+function nonrigid_divfree end
+function nonrigid_kc_springs end
 

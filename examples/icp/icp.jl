@@ -25,13 +25,13 @@ function report_restart(; restart, kwargs...)
     current_restart = restart
 end
 
-good_T = register_gmc(pc_1ake, pc_4ake)
+good_T = rigid_gmc(pc_1ake, pc_4ake)
 
 correspondence_collection = []
 correspondences = Tuple{Int, Int}[]
 distances = Float64[]
 current_restart = 0
-register_icp(
+rigid_icp(
     pc_1ake,
     pc_4ake;
     dist_cutoff = 3.0,

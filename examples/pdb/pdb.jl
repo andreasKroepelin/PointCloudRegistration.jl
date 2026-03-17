@@ -19,7 +19,7 @@ using Clustering
 using InvertedIndices
 
 function compute_rmsd(Y, X)
-    T = register_rmsd(Y, X)
+    T = rigid_rmsd(Y, X)
     PCReg.evaluate_rmsd(Y, X, T)
 end
 
@@ -88,8 +88,8 @@ id_pairs = [
 ]
 
 Ts_per_method = (
-    rmsd = [register_rmsd(source, target) for (source, target) in pairs],
-    gmc = [register_gmc(source, target) for (source, target) in pairs],
+    rmsd = [rigid_rmsd(source, target) for (source, target) in pairs],
+    gmc = [rigid_gmc(source, target) for (source, target) in pairs],
 );
 registered_pairs_per_method = map(Ts_per_method) do Ts
     [(T(source), target) for (T, (source, target)) in zip(Ts, pairs)]
@@ -258,9 +258,9 @@ data = let # X = PCReg.rand_transformation(Xoshiro(-2), Y, X)(X)
     prepd_X = prepare_target_kc(X)
     rr() = RandomRestarts(100_000, Xoshiro(1))
     Ts_global = (
-        gmc = register_gmc(Y, X; scale, restarts = rr()),
-        kc = register_kc(Y, prepd_X; restarts = rr()),
-        icp = register_icp(Y, X; restarts = rr()),
+        gmc = rigid_gmc(Y, X; scale, restarts = rr()),
+        kc = rigid_kc(Y, prepd_X; restarts = rr()),
+        icp = rigid_icp(Y, X; restarts = rr()),
     )
     inv_Ts_global = map(inv, Ts_global)
     rows = []
@@ -272,9 +272,9 @@ data = let # X = PCReg.rand_transformation(Xoshiro(-2), Y, X)(X)
             restarts =
                 FixedRestarts(Vector{typeof(first(Ts_global))}(inits))
             Ts = (;
-                gmc = register_gmc(Y, X; scale, restarts),
-                kc = register_kc(Y, prepd_X; restarts),
-                icp = register_icp(Y, X; restarts),
+                gmc = rigid_gmc(Y, X; scale, restarts),
+                kc = rigid_kc(Y, prepd_X; restarts),
+                icp = rigid_icp(Y, X; restarts),
             )
             diff_Ts = map(∘, Ts, inv_Ts_global)
             angles = map(

@@ -14,7 +14,7 @@ Profile.clear()
 
 X_prepd =
     PointCloudRegistration.prepare_source_cpd(X; regularizer_lengthscale = 0.1)
-register_cpd(
+nonrigid_cpd(
     X_prepd,
     X;
     scale = 0.3,
@@ -26,7 +26,7 @@ Profile.clear()
 @pprof PointCloud(X_raw)
 
 Profile.clear()
-@pprof register_cpd(
+@pprof nonrigid_cpd(
     X_prepd,
     X;
     scale = 0.3,
@@ -34,10 +34,10 @@ Profile.clear()
     regularizer_strength = 1.0,
 )
 
-@btime register_gmc($X, $X)
+@btime rigid_gmc($X, $X)
 
 Profile.clear()
-@pprof register_gmc(
+@pprof rigid_gmc(
     X,
     X;
     restarts = 100,
@@ -47,4 +47,4 @@ Profile.clear()
 
 X, Y = PointCloudRegistration.Assets.load_1ake_A_4ake_A()
 pX = prepare_target_kc(X);
-@btime register_kc($Y, $pX; restarts = RandomRestarts(30), smm = Smm(100));
+@btime rigid_kc($Y, $pX; restarts = RandomRestarts(30), smm = Smm(100));

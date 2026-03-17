@@ -50,9 +50,9 @@ data = let
                     erroneous_points[idx] = rand(eltype(erroneous_points))
                 end
                 pc = PointCloud(erroneous_points, pc_1ake.weights)
-                T_rmsd = register_rmsd(pc, pc_1ake)
-                T_gmc = register_gmc(pc, pc_1ake; scale, restarts = rr())
-                T_kc = register_kc(pc, prepd_1ake, restarts = rr())
+                T_rmsd = rigid_rmsd(pc, pc_1ake)
+                T_gmc = rigid_gmc(pc, pc_1ake; scale, restarts = rr())
+                T_kc = rigid_kc(pc, prepd_1ake, restarts = rr())
                 for (method, T) in
                     (("rmsd", T_rmsd), ("gmc", T_gmc), ("kc", T_kc))
                     push!(
@@ -182,7 +182,7 @@ Y = rotation' * (X[:, permuted_idcs] .- translation)
 al = AnalysisLogger([])
 Logging.disable_logging(LogLevel(-2001))
 T = with_logger(al) do
-    register_gmc(Y, X; scale = 1.0, iterations = 20, annealing = 3, restarts = 10)
+    rigid_gmc(Y, X; scale = 1.0, iterations = 20, annealing = 3, restarts = 10)
 end
 Logging.disable_logging(Logging.Debug)
 
@@ -229,7 +229,7 @@ errors = Float64[]
 
         Y = rotation' * (X[:, permuted_idcs] .- translation)
 
-        T = register_gmc(
+        T = rigid_gmc(
             Y,
             X;
             scale = 1.0,

@@ -10,13 +10,13 @@ using GLMakie
 X, Y = PointCloudRegistration.Assets.load_1ih7_A_1ig9_A()
 X = PointCloud(collect(map(x -> Float64.(x), X.points)))
 Y = PointCloud(collect(map(x -> Float64.(x), Y.points)))
-T_rigid = register_kc(Y, X)
+T_rigid = rigid_kc(Y, X)
 Y = T_rigid(Y)
 
 registrations = (
-    kc_springs = register_kc_springs(Y, X; stiffness = 1//100, iterations = 10_000),
-    divfree = register_divfree(Y, X; scale = 3.0, degree = 3),
-    sinkhorn = register_sinkhorn(Y, X),
+    kc_springs = nonrigid_kc_springs(Y, X; stiffness = 1//100, iterations = 10_000),
+    divfree = nonrigid_divfree(Y, X; scale = 3.0, degree = 3),
+    sinkhorn = nonrigid_sinkhorn(Y, X),
     bcpd = register_bcpd(Y, X; corr_length = 10., expected_displacement = 6.5, outlier_proportion = .01),
 )
 
@@ -28,7 +28,7 @@ function report_iteration(; iter, gradient, displaced_source_points, kwargs...)
 end
 
 dsps = []
-registration = register_kc_springs(Y, X; stiffness = 1//200, iterations = 10_000, report_iteration);
+registration = nonrigid_kc_springs(Y, X; stiffness = 1//200, iterations = 10_000, report_iteration);
 Y_disp = apply_displacements(Y, displacements(registration))
 
 let

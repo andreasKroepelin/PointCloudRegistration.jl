@@ -190,7 +190,7 @@ end
 target = pointclouds_thinned[1]
 prepd_target = prepare_target_kc(target);
 Ts = map(pointclouds_thinned) do src
-    Threads.@spawn register_kc(src, prepd_target; restarts = RandomRestarts(100))
+    Threads.@spawn rigid_kc(src, prepd_target; restarts = RandomRestarts(100))
 end .|> fetch
 
 # We can check if the registration worked by comparing `Ts` with `trueinvTs`
