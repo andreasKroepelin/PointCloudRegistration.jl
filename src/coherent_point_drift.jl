@@ -6,27 +6,23 @@ end
 
 function prepare_source_cpd(source; corr_length, expected_displacement)
     source_pc = PointCloud(source)
-    lambda = dimension(source_pc) / expected_displacement^2
-    sqbeta = corr_length^2
-    _prepare_source_bcpd(source_pc, lambda, sqbeta)
+    _prepare_source_bcpd(source_pc, expected_displacement, corr_length)
 end
 
-function _prepare_source_bcpd(source::PointCloud, lambda, sqbeta)
-    G = [
-        exp(sqeuclidean(src1, src2) / (-2sqbeta))
+function _prepare_source_bcpd(
+    source::PointCloud,
+    expected_displacement,
+    corr_length,
+)
+    factor = -2 / corr_length^2
+    gram = [
+        exp(factor * sqeuclidean(src1, src2))
         for src1 in source.points, src2 in source.points
     ]
-    copy_G = copy(G)
-    eigen_G = eigen!(G)
-    maxeigval = last(eigen_G.values)
-    threshold = maxeigval / 10_000
-    first_idx = findfirst(>(threshold), eigen_G.values)
-    invlambda_gram_eigvals = eigen_G.values[first_idx:end] ./ lambda
-    lambda_gram_inveigvals = inv.(invlambda_gram_eigvals)
-    gram_eigvecs = eigen_G.vectors[:, first_idx:end]
-    reconstructed_G = gram_eigvecs * Diagonal(invlambda_gram_eigvals) * gram_eigvecs'
-    @info "gram approx" first_idx size(gram_eigvecs) extrema(inv(lambda) * copy_G .- reconstructed_G)
-    BcpdPreparedSource(lambda, source, invlambda_gram_eigvals, lambda_gram_inveigvals, gram_eigvecs)
+    gram_cholesky = cholesky!(Symmetric(gram))
+    invgram = LinearAlgebra.inv!(gram_cholesky)
+    sqsigma_displacements = expected_displacement^2 / dimension(source)
+    CpdPreparedSource(source, invgram, sqsigma_displacements)
 end
 
 struct BcpdRegistration{C, D}
