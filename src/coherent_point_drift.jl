@@ -1,40 +1,63 @@
-struct CpdPreparedSource{T, T2, PC <: PointCloud}
+struct CpdPreparedSource{PC <: PointCloud, T, T2, T3}
     source::PC
     invgram::Matrix{T}
     sqsigma_displacements::T2
+    corr_factor::T3
 end
 
 function prepare_source_cpd(source; corr_length, expected_displacement)
     source_pc = PointCloud(source)
-    _prepare_source_bcpd(source_pc, expected_displacement, corr_length)
+    _prepare_source_cpd(source_pc, expected_displacement, corr_length)
 end
 
-function _prepare_source_bcpd(
+function _prepare_source_cpd(
     source::PointCloud,
     expected_displacement,
     corr_length,
 )
-    factor = -2 / corr_length^2
+    corr_factor = -2 / corr_length^2
     gram = [
-        exp(factor * sqeuclidean(src1, src2))
+        exp(corr_factor * sqeuclidean(src1, src2))
         for src1 in source.points, src2 in source.points
     ]
     gram_cholesky = cholesky!(Symmetric(gram))
     invgram = LinearAlgebra.inv!(gram_cholesky)
     sqsigma_displacements = expected_displacement^2 / dimension(source)
-    CpdPreparedSource(source, invgram, sqsigma_displacements)
+    CpdPreparedSource(source, invgram, sqsigma_displacements, corr_factor)
 end
 
-struct BcpdRegistration{C, D}
+struct CpdRegistration{C, D, P, F}
     correspondences::C
-    displacements::D
+    displacements_invgram::D
+    source_points::P
+    corr_factor::F
 end
 
-displacements(bcpd::BcpdRegistration) = bcpd.displacements
+function CpdRegistration(correspondences, displacements, source_prepd)
+    displacements_invgram = to_matrix(displacements) * source_prepd.invgram
+    CpdRegistration(
+        correspondences,
+        displacements_invgram,
+        source_prepd.source.points,
+        source_prepd.corr_factor,
+    )
+end
 
-correspondences(bcpd::BcpdRegistration) = bcpd.correspondences
+correspondences(cpd::CpdRegistration) = cpd.correspondences
 
-function (bcpd::BcpdRegistration)(pc::PointCloud)
+function (cpd::CpdRegistration)(pc::PointCloud)
+    connecting_gram = [
+        exp(cpd.corr_factor * sqeuclidean(p1, p2))
+        for p1 in cpd.source_points, p2 in pc.points
+    ]
+    displacements = similar(pc.points)
+    mul!(
+        to_matrix(displacements),
+        cpd.displacements_invgram,
+        connecting_gram,
+    )
+
+    return PointCloud(pc.points .+ displacements, pc.weights)
 end
 
 function register_cpd(
@@ -59,10 +82,10 @@ function register_cpd(
 end
 
 function _register_cpd(
-    prepd_source::CpdPreparedSource{T, <: PointCloud{N, TS}},
+    prepd_source::CpdPreparedSource{<: PointCloud{N, TS}},
     target::PointCloud{N, TT},
     outlier_p,
-) where {T, N, TS, TT}
+) where {N, TS, TT}
     (; source, invgram, sqsigma_displacements) = prepd_source
     displacements = similar(source.points)
     fillzeros!(displacements)
@@ -105,18 +128,17 @@ function _register_cpd(
         C ./= outlier_term .+ c_per_trg
         c_per_trg ./= outlier_term .+ c_per_trg
         sum!(c_per_src, C)
-        vec_e = vec(e)
         Z = sum(c_per_src)
 
         mul!(to_matrix(displacements), to_matrix(target.points), C)
         displacements .-= vec(c_per_src) .* source.points
-        ratio_vars = sqsigma_displacement / sqsigma
+        ratio_vars = sqsigma_displacements / sqsigma
         copyto!(smoothing, invgram)
-        diagview(smoothing) .+= ratio_vars .* c_per_src
+        diagview(smoothing) .+= ratio_vars .* vec(c_per_src)
         cholesky_smoothing = cholesky!(Symmetric(smoothing))
         rdiv!(to_matrix(displacements), cholesky_smoothing)
         lmul!(ratio_vars, to_matrix(displacements))
     end
 
-    return CpdRegistration(C, displacements)
+    return CpdRegistration(C, displacements, prepd_source)
 end
