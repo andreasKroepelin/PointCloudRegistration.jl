@@ -12,14 +12,17 @@ import CoordinateTransformations as CT
 import BioStructures as BioS
 import Kabsch as K
 
-Xpc, Ypc = PCReg.Assets.load_1ake_A_4ake_A()
-X, Y, = collect.((Xpc, Ypc))
-X = [X X X X]
-Y = [Y Y Y Y]
+# Xpc, Ypc = PCReg.Assets.load_1ake_A_4ake_A()
+# X, Y, = stack.((Xpc.points, Ypc.points))
+# X = [X X X X]
+# Y = [Y Y Y Y]
+X = randn(3, 1000)
+Y = randn(3, 1000)
 Xs, Ys = HybridMatrix{3, StaticArrays.Dynamic()}.((X, Y))
 
 bms = (
     pcreg = @benchmark(PCReg.rigid_rmsd($Y, $X)),
+    # pcreg_gmc = @benchmark(PCReg.rigid_gmc($Y, $X)),
     # pcreg_pc = @benchmark(PCReg.rigid_rmsd($Ypc, $Xpc)),
     ct = @benchmark(CT.kabsch($Y => $X)),
     bios = @benchmark(BioS.Transformation($Y, $X)),
@@ -28,14 +31,15 @@ bms = (
 
 labels = (
     pcreg = rich("PCReg.jl"; font = :bold),
-    pcreg_pc = "PCReg.jl w/o\npreparation",
+    pcreg_pc = "PCReg.jl w/o\nprestackaration",
+    pcreg_gmc = "PCReg.jl GMC",
     ct = "CoordTr.jl",
     bios = "BioStr.jl",
     k = "Kabsch.jl",
 )
 
 let
-    fig = Figure(size = (400, 200))
+    fig = Figure(size = (400, 250))
     kys = collect(keys(bms))
     ax = Axis(fig[1, 1], xticks = (eachindex(kys), [labels[k] for k in kys]))
     ylims!(ax, (0, nothing))
@@ -49,7 +53,8 @@ let
     end
     # GLMakie.activate!(); display(fig)
     CairoMakie.activate!(pdf_version = "1.5");
-    save("../paper/bioinformatics/src/img/kabsch-benchmark.pdf", fig)
+    # save("../paper/bioinformatics/src/img/kabsch-benchmark.pdf", fig)
+    save(expanduser("~/kabsch-benchmark.pdf"), fig)
 end
 
-@btime PCReg.rigid_gmc($Y, $X)
+@btime PCReg.rigid_gmc($Y, $X; scale = .1)
