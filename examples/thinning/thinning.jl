@@ -29,7 +29,8 @@ let
         hidedecorations!(ax)
         hidespines!(ax)
         plot!(ax, pc; sizefactor)
-        GLMakie.activate!(); wait(display(fig));
-        # CairoMakie.activate!(); save(expanduser("~/Pictures/thinning-$name.svg"), fig)
+        resize_to_layout!(fig)
+        # GLMakie.activate!(); wait(display(fig));
+        CairoMakie.activate!(); save(expanduser("~/Pictures/thinning-$name.svg"), fig)
     end
 end
