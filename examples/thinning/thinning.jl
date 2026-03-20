@@ -5,11 +5,11 @@ import GLMakie, CairoMakie
 using LinearAlgebra
 using BenchmarkTools
 
-unit_square = rand(2, 10000)
+unit_square = 10 .* rand(2, 10000)
 
 inshape(x) = any(
-    center -> norm(x - center) < .1,
-    ([.3, .3], [.2, .5], [.4, .3], [.4, .2], [.3, .6], [.3, .4])
+    center -> norm(x - center) < 1,
+    ([3, 3], [2, 5], [4, 3], [4, 2], [3, 6], [3, 4])
 )
 
 pc = filter(inshape, eachcol(unit_square)) |> stack |> PointCloud
@@ -17,15 +17,19 @@ pc = filter(inshape, eachcol(unit_square)) |> stack |> PointCloud
 GLMakie.activate!()
 plot(pc)
 
-pc1 = @btime thin_to_grid(pc, .04)
-pc2 = @btime thin_to_distance(pc, .04)
-pc3 = @btime thin_to_number(pc, 100)
+b1 = @btimed thin_to_grid($pc, .4)
+b2 = @btimed thin_to_distance($pc, .4)
+b3 = @btimed thin_to_number($pc, $(length(b2.value.points)))
 
 let
-    fig = Figure()
-    for (i, thinned_pc) in enumerate([pc, pc1, pc2, pc3])
-        ax = Axis(fig[1, i]; aspect = DataAspect())
-        plot!(ax, thinned_pc; sizefactor = .002)
+    pcs = [pc, [b.value for b in [b1, b2, b3]]...]
+    for (pc, name, sizefactor) in zip(pcs, ["original", "grid", "distance", "number"], [.05, fill(.015, 3)...])
+        fig = Figure(size = (150, 290))
+        ax = Axis(fig[1, 1]; aspect = DataAspect())
+        hidedecorations!(ax)
+        hidespines!(ax)
+        plot!(ax, pc; sizefactor)
+        GLMakie.activate!(); wait(display(fig));
+        # CairoMakie.activate!(); save(expanduser("~/Pictures/thinning-$name.svg"), fig)
     end
-    fig
 end
