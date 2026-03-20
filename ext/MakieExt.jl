@@ -3,8 +3,10 @@ using PointCloudRegistration
 using PointCloudRegistration: avg_nn_dist
 using Makie
 
-function _plotsizes(pc::PointCloud)
-    sizefactor = avg_nn_dist(pc) / maximum(pc.weights) / 2
+function _plotsizes(
+    pc::PointCloud,
+    sizefactor = avg_nn_dist(pc) / maximum(pc.weights)
+)
     sizefactor .* pc.weights
 end
 
@@ -15,11 +17,18 @@ const PointCloud2Or3 = Union{<:PointCloud{2}, <:PointCloud{3}}
 
 @recipe PointCloudPlotFlat (pointcloud::PointCloud2Or3,) begin
     Makie.documented_attributes(Scatter)...
+    sizefactor = :auto
 end
 
 function Makie.plot!(plot::PointCloudPlotFlat)
     map!(plot.attributes, [:pointcloud], [:positions, :sizes]) do pc
-        (pc.points, maybe_collect(_plotsizes(pc)))
+        sf = plot.sizefactor[]
+        ps = if sf == :auto
+            _plotsizes(pc)
+        elseif sf isa Number
+            _plotsizes(pc, sf)
+        end
+        (pc.points, maybe_collect(ps))
     end
     scatter!(
         plot,
