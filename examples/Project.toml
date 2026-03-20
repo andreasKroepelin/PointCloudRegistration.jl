@@ -20,5 +20,6 @@ projects = [
   "frame-shift",
   "box-lid",
   "biotisr",
-  "EmdbHelper"
+  "EmdbHelper",
+  "thinning",
 ]
