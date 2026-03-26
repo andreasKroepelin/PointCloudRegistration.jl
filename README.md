@@ -1,5 +1,7 @@
 # <img src="logo/logo.png" width="100"></img> PointCloudRegistration.jl
 
+**This package is work in progress and not published to the General Registry
+of Julia packages yet.**
 
 [![docs badge](https://img.shields.io/badge/docs-main-4063d8)](http://a5s.eu/PointCloudRegistration.jl/main)
 
