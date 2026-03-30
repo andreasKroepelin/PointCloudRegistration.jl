@@ -1719,27 +1719,33 @@ uuid = "66fc600b-dfda-50eb-8b99-91cfa97b1301"
 version = "1.1.8"
 
 [[deps.Mooncake]]
-deps = ["ADTypes", "ChainRules", "ChainRulesCore", "DispatchDoctor", "ExprTools", "Graphs", "LinearAlgebra", "MistyClosures", "Random", "Test"]
-git-tree-sha1 = "88ffe36b781bfb0e083ac8c5dacc27e171a4161e"
+deps = ["ADTypes", "ChainRules", "ChainRulesCore", "DispatchDoctor", "ExprTools", "Graphs", "LinearAlgebra", "MistyClosures", "PrecompileTools", "Random", "Test"]
+git-tree-sha1 = "450ff886563cdadbfb6c21efd3889aeece0d8f7d"
 uuid = "da2b9cff-9c12-43a0-ae48-6db2b0edb7d6"
-version = "0.5.5"
+version = "0.5.24"
 
     [deps.Mooncake.extensions]
     MooncakeAllocCheckExt = "AllocCheck"
+    MooncakeBFloat16sExt = "BFloat16s"
     MooncakeCUDAExt = "CUDA"
+    MooncakeDistributionsExt = "Distributions"
     MooncakeDynamicExpressionsExt = "DynamicExpressions"
     MooncakeFluxExt = "Flux"
     MooncakeFunctionWrappersExt = "FunctionWrappers"
     MooncakeJETExt = "JET"
     MooncakeLogExpFunctionsExt = "LogExpFunctions"
     MooncakeLuxLibExt = ["LuxLib", "MLDataDevices", "Static"]
+    MooncakeLuxLibNNlibExt = ["LuxLib", "NNlib"]
     MooncakeLuxLibSLEEFPiratesExtension = ["LuxLib", "SLEEFPirates"]
-    MooncakeNNlibExt = ["NNlib", "GPUArraysCore"]
+    MooncakeNNlibExt = ["NNlib", "LinearAlgebra"]
     MooncakeSpecialFunctionsExt = "SpecialFunctions"
+    MooncakecuDNNExt = ["CUDA", "cuDNN"]
 
     [deps.Mooncake.weakdeps]
     AllocCheck = "9b6a8646-10ed-4001-bbdc-1d2f46dfbb1a"
+    BFloat16s = "ab4f0b2a-ad5b-11e8-123f-65d77653426b"
     CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+    Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
     DynamicExpressions = "a40a106e-89c9-4ca8-8020-a735e8728b6b"
     Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
     FunctionWrappers = "069b7b12-0de2-55c6-9aab-29f3d0a68a2e"
@@ -1752,6 +1758,7 @@ version = "0.5.5"
     SLEEFPirates = "476501e8-09a2-5ece-8869-fb82de89a1fa"
     SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
     Static = "aedffcd0-7271-4cad-89d0-dc628f76c6d3"
+    cuDNN = "02a925ec-e4fe-4b08-9a7e-0d78e3d38ccd"
 
 [[deps.MosaicViews]]
 deps = ["MappedArrays", "OffsetArrays", "PaddedViews", "StackViews"]

@@ -8,7 +8,7 @@ using Mooncake
 using LinearAlgebra
 using Statistics
 
-using ..Adam
+using PointCloudRegistration.Adam
 
 
 struct Velocity{N, C, Cs <: AbstractVector{C}}

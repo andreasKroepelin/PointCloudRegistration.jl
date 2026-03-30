@@ -15,5 +15,4 @@ function correspondences end
 
 function nonrigid_sinkhorn end
 function nonrigid_divfree end
-function nonrigid_kc_springs end
 
