@@ -8,64 +8,14 @@ using StaticArrays
 
 using ..Adam
 
-struct KcSpringsObjective{N, PS <: PointCloud{N}, PT <: PointCloud{N}, SP, SD, T1, T2}
-    source::PS
-    target::PT
-    spring_pairs::SP
-    spring_dists::SD
-    sqsigma::T1
-    stiffness::T2
-end
-
-function (kcs::KcSpringsObjective{N})(params) where {N}
-    (; source, target, spring_pairs, spring_dists, sqsigma, stiffness) = kcs
-    displaced_source_points = interpret_params(params, Val(N))
-
-    zero_dsrc = zero(eltype(displaced_source_points))
-    zero_trg = zero(eltype(target.points))
-    kc = sqeuclidean(zero_dsrc, zero_trg) / sqsigma
-
-    totalw = zero(source.sum_of_weights) * zero(target.sum_of_weights)
-    for (dsrc, src_w) in zip(displaced_source_points, source.weights)
-        for (trg, trg_w) in zip(target.points, target.weights)
-            w = src_w * trg_w
-            totalw += w
-            kc += w * exp(sqeuclidean(dsrc, trg) / (-2sqsigma))
-        end
-    end
-    kc /= totalw
-
-    spring_energy = zero(kc)
-
-    for (original_dist, (j1, j2)) in zip(spring_dists, spring_pairs)
-        dsrc1 = displaced_source_points[j1]
-        dsrc2 = displaced_source_points[j2]
-        dist = euclidean(dsrc1, dsrc2)
-        # equivalent to ((original_dist - dist) / original_dist)^2
-        # dist_deviation += (1 - dist / original_dist)^2
-        spring_energy += (dist - original_dist)^2
-    end
-    spring_energy /= length(spring_dists)
-
-    return -kc + stiffness * spring_energy 
-end
-
-@inline function interpret_params(params::Vector{T}, ::Val{N}) where {T, N}
-    reinterpret(SVector{N, T}, params)
-end
-
 struct KcSpringsRegistration{D}
-    displacements::D
-end
-
-function PointCloudRegistration.displacements(ksr::KcSpringsRegistration)
-    return ksr.displacements
+    new_source_points::D
 end
 
 function PointCloudRegistration.nonrigid_kc_springs(
     source,
     target;
-    scale = nothing,
+    scale = default_scale(),
     stiffness = 1,
     max_spring_length = nothing,
     iterations = 100_000,
@@ -73,17 +23,38 @@ function PointCloudRegistration.nonrigid_kc_springs(
 ) where {RI}
     source_pc = PointCloud(source)
     target_pc = PointCloud(target)
-    if isnothing(scale)
-        scale = PointCloudRegistration.avg_nn_dist(target_pc)
-    end
+    prepared_target = prepare_target_kc(target_pc; scale)
     if isnothing(max_spring_length)
-        max_spring_length = 2scale
+        max_spring_length = 2 / last(prepared_target.annealing_levels).grid.invΔ
     end
 
     _nonrigid_kc_springs(
         source_pc,
-        target_pc,
+        prepared_target,
         scale^2,
+        stiffness,
+        max_spring_length,
+        iterations,
+        report_iteration,
+    )
+end
+
+function PointCloudRegistration.nonrigid_kc_springs(
+    source,
+    prepared_target::PreparedTarget;
+    stiffness = 1,
+    max_spring_length = nothing,
+    iterations = 100_000,
+    report_iteration::RI = PointCloudRegistration.no_report
+) where {RI}
+    source_pc = PointCloud(source)
+    if isnothing(max_spring_length)
+        max_spring_length = 2 / last(prepared_target.annealing_levels).grid.invΔ
+    end
+
+    _nonrigid_kc_springs(
+        source_pc,
+        prepared_target,
         stiffness,
         max_spring_length,
         iterations,
@@ -93,13 +64,14 @@ end
 
 function _nonrigid_kc_springs(
     source::PointCloud{N, T},
-    target::PointCloud{N, T},
-    sqscale,
+    prepared_target::PreparedTarget{N},
     stiffness,
     max_spring_length,
     iterations,
     report_iteration::RI,
 ) where {N, T, RI}
+    (; annealing_levels, target, axis_aligning_rotation) = prepared_target
+    valid_idcs = CartesianIndices(size(grid))
     tree = KDTree(source.points)
     spring_pairs = inrange_pairs(tree, max_spring_length)
     spring_dists = [
@@ -107,26 +79,45 @@ function _nonrigid_kc_springs(
         for (j1, j2) in spring_pairs
     ]
 
-    objective = KcSpringsObjective(source, target, spring_pairs, spring_dists, sqscale, stiffness)
-    params = zeros(eltype(eltype(source.points)), N * length(source.points))
-    interpret_params(params, Val(N)) .= source.points
-    @info "does this work?" objective(params)
+    new_source_points = copy(source.points)
+    gradient = similar(new_source_points)
+    adam = Adam.State(to_matrix(new_source_points))
 
-    config = Mooncake.Config(; friendly_tangents = false)
-    mc_cache = prepare_gradient_cache(objective, params; config)
-    adam = Adam.State(params)
-    @info "setup done"
+    for annealing_level in annealing_levels
+        (; grid, convd_target, convd_weights_target) = annealing_level
+        Adam.reset!(adam)
+        for iter in 1:iterations
+            for j in eachindex(source.weights, gradient, new_source_points)
+                transformed_src = new_source_points[j]
+                grid_idx = idx_on_grid(transformed_src, grid)
+                if !(grid_idx in valid_idcs)
+                    gradient[j] = zero(eltype(gradient))
+                    continue
+                end
 
-    for iter in 1:iterations
-        obj_val, grad = value_and_gradient!!(mc_cache, objective, params)
-        Adam.step!(adam, grad[2], params, iter)
-        report_iteration(; iter, gradient = grad[2], obj_val, displaced_source_points = interpret_params(params, Val(N)))
-        Adam.isdone(adam) && break
+                w_src = source.weights[j]
+                convd_trg = convd_target[grid_idx]
+                convd_w_trg = convd_weights_target[grid_idx]
+
+                gradient[j] = w_src * (convd_w_trg * transformed_y - convd_trg)
+            end
+
+            for (original_dist, (j1, j2)) in zip(spring_dists, spring_pairs)
+                nsrc1 = new_source_points[j1]
+                nsrc2 = new_source_points[j2]
+                dist = euclidean(nsrc1, nsrc2)
+                diff = (original_dist - dist) / dist * (nsrc1 - nsrc2)
+                gradient[j1] += stiffness * diff
+                gradient[j2] -= stiffness * diff
+            end
+
+            Adam.step!(adam, to_matrix(gradient), to_matrix(new_source_points), iter)
+            report_iteration(; iter, gradient, new_source_points)
+            Adam.isdone(adam) && break
+        end
     end
 
-    return KcSpringsRegistration(
-        interpret_params(params, Val(N)) .- source.points
-    )
+    return KcSpringsRegistration(new_source_points)
 end
 
 end
