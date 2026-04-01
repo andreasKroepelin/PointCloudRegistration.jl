@@ -41,11 +41,18 @@ end
 
 @recipe PointCloudPlotMesh (pointcloud::PointCloud{3},) begin
     Makie.documented_attributes(MeshScatter)...
+    sizefactor = :auto
 end
 
 function Makie.plot!(plot::PointCloudPlotMesh)
     map!(plot.attributes, [:pointcloud], [:positions, :sizes]) do pc
-        (pc.points, maybe_collect(_plotsizes(pc)))
+        sf = plot.sizefactor[]
+        ps = if sf == :auto
+            _plotsizes(pc)
+        elseif sf isa Number
+            _plotsizes(pc, sf)
+        end
+        (pc.points, maybe_collect(ps))
     end
     meshscatter!(
         plot,
