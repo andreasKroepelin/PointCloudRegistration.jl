@@ -156,7 +156,7 @@ function thin_to_number(
     report_iteration::RI = no_report,
 ) where {RI}
     # state = DpMeansState(pc)
-    centers = sample(pc.points, numclusters; replace = false)
+    centers = sample(pc.points, Weights(pc.weights), numclusters; replace = false)
     weightsums = zeros(typeof(pc.sum_of_weights), numclusters)
     clustersizes = zeros(Int, numclusters)
     indicators = ones(Int, length(pc.points))
