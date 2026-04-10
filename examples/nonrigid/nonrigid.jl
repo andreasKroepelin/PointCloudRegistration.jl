@@ -1,17 +1,23 @@
 using Revise
 using PointCloudRegistration
-# using Mooncake
 # using OptimalTransport
 using LinearAlgebra
 using GLMakie
 
 # X, Y = PointCloudRegistration.Assets.load_1ake_A_4ake_A()
 # X, Y = PointCloudRegistration.Assets.load_1su4_A_1iwo_A()
-X, Y = PointCloudRegistration.Assets.load_1ih7_A_1ig9_A()
+Y, X = PointCloudRegistration.Assets.load_1ih7_A_1ig9_A()
 # X = PointCloud(collect(map(x -> Float64.(x), X.points)))
 # Y = PointCloud(collect(map(x -> Float64.(x), Y.points)))
 T_rigid = rigid_kc(Y, X)
 Y = T_rigid(Y)
+
+function report_iteration(; iter, new_source_points, sqsigma, sqlambda, kwargs...)
+    pseudo_sqrt(x) = x < 0 ? NaN : sqrt(x)
+    push!(new_source_points_hist, copy(new_source_points))
+    push!(sigma_hist, pseudo_sqrt(sqsigma))
+    push!(lambda_hist, pseudo_sqrt(sqlambda))
+end
 
 function report_iteration(; iter, new_source_points, kc, spring_energy, spring_pairs, kwargs...)
     push!(new_source_points_hist, copy(new_source_points))
@@ -22,6 +28,11 @@ function report_iteration(; iter, new_source_points, kc, spring_energy, spring_p
         append!(all_spring_pairs, spring_pairs)
     end
 end
+
+new_source_points_hist = []
+sigma_hist = []
+lambda_hist = []
+nonrigid_gmml(Y, X; max_spring_length = 10., report_iteration)
 
 new_source_points_hist = []
 kc_hist = []
@@ -41,14 +52,18 @@ end
 let
     fig = Figure()
     ax1 = Axis3(fig[1, 1]; aspect = :data)
-    ax2 = Axis(fig[1, 2];)
-    sl = Slider(fig[2, 1:2]; range = eachindex(kc_hist))
-    lines!(ax2, kc_hist, spring_energy_hist)
+    # ax2 = Axis(fig[1, 2];)
+    sl = Slider(fig[2, 1]; range = eachindex(new_source_points_hist))
+    # lines!(ax2, sigma_hist)
+    # lines!(ax2, lambda_hist)
     iY = @lift PointCloud(new_source_points_hist[$(sl.value)], Y.weights)
-    io = @lift Point2(kc_hist[$(sl.value)], spring_energy_hist[$(sl.value)])
+    # io = @lift [Point2($(sl.value), sigma_hist[$(sl.value)]), Point2($(sl.value), lambda_hist[$(sl.value)])]
+    # ls = @lift mapreduce((y, iy) -> [y, iy], vcat, Y.points, new_source_points_hist[$(sl.value)])
+    # plot!(ax1, Y; sizefactor = 2)
     plot!(ax1, X; sizefactor = 2)
-    plot!(ax1, iY; sizefactor = 2)
-    scatter!(ax2, io; markersize = 10)
+    plot!(ax1, iY; sizefactor = 2 #=, color = eachindex(Y.points) =#)
+    # linesegments!(ax1, ls; color = :gray)
+    # scatter!(ax2, io; markersize = 10)
     fig
 end
 

@@ -314,12 +314,6 @@ git-tree-sha1 = "a21c5464519504e41e0cbc91f0188e8ca23d7440"
 uuid = "83423d85-b0ee-5818-9007-b63ccbeb887a"
 version = "1.18.5+1"
 
-[[deps.ChainRules]]
-deps = ["Adapt", "ChainRulesCore", "Compat", "Distributed", "GPUArraysCore", "IrrationalConstants", "LinearAlgebra", "Random", "RealDot", "SparseArrays", "SparseInverseSubset", "Statistics", "StructArrays", "SuiteSparse"]
-git-tree-sha1 = "3c190c570fb3108c09f838607386d10c71701789"
-uuid = "082447d4-558c-5d27-93f4-14fc19e9eca2"
-version = "1.73.0"
-
 [[deps.ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra"]
 git-tree-sha1 = "e4c6a16e77171a5f5e25e9646617ab1c276c5607"
@@ -1719,15 +1713,16 @@ uuid = "66fc600b-dfda-50eb-8b99-91cfa97b1301"
 version = "1.1.8"
 
 [[deps.Mooncake]]
-deps = ["ADTypes", "ChainRules", "ChainRulesCore", "DispatchDoctor", "ExprTools", "Graphs", "LinearAlgebra", "MistyClosures", "PrecompileTools", "Random", "Test"]
-git-tree-sha1 = "450ff886563cdadbfb6c21efd3889aeece0d8f7d"
+deps = ["ADTypes", "ChainRulesCore", "DispatchDoctor", "ExprTools", "Graphs", "LinearAlgebra", "MistyClosures", "PrecompileTools", "Random", "Test"]
+git-tree-sha1 = "6e94931db115906de3b83beb29dac6ea1acd3516"
 uuid = "da2b9cff-9c12-43a0-ae48-6db2b0edb7d6"
-version = "0.5.24"
+version = "0.5.25"
 
     [deps.Mooncake.extensions]
     MooncakeAllocCheckExt = "AllocCheck"
     MooncakeBFloat16sExt = "BFloat16s"
     MooncakeCUDAExt = "CUDA"
+    MooncakeChainRulesExt = "ChainRules"
     MooncakeDistributionsExt = "Distributions"
     MooncakeDynamicExpressionsExt = "DynamicExpressions"
     MooncakeFluxExt = "Flux"
@@ -1745,6 +1740,7 @@ version = "0.5.24"
     AllocCheck = "9b6a8646-10ed-4001-bbdc-1d2f46dfbb1a"
     BFloat16s = "ab4f0b2a-ad5b-11e8-123f-65d77653426b"
     CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+    ChainRules = "082447d4-558c-5d27-93f4-14fc19e9eca2"
     Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
     DynamicExpressions = "a40a106e-89c9-4ca8-8020-a735e8728b6b"
     Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
@@ -2390,12 +2386,6 @@ version = "1.2.2"
 deps = ["Libdl", "LinearAlgebra", "Random", "Serialization", "SuiteSparse_jll"]
 uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 version = "1.12.0"
-
-[[deps.SparseInverseSubset]]
-deps = ["LinearAlgebra", "SparseArrays", "SuiteSparse"]
-git-tree-sha1 = "52962839426b75b3021296f7df242e40ecfc0852"
-uuid = "dc90abb0-5640-4711-901d-7e5b23a2fada"
-version = "0.1.2"
 
 [[deps.SpecialFunctions]]
 deps = ["IrrationalConstants", "LogExpFunctions", "OpenLibm_jll", "OpenSpecFun_jll"]
