@@ -26,6 +26,7 @@ export PointCloud,
     nonrigid_sinkhorn,
     nonrigid_divfree,
     nonrigid_kc_springs,
+    nonrigid_gmml,
     correspondences,
     displacements,
     apply_displacements,
@@ -62,6 +63,7 @@ include("iterative_closest_point.jl")
 include("nonrigid.jl")
 include("coherent_point_drift.jl")
 include("kernel_correlation_springs.jl")
+include("gmm_laplace.jl")
 include("guess_correspondences.jl")
 include("thinning.jl")
 include("assets.jl")
