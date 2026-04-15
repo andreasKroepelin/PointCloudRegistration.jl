@@ -41,12 +41,11 @@ function nonrigid_gmml(source::PointCloud{N}, target::PointCloud{N}; max_spring_
     state[1] = sqsigma
     state[2] = sqlambda
 
-    for iter in 1:5_000
+    for iter in 1:50_000
         sqsigma = state[1]
         sqlambda = state[2]
         
         report_iteration(; iter, new_source_points, sqsigma, sqlambda)
-        iter % 1000 == 0 && @info "iteration" iter sqrt(sqsigma) sqrt(sqlambda)
 
         exp_factor = -inv(2sqsigma)
         pairwise!(R, sqeuclidean, target.points, new_source_points)

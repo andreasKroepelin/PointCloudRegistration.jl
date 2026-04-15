@@ -14,9 +14,12 @@ Y = T_rigid(Y)
 
 function report_iteration(; iter, new_source_points, sqsigma, sqlambda, kwargs...)
     pseudo_sqrt(x) = x < 0 ? NaN : sqrt(x)
+    sigma = pseudo_sqrt(sqsigma)
+    lambda = pseudo_sqrt(sqlambda)
+    iter % 100 == 0 && @info "iteration" iter sigma lambda
     push!(new_source_points_hist, copy(new_source_points))
-    push!(sigma_hist, pseudo_sqrt(sqsigma))
-    push!(lambda_hist, pseudo_sqrt(sqlambda))
+    push!(sigma_hist, sigma)
+    push!(lambda_hist, lambda)
 end
 
 function report_iteration(; iter, new_source_points, kc, spring_energy, spring_pairs, kwargs...)
@@ -52,18 +55,18 @@ end
 let
     fig = Figure()
     ax1 = Axis3(fig[1, 1]; aspect = :data)
-    # ax2 = Axis(fig[1, 2];)
+    ax2 = Axis(fig[1, 2];)
     sl = Slider(fig[2, 1]; range = eachindex(new_source_points_hist))
-    # lines!(ax2, sigma_hist)
-    # lines!(ax2, lambda_hist)
+    lines!(ax2, sigma_hist)
+    lines!(ax2, lambda_hist)
     iY = @lift PointCloud(new_source_points_hist[$(sl.value)], Y.weights)
-    # io = @lift [Point2($(sl.value), sigma_hist[$(sl.value)]), Point2($(sl.value), lambda_hist[$(sl.value)])]
+    io = @lift [Point2($(sl.value), sigma_hist[$(sl.value)]), Point2($(sl.value), lambda_hist[$(sl.value)])]
     # ls = @lift mapreduce((y, iy) -> [y, iy], vcat, Y.points, new_source_points_hist[$(sl.value)])
     # plot!(ax1, Y; sizefactor = 2)
     plot!(ax1, X; sizefactor = 2)
     plot!(ax1, iY; sizefactor = 2 #=, color = eachindex(Y.points) =#)
     # linesegments!(ax1, ls; color = :gray)
-    # scatter!(ax2, io; markersize = 10)
+    scatter!(ax2, io; markersize = 10)
     fig
 end
 
