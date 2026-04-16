@@ -4,18 +4,17 @@ using PointCloudRegistration
 using LinearAlgebra
 using GLMakie
 
-# X, Y = PointCloudRegistration.Assets.load_1ake_A_4ake_A()
+X, Y = PointCloudRegistration.Assets.load_1ake_A_4ake_A()
 # X, Y = PointCloudRegistration.Assets.load_1su4_A_1iwo_A()
-Y, X = PointCloudRegistration.Assets.load_1ih7_A_1ig9_A()
+# Y, X = PointCloudRegistration.Assets.load_1ih7_A_1ig9_A()
 # X = PointCloud(collect(map(x -> Float64.(x), X.points)))
 # Y = PointCloud(collect(map(x -> Float64.(x), Y.points)))
 T_rigid = rigid_kc(Y, X)
 Y = T_rigid(Y)
 
-function report_iteration(; iter, new_source_points, sqsigma, sqlambda, kwargs...)
+function report_iteration(; iter, new_source_points, sqsigma, lambda, kwargs...)
     pseudo_sqrt(x) = x < 0 ? NaN : sqrt(x)
     sigma = pseudo_sqrt(sqsigma)
-    lambda = pseudo_sqrt(sqlambda)
     iter % 100 == 0 && @info "iteration" iter sigma lambda
     push!(new_source_points_hist, copy(new_source_points))
     push!(sigma_hist, sigma)

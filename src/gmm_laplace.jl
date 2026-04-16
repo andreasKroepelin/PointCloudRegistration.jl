@@ -11,10 +11,7 @@ function nonrigid_gmml(source::PointCloud{N}, target::PointCloud{N}; max_spring_
         for (j1, j2) in spring_pairs
     ]
 
-    sqlambda = let
-        _idcs, nn_dists = allnn(source_kdtree)
-        minimum(nn_dists)^2
-    end
+    beta = 2
 
     function extract_points(arr)
         section = @view arr[3:end]
@@ -38,14 +35,15 @@ function nonrigid_gmml(source::PointCloud{N}, target::PointCloud{N}; max_spring_
     R = pairwise(sqeuclidean, target.points, source.points)
 
     sqsigma = 5.0^2 # dot(vec(C), vec(R)) / (2 * N * sum(s))
+    lambda = 5e-2
     state[1] = sqsigma
-    state[2] = sqlambda
+    state[2] = lambda
 
-    for iter in 1:50_000
+    for iter in 1:5_000
         sqsigma = state[1]
-        sqlambda = state[2]
+        lambda = state[2]
         
-        report_iteration(; iter, new_source_points, sqsigma, sqlambda)
+        report_iteration(; iter, new_source_points, sqsigma, lambda)
 
         exp_factor = -inv(2sqsigma)
         pairwise!(R, sqeuclidean, target.points, new_source_points)
@@ -65,25 +63,27 @@ function nonrigid_gmml(source::PointCloud{N}, target::PointCloud{N}; max_spring_
         end
         points_gradient ./= sqsigma
 
-        ssq_displacement = zero(sqlambda)
+        sum_log_ratios = zero(lambda)
+        beta_div_lambda_pow_beta = beta / lambda^beta
         for (equil_dist, (j1, j2)) in zip(equil_dists, spring_pairs)
             nsrc1 = new_source_points[j1]
             nsrc2 = new_source_points[j2]
             dist = euclidean(nsrc1, nsrc2)
-            displacement = dist - equil_dist
-            d = inv(sqlambda) * displacement / dist * (nsrc1 - nsrc2)
+            log_ratio = log(dist / equil_dist)
+            factor = 1 + beta_div_lambda_pow_beta * abs(log_ratio)^(beta - 1) * sign(log_ratio)
+            d = factor / dist^2 * (nsrc1 - nsrc2)
             points_gradient[j1] += d
             points_gradient[j2] -= d
-            ssq_displacement += displacement^2
+            sum_log_ratios += abs(log_ratio)^beta
         end
 
         sqsigma_gradient = -dot(vec(C), vec(R)) / sqsigma + N * target.sum_of_weights
         sqsigma_gradient /= 2sqsigma
-        sqlambda_gradient = -ssq_displacement / sqlambda + length(spring_pairs)
-        sqlambda_gradient /= 2sqlambda
+        lambda_gradient = -beta_div_lambda_pow_beta * sum_log_ratios + length(spring_pairs)
+        lambda_gradient /= lambda
 
         gradient[1] = sqsigma_gradient
-        gradient[2] = sqlambda_gradient
+        gradient[2] = 0 # lambda_gradient
 
         Adam.step!(adam, gradient, state, iter)
     end
