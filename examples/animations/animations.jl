@@ -41,8 +41,8 @@ let
 end
 
 TY = T(Y)
-kcs = nonrigid_kc_springs(TY, prepd_X; max_spring_length = 25, stiffness = 1e4)
-dTY = PointCloud(kcs.new_source_points, TY.weights)
+dTY = nonrigid_distancepreserving(TY, X; max_edge_length = 10, regularizer = GeneralizedLogNormalRegularizer(2, 1.0001))
+# dTY = PointCloud(kcs.new_source_points, TY.weights)
 
 let
     fig = Figure()
@@ -55,16 +55,16 @@ let
 end
 
 let
-    fig = Figure(; size = (300, 200))
-    # fig = Figure()
+    # fig = Figure(; size = (300, 200))
+    fig = Figure()
     ax = Axis(fig[1, 1]; autolimitaspect = 1, yreversed = true)
     hidespines!(ax)
     hidedecorations!(ax)
     plot!(ax, X; color = Colors.JULIA_LOGO_COLORS.blue, sizefactor = .15)
     pY = plot!(ax, Y; color = Colors.JULIA_LOGO_COLORS.green, sizefactor = .15)
     on(events(fig).tick) do tick
-        # t = mod(tick.time, 2.5)
-        t = tick.time
+        t = mod(tick.time, 2.5)
+        # t = tick.time
         intermediate_Y = if t <= 1
             (partial_transformation(T, t))(Y)
         elseif t <= 2
@@ -76,6 +76,6 @@ let
         end
         Makie.update!(pY; arg1 = intermediate_Y)
     end
-    # fig
-    record(_ -> (), fig, "register-julia-logo.mp4", 1:3*60; framerate = 60)
+    fig
+    # record(_ -> (), fig, "register-julia-logo.mp4", 1:3*60; framerate = 60)
 end

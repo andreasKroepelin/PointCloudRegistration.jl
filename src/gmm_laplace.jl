@@ -1,49 +1,106 @@
 using .Adam
 
-function nonrigid_gmml(source::PointCloud{N}, target::PointCloud{N}; max_spring_length, report_iteration = no_report) where {N}
+struct NeighborGraph{T}
+    edges::Vector{NTuple{2, Int}}
+    distances::Vector{T}
+end
+
+struct PreparedSourceDistPres{N, T, PC <: PointCloud{N, T}}
+    source::PC
+    neighbor_graph::NeighborGraph{T}
+    init_sqsigma::T
+end
+
+function prepare_source_distancepreserving(source; max_edge_length)
+    source_pc = PointCloud(source)
+    _prepare_source_distancepreserving(source_pc, max_edge_length)
+end
+
+function _prepare_source_distancepreserving(
+    source::PointCloud,
+    max_edge_length
+)
+    tree = KDTree(source.points)
+
+    edges = inrange_pairs(tree, max_edge_length)
+    distances = [
+        euclidean(source.points[j1], source.points[j2])
+        for (j1, j2) in edges
+    ]
+
+    init_sqsigma = let
+        _idcs, dists = allnn(tree)
+        mean(dists)^2
+    end
+
+    return PreparedSourceDistPres(source, NeighborGraph(edges, distances), init_sqsigma)
+end
+
+function nonrigid_distancepreserving(
+    source,
+    target;
+    max_edge_length,
+    regularizer = GeneralizedLogNormalRegularizer(2, 1.01),
+    iterations = 10_000,
+    init_noise = false,
+    report_iteration::RI = no_report
+) where {RI}
+    prepd_source = prepare_source_distancepreserving(source; max_edge_length)
+    target_pc = PointCloud(target)
+    _nonrigid_distancepreserving(
+        prepd_source,
+        target_pc,
+        regularizer,
+        iterations,
+        init_noise,
+        report_iteration,
+    )
+end
+
+function _nonrigid_distancepreserving(
+    prepd_source::PreparedSourceDistPres{N},
+    target::PointCloud{N},
+    regularizer,
+    iterations,
+    init_noise,
+    report_iteration::RI,
+) where {N, RI}
+    (; source, neighbor_graph, init_sqsigma) = prepd_source
+
     I = length(target.points)
     J = length(source.points)
 
-    source_kdtree = KDTree(source.points)
-    spring_pairs = inrange_pairs(source_kdtree, max_spring_length)
-    equil_dists = [
-        euclidean(source.points[j1], source.points[j2])
-        for (j1, j2) in spring_pairs
-    ]
-
-    beta = 2
-
     function extract_points(arr)
-        section = @view arr[3:end]
+        section = @view arr[2:end]
         mat = reshape(section, N, :)
         return to_vec_of_svec(mat, Val(N))
     end
 
-    state = zeros(2 + N * J)
+    state = zeros(1 + N * J)
     gradient = similar(state)
     new_source_points = extract_points(state)
     points_gradient = extract_points(gradient)
     adam = Adam.State(state)
 
     new_source_points .= source.points
-    # for j in eachindex(new_source_points)
-    #     new_source_points[j] += randn(eltype(new_source_points))
-    # end
+    if !iszero(init_noise)
+        V = eltype(new_source_points)
+        for j in eachindex(new_source_points)
+            new_source_points[j] += init_noise * randn(V)
+        end
+    end
 
     C = float.(target.weights .* source.weights')
     s = sum(C; dims = 2)
     R = pairwise(sqeuclidean, target.points, source.points)
 
-    sqsigma = 5.0^2 # dot(vec(C), vec(R)) / (2 * N * sum(s))
-    lambda = 5e-2
+    sqsigma = init_sqsigma
     state[1] = sqsigma
-    state[2] = lambda
 
     for iter in 1:5_000
         sqsigma = state[1]
-        lambda = state[2]
         
-        report_iteration(; iter, new_source_points, sqsigma, lambda)
+        report_iteration(; iter, new_source_points, sqsigma)
 
         exp_factor = -inv(2sqsigma)
         pairwise!(R, sqeuclidean, target.points, new_source_points)
@@ -63,30 +120,52 @@ function nonrigid_gmml(source::PointCloud{N}, target::PointCloud{N}; max_spring_
         end
         points_gradient ./= sqsigma
 
-        sum_log_ratios = zero(lambda)
-        beta_div_lambda_pow_beta = beta / lambda^beta
-        for (equil_dist, (j1, j2)) in zip(equil_dists, spring_pairs)
-            nsrc1 = new_source_points[j1]
-            nsrc2 = new_source_points[j2]
-            dist = euclidean(nsrc1, nsrc2)
-            log_ratio = log(dist / equil_dist)
-            factor = 1 + beta_div_lambda_pow_beta * abs(log_ratio)^(beta - 1) * sign(log_ratio)
-            d = factor / dist^2 * (nsrc1 - nsrc2)
-            points_gradient[j1] += d
-            points_gradient[j2] -= d
-            sum_log_ratios += abs(log_ratio)^beta
-        end
+        regularize_neighbor_distances!(
+            points_gradient,
+            new_source_points,
+            neighbor_graph,
+            regularizer,
+        )
 
         sqsigma_gradient = -dot(vec(C), vec(R)) / sqsigma + N * target.sum_of_weights
         sqsigma_gradient /= 2sqsigma
-        lambda_gradient = -beta_div_lambda_pow_beta * sum_log_ratios + length(spring_pairs)
-        lambda_gradient /= lambda
 
         gradient[1] = sqsigma_gradient
-        gradient[2] = 0 # lambda_gradient
 
         Adam.step!(adam, gradient, state, iter)
     end
 
     PointCloud(new_source_points, source.weights)
+end
+
+struct GeneralizedLogNormalRegularizer
+    beta::Int
+    coefficient::Float64
+
+    function GeneralizedLogNormalRegularizer(beta, expected_rel_deviation)
+        lambda = exp(expected_rel_deviation)
+        coefficient = beta / lambda^beta
+        new(beta, coefficient)
+    end
+end
+
+function regularize_neighbor_distances!(
+    points_gradient,
+    points,
+    neighbor_graph::NeighborGraph,
+    glnr::GeneralizedLogNormalRegularizer,
+)
+    (; beta, coefficient) = glnr
+    (; edges, distances) = neighbor_graph
+
+    for (orig_dist, (j1, j2)) in zip(distances, edges)
+        p1 = points[j1]
+        p2 = points[j2]
+        dist = euclidean(p1, p2)
+        log_ratio = log(dist / orig_dist)
+        factor = 1 + coefficient * abs(log_ratio)^(beta - 1) * sign(log_ratio)
+        d = factor / dist^2 * (p1 - p2)
+        points_gradient[j1] += d
+        points_gradient[j2] -= d
+    end
 end
