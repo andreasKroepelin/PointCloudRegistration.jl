@@ -31,6 +31,7 @@ export PointCloud,
     displacements,
     apply_displacements,
     prepare_target_kc,
+    prepare_source_distancepreserving,
     guess_correspondences,
     DownTo,
     TargetScales,
@@ -64,7 +65,7 @@ include("iterative_closest_point.jl")
 include("nonrigid.jl")
 include("coherent_point_drift.jl")
 include("kernel_correlation_springs.jl")
-include("gmm_laplace.jl")
+include("distancepreserving.jl")
 include("guess_correspondences.jl")
 include("thinning.jl")
 include("assets.jl")

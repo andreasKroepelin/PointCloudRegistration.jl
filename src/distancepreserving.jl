@@ -30,7 +30,7 @@ function _prepare_source_distancepreserving(
 
     init_sqsigma = let
         _idcs, dists = allnn(tree)
-        mean(dists)^2
+        (1 * mean(dists))^2
     end
 
     return PreparedSourceDistPres(source, NeighborGraph(edges, distances), init_sqsigma)
@@ -46,6 +46,25 @@ function nonrigid_distancepreserving(
     report_iteration::RI = no_report
 ) where {RI}
     prepd_source = prepare_source_distancepreserving(source; max_edge_length)
+    target_pc = PointCloud(target)
+    _nonrigid_distancepreserving(
+        prepd_source,
+        target_pc,
+        regularizer,
+        iterations,
+        init_noise,
+        report_iteration,
+    )
+end
+
+function nonrigid_distancepreserving(
+    prepd_source::PreparedSourceDistPres,
+    target;
+    regularizer = GeneralizedLogNormalRegularizer(2, 1.01),
+    iterations = 10_000,
+    init_noise = false,
+    report_iteration::RI = no_report
+) where {RI}
     target_pc = PointCloud(target)
     _nonrigid_distancepreserving(
         prepd_source,
