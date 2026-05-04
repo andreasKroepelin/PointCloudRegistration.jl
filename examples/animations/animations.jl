@@ -16,7 +16,7 @@ end
 logo = FileIO.load("../../assets/julia-logo/julia-logo-color.png");
 logo_mod = FileIO.load("../../assets/julia-logo/julia-logo-color-modified.png");
 
-heatmap(alpha.(logo) .> 0)
+heatmap(alpha.(logo_mod) .> 0)
 
 function img2pc(img, dist)
     full_pc = density2pointcloud(alpha.(img'))
@@ -41,8 +41,23 @@ let
 end
 
 TY = T(Y)
-dTY = nonrigid_distancepreserving(TY, X; max_edge_length = 10, regularizer = GeneralizedLogNormalRegularizer(2, 1.0001))
+prepd_source = prepare_source_distancepreserving(TY; max_edge_length = 13)
+dTY = nonrigid_distancepreserving(prepd_source, X; init_noise = 1, regularizer = GeneralizedLogNormalRegularizer(2, 1.000000001))
+dTY = PointCloud(collect(dTY.points), collect(dTY.weights))
 # dTY = PointCloud(kcs.new_source_points, TY.weights)
+
+let
+    fig = Figure()
+    ax = Axis(fig[1, 1]; autolimitaspect = 1, yreversed = true)
+    plot!(ax, TY; sizefactor = .15)
+    pts = eltype(TY.points)[]
+    for (j1, j2) in prepd_source.neighbor_graph.edges
+        push!(pts, TY.points[j1])
+        push!(pts, TY.points[j2])
+    end
+    linesegments!(ax, stack(collect.(pts)); color = :gray)
+    fig
+end
 
 let
     fig = Figure()
