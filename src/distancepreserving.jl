@@ -116,7 +116,7 @@ function _nonrigid_distancepreserving(
     sqsigma = init_sqsigma
     state[1] = sqsigma
 
-    for iter in 1:5_000
+    for iter in 1:iterations
         sqsigma = state[1]
         
         report_iteration(; iter, new_source_points, sqsigma)
@@ -162,7 +162,7 @@ struct GeneralizedLogNormalRegularizer
     coefficient::Float64
 
     function GeneralizedLogNormalRegularizer(beta, expected_rel_deviation)
-        lambda = exp(expected_rel_deviation)
+        lambda = log(expected_rel_deviation)
         coefficient = beta / lambda^beta
         new(beta, coefficient)
     end
