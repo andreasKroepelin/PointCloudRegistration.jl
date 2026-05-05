@@ -40,9 +40,16 @@ let
     fig
 end
 
+function report_iteration(; iter, new_source_points, sqsigma)
+    iter % 1000 == 0 && @info "iteration" iter sqrt(sqsigma)
+    push!(hist_new_source_points, copy(new_source_points))
+end
+
 TY = T(Y)
 prepd_source = prepare_source_distancepreserving(TY; max_edge_length = 13)
-dTY = nonrigid_distancepreserving(prepd_source, X; init_noise = 1, regularizer = GeneralizedLogNormalRegularizer(2, 1.000000001))
+
+hist_new_source_points = []
+dTY = nonrigid_distancepreserving(prepd_source, X; init_noise = 0, regularizer = GeneralizedLogNormalRegularizer(2, 1.001), report_iteration, iterations = 20_000)
 dTY = PointCloud(collect(dTY.points), collect(dTY.weights))
 # dTY = PointCloud(kcs.new_source_points, TY.weights)
 
@@ -62,6 +69,16 @@ end
 let
     fig = Figure()
     ax = Axis(fig[1, 1]; autolimitaspect = 1, yreversed = true)
+    sl = Slider(fig[2, 1]; range = eachindex(hist_new_source_points))
+    Y_tr = @lift PointCloud(hist_new_source_points[$(sl.value)], Y.weights)
+    plot!(ax, X; sizefactor = .15)
+    plot!(ax, Y_tr; sizefactor = .15)
+    fig
+end
+
+let
+    fig = Figure()
+    ax = Axis(fig[1, 1]; autolimitaspect = 1, yreversed = true)
     plot!(ax, X; sizefactor = .15)
     # plot!(ax, TY; sizefactor = .15)
     plot!(ax, dTY; sizefactor = .15)
@@ -70,16 +87,16 @@ let
 end
 
 let
-    # fig = Figure(; size = (300, 200))
-    fig = Figure()
+    fig = Figure(; size = (300, 200))
+    # fig = Figure()
     ax = Axis(fig[1, 1]; autolimitaspect = 1, yreversed = true)
     hidespines!(ax)
     hidedecorations!(ax)
     plot!(ax, X; color = Colors.JULIA_LOGO_COLORS.blue, sizefactor = .15)
     pY = plot!(ax, Y; color = Colors.JULIA_LOGO_COLORS.green, sizefactor = .15)
     on(events(fig).tick) do tick
-        t = mod(tick.time, 2.5)
-        # t = tick.time
+        # t = mod(tick.time, 2.5)
+        t = tick.time
         intermediate_Y = if t <= 1
             (partial_transformation(T, t))(Y)
         elseif t <= 2
@@ -91,6 +108,6 @@ let
         end
         Makie.update!(pY; arg1 = intermediate_Y)
     end
-    fig
-    # record(_ -> (), fig, "register-julia-logo.mp4", 1:3*60; framerate = 60)
+    # fig
+    record(_ -> (), fig, "register-julia-logo.mp4", 1:3*60; framerate = 60)
 end
