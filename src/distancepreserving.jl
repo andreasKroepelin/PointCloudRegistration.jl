@@ -116,10 +116,25 @@ function _nonrigid_distancepreserving(
     sqsigma = init_sqsigma
     state[1] = sqsigma
 
+    max_recent_sqsigma = typemin(sqsigma)
+    min_recent_sqsigma = typemax(sqsigma)
+
     for iter in 1:iterations
         sqsigma = state[1]
-        
+
         report_iteration(; iter, new_source_points, sqsigma)
+
+        max_recent_sqsigma = max(max_recent_sqsigma, sqsigma)
+        min_recent_sqsigma = min(min_recent_sqsigma, sqsigma)
+        if iter % 1000 == 0
+            max_recent_sigma = sqrt(max_recent_sqsigma)
+            min_recent_sigma = sqrt(min_recent_sqsigma)
+            if (max_recent_sigma - min_recent_sigma) / min_recent_sigma < 1e-3
+                break
+            end
+            max_recent_sqsigma = typemin(sqsigma)
+            min_recent_sqsigma = typemax(sqsigma)
+        end
 
         exp_factor = -inv(2sqsigma)
         pairwise!(R, sqeuclidean, target.points, new_source_points)
@@ -128,7 +143,7 @@ function _nonrigid_distancepreserving(
         @. C *= target.weights / s
 
         fillzeros!(gradient)
-        
+
         for j in eachindex(source.points)
             nsrc = new_source_points[j]
             for i in eachindex(target.points)
@@ -157,14 +172,14 @@ function _nonrigid_distancepreserving(
     PointCloud(new_source_points, source.weights)
 end
 
-struct GeneralizedLogNormalRegularizer
-    beta::Int
+struct GeneralizedLogNormalRegularizer{B <: Number}
+    beta::B
     coefficient::Float64
 
     function GeneralizedLogNormalRegularizer(beta, expected_rel_deviation)
         lambda = log(expected_rel_deviation)
         coefficient = beta / lambda^beta
-        new(beta, coefficient)
+        new{typeof(beta)}(beta, coefficient)
     end
 end
 
