@@ -4,21 +4,21 @@ using PointCloudRegistration
 using LinearAlgebra
 using GLMakie
 
-X, Y = PointCloudRegistration.Assets.load_1ake_A_4ake_A()
+# X, Y = PointCloudRegistration.Assets.load_1ake_A_4ake_A()
 # X, Y = PointCloudRegistration.Assets.load_1su4_A_1iwo_A()
 # Y, X = PointCloudRegistration.Assets.load_1ih7_A_1ig9_A()
+Y, X = PointCloudRegistration.Assets.load_1q9x_B_1q9y_A()
 # X = PointCloud(collect(map(x -> Float64.(x), X.points)))
 # Y = PointCloud(collect(map(x -> Float64.(x), Y.points)))
 T_rigid = rigid_kc(Y, X)
 Y = T_rigid(Y)
 
-function report_iteration(; iter, new_source_points, sqsigma, lambda, kwargs...)
+function report_iteration(; iter, new_source_points, sqsigma, kwargs...)
     pseudo_sqrt(x) = x < 0 ? NaN : sqrt(x)
     sigma = pseudo_sqrt(sqsigma)
-    iter % 100 == 0 && @info "iteration" iter sigma lambda
+    iter % 100 == 0 && @info "iteration" iter sigma
     push!(new_source_points_hist, copy(new_source_points))
     push!(sigma_hist, sigma)
-    push!(lambda_hist, lambda)
 end
 
 function report_iteration(; iter, new_source_points, kc, spring_energy, spring_pairs, kwargs...)
@@ -33,8 +33,8 @@ end
 
 new_source_points_hist = []
 sigma_hist = []
-lambda_hist = []
-nonrigid_gmml(Y, X; max_spring_length = 10., report_iteration)
+prepd_Y = prepare_source_distancepreserving(Y; max_edge_length = 10.)
+dY = nonrigid_distancepreserving(prepd_Y, X; iterations = 100_000, report_iteration, regularizer = GeneralizedLogNormalRegularizer(1.5, 1.1))
 
 new_source_points_hist = []
 kc_hist = []
@@ -46,7 +46,7 @@ let
     fig = Figure()
     ax = Axis3(fig[1, 1]; aspect = :data)
     plot!(ax, Y; sizefactor = 2)
-    ls = mapreduce(((j1, j2),) -> [Y.points[j1], Y.points[j2]], vcat, all_spring_pairs)
+    ls = mapreduce(((j1, j2),) -> [Y.points[j1], Y.points[j2]], vcat, prepd_Y.neighbor_graph.edges)
     linesegments!(ax, ls; color = :gray)
     fig
 end
@@ -57,9 +57,8 @@ let
     ax2 = Axis(fig[1, 2];)
     sl = Slider(fig[2, 1]; range = eachindex(new_source_points_hist))
     lines!(ax2, sigma_hist)
-    lines!(ax2, lambda_hist)
     iY = @lift PointCloud(new_source_points_hist[$(sl.value)], Y.weights)
-    io = @lift [Point2($(sl.value), sigma_hist[$(sl.value)]), Point2($(sl.value), lambda_hist[$(sl.value)])]
+    io = @lift [Point2($(sl.value), sigma_hist[$(sl.value)])]
     # ls = @lift mapreduce((y, iy) -> [y, iy], vcat, Y.points, new_source_points_hist[$(sl.value)])
     # plot!(ax1, Y; sizefactor = 2)
     plot!(ax1, X; sizefactor = 2)
@@ -74,8 +73,8 @@ let
     ax = Axis3(fig[1, 1]; aspect = :data)
     # src_plt = plot!(ax, Y; label = "source")
     # trg_plt = plot!(ax, X; label = "target")
-    plot!(ax, kcsr(Y); label = "displaced source")
-    # arrows3d!(ax, Y.points, kcsr(Y).points .- Y.points; label = "displacement")
+    # plot!(ax, dY; label = "displaced source")
+    arrows3d!(ax, Y.points, dY.points .- Y.points; label = "displacement")
     axislegend(ax)
     fig
 end
