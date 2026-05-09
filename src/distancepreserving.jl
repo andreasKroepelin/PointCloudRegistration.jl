@@ -1,5 +1,20 @@
 using .Adam
 
+struct DistancePreservingRegistration{N, T, PC1 <: PointCloud{N, T}, PC2 <: PointCloud{N, T}}
+    source::PC1
+    new_source::PC2
+
+    function DistancePreservingRegistration(source::PointCloud{N, T}, new_source_points::VecOfSVec{N, T}) where {N, T}
+        new_source = PointCloud(new_source_points, source.weights)
+        new{N, T, typeof(source), typeof(new_source)}(source, new_source)
+    end
+end
+
+function (dpr::DistancePreservingRegistration)(pc::PointCloud)
+    @argcheck dpr.source == pc "Distance preserving registration result can only be applied to the source it was computed for."
+    return dpr.new_source
+end
+
 struct NeighborGraph{T}
     edges::Vector{NTuple{2, Int}}
     distances::Vector{T}
@@ -159,7 +174,7 @@ function _nonrigid_distancepreserving(
         Adam.step!(adam, gradient, state, iter)
     end
 
-    PointCloud(new_source_points, source.weights)
+    DistancePreservingRegistration(new_source_points)
 end
 
 struct GeneralizedLogNormalRegularizer{B <: Number}
