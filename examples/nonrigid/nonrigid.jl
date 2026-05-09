@@ -5,9 +5,9 @@ using LinearAlgebra
 using GLMakie
 
 # X, Y = PointCloudRegistration.Assets.load_1ake_A_4ake_A()
-# X, Y = PointCloudRegistration.Assets.load_1su4_A_1iwo_A()
+X, Y = PointCloudRegistration.Assets.load_1su4_A_1iwo_A()
 # Y, X = PointCloudRegistration.Assets.load_1ih7_A_1ig9_A()
-Y, X = PointCloudRegistration.Assets.load_1q9x_B_1q9y_A()
+# Y, X = PointCloudRegistration.Assets.load_1q9x_B_1q9y_A()
 # X = PointCloud(collect(map(x -> Float64.(x), X.points)))
 # Y = PointCloud(collect(map(x -> Float64.(x), Y.points)))
 T_rigid = rigid_kc(Y, X)
@@ -34,7 +34,8 @@ end
 new_source_points_hist = []
 sigma_hist = []
 prepd_Y = prepare_source_distancepreserving(Y; max_edge_length = 10.)
-dY = nonrigid_distancepreserving(prepd_Y, X; iterations = 100_000, report_iteration, regularizer = GeneralizedLogNormalRegularizer(1.5, 1.1))
+dpr = nonrigid_distancepreserving(prepd_Y, X; iterations = 100_000, report_iteration, regularizer = GeneralizedLogNormalRegularizer(1.5, 1.1))
+dY = dpr(Y)
 
 new_source_points_hist = []
 kc_hist = []
@@ -45,7 +46,7 @@ kcsr = nonrigid_kc_springs(Y, X; stiffness = 8e6, scale = 10., max_spring_length
 let
     fig = Figure()
     ax = Axis3(fig[1, 1]; aspect = :data)
-    plot!(ax, Y; sizefactor = 2)
+    plot!(ax, Y; sizefactor = 1)
     ls = mapreduce(((j1, j2),) -> [Y.points[j1], Y.points[j2]], vcat, prepd_Y.neighbor_graph.edges)
     linesegments!(ax, ls; color = :gray)
     fig
