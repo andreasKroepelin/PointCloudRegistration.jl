@@ -341,7 +341,14 @@ $REGISTER_DOCS_START
 maximizes the Kernel Correlation to `target`,
 i.e.
 ```math
-\\sum_{i = 1}^n \\sum_{j = 1}^m \\exp\\left(- \\frac{\\Vert R y_i + t - x_i \\Vert}{2 \\sigma^2}\\right)
+\\integral_{\\mathbb{R}^D}
+\\left(
+    \\sum_{i = 1}^I p_i \\exp(- \\Vert x_i - z \\Vert^2 / 2 \\sigma^2)
+\\right)
+\\left(
+    \\sum_{j = 1}^J q_j \\exp(- \\Vert R y_i + t - z \\Vert^2 / 2 \\sigma^2)
+\\right)
+\\mathrm{d} z
 ```
 $REGISTER_DOCS_SYMBOLS
 
