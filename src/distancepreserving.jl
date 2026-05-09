@@ -116,25 +116,15 @@ function _nonrigid_distancepreserving(
     sqsigma = init_sqsigma
     state[1] = sqsigma
 
-    max_recent_sqsigma = typemin(sqsigma)
-    min_recent_sqsigma = typemax(sqsigma)
+    convergence_checker = ConvergenceChecker(state[1], 1000)
 
     for iter in 1:iterations
         sqsigma = state[1]
 
         report_iteration(; iter, new_source_points, sqsigma)
 
-        max_recent_sqsigma = max(max_recent_sqsigma, sqsigma)
-        min_recent_sqsigma = min(min_recent_sqsigma, sqsigma)
-        if iter % 1000 == 0
-            max_recent_sigma = sqrt(max_recent_sqsigma)
-            min_recent_sigma = sqrt(min_recent_sqsigma)
-            if (max_recent_sigma - min_recent_sigma) / min_recent_sigma < 1e-3
-                break
-            end
-            max_recent_sqsigma = typemin(sqsigma)
-            min_recent_sqsigma = typemax(sqsigma)
-        end
+        convergence_checker, converged = update_and_check(convergence_checker, sqsigma, iter)
+        converged && break
 
         exp_factor = -inv(2sqsigma)
         pairwise!(R, sqeuclidean, target.points, new_source_points)

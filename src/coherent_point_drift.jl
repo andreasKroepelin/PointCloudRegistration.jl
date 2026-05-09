@@ -65,26 +65,29 @@ function nonrigid_cpd(
     target;
     corr_length,
     expected_displacement,
-    outlier_proportion = 0
+    outlier_proportion = 0,
+    iterations = 1000,
 )
     source_prepd = prepare_source_cpd(source; corr_length, expected_displacement)
     target_pc = PointCloud(target)
-    _nonrigid_cpd(source_prepd, target, outlier_proportion)
+    _nonrigid_cpd(source_prepd, target, outlier_proportion, iterations)
 end
 
 function nonrigid_cpd(
     source_prepd::CpdPreparedSource,
     target;
-    outlier_proportion = 0
+    outlier_proportion = 0,
+    iterations = 1000,
 )
     target_pc = PointCloud(target)
-    _nonrigid_cpd(source_prepd, target, outlier_proportion)
+    _nonrigid_cpd(source_prepd, target, outlier_proportion, iterations)
 end
 
 function _nonrigid_cpd(
     prepd_source::CpdPreparedSource{<: PointCloud{N, TS}},
     target::PointCloud{N, TT},
     outlier_p,
+    iterations,
 ) where {N, TS, TT}
     (; source, invgram, sqsigma_displacements) = prepd_source
     displacements = similar(source.points)
@@ -93,7 +96,6 @@ function _nonrigid_cpd(
     J = length(source.points)
     R = [sqeuclidean(src, trg) for trg in target.points, src in source.points]
     sqsigma = sum(R) / (I * J * N)
-    prev_sqsigma = typemax(sqsigma)
     smoothing = similar(invgram)
     outlier_preterm = outlier_p / (1 - outlier_p) / bbox_hypervolume(target)
     C = float.(target.weights .* source.weights')
@@ -101,9 +103,8 @@ function _nonrigid_cpd(
     c_per_trg = sum(C; dims = 2)
     Z = sum(c_per_trg)
 
-    convergence_counter = 0
-    for iter in 1:1000
-        @info "iteration" iter sqrt(sqsigma) convergence_counter maximum(norm, displacements)
+    convergence_checker = ConvergenceChecker(sqsigma, 100)
+    for iter in 1:iterations
         for j in 1:J
             dsrc = source.points[j] + displacements[j]
             for i in 1:I
@@ -112,15 +113,10 @@ function _nonrigid_cpd(
             end
         end
         sqsigma = dot(vec(R), vec(C)) / (Z * N)
-        if abs(1 - sqrt(sqsigma / prev_sqsigma)) < 1e-5
-            convergence_counter += 1
-        else
-            convergence_counter = 0
-        end
-        if convergence_counter > 10
-            break
-        end
-        prev_sqsigma = sqsigma
+
+        convergence_checker, converged = update_and_check(convergence_checker, sqsigma, iter)
+        converged && break
+
         expfactor = inv(-2 * sqsigma)
         @. C = target.weights * source.weights' * exp(expfactor * R)
         sum!(c_per_trg, C)
