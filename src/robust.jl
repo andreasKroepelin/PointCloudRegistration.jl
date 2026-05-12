@@ -99,51 +99,51 @@ function _rigid_gmc(
             # loss with `sqscale`
             gm = GemanMcclure(2sqscale)
             prev_transformation = identity_transformation(transformation)
-            for this_source_iter in (source_iter, non_stochastic(source_iter))
-                for iter in 1:iterations
-                    sum_w = zero(WeightT)
-                    source_mean = sum_w * zero(SrcT)
-                    target_mean = sum_w * zero(TrgT)
-                    covariance = sum_w * zero(TrgT) * zero(SrcT)'
-                    gm_cost = zero(CostT)
+            for iter in 1:iterations
+                if 10iter > 9iterations
+                    source_iter = non_stochastic(source_iter)
+                end
+                sum_w = zero(WeightT)
+                source_mean = sum_w * zero(SrcT)
+                target_mean = sum_w * zero(TrgT)
+                covariance = sum_w * zero(TrgT) * zero(SrcT)'
+                gm_cost = zero(CostT)
 
-                    for source_element in this_source_iter
-                        src = source_element.point
-                        trg = target.points[source_element.idx]
-                        w_src = source_element.weight
-                        w_trg = target.weights[source_element.idx]
-                        sqdist = sqeuclidean(transformation(src), trg)
-                        w_src_w_trg = w_src * w_trg
-                        w = w_src_w_trg * mm_weight(gm, sqdist)
-                        gm_cost += w_src_w_trg * cost(gm, sqdist)
-                        source_mean += w * src
-                        target_mean += w * trg
-                        covariance += w * trg * src'
-                        sum_w += w
-                    end
+                for source_element in this_source_iter
+                    src = source_element.point
+                    trg = target.points[source_element.idx]
+                    w_src = source_element.weight
+                    w_trg = target.weights[source_element.idx]
+                    sqdist = sqeuclidean(transformation(src), trg)
+                    w_src_w_trg = w_src * w_trg
+                    w = w_src_w_trg * mm_weight(gm, sqdist)
+                    gm_cost += w_src_w_trg * cost(gm, sqdist)
+                    source_mean += w * src
+                    target_mean += w * trg
+                    covariance += w * trg * src'
+                    sum_w += w
+                end
 
-                    source_mean /= sum_w
-                    target_mean /= sum_w
-                    covariance /= sum_w
-                    covariance -= target_mean * source_mean'
+                source_mean /= sum_w
+                target_mean /= sum_w
+                covariance /= sum_w
+                covariance -= target_mean * source_mean'
 
-                    transformation = transformation_from_moments(
-                        covariance,
-                        source_mean,
-                        target_mean,
-                    )
+                transformation = transformation_from_moments(
+                    covariance,
+                    source_mean,
+                    target_mean,
+                )
 
-                    report_iteration(;
-                        iter,
-                        annealing_level = sqscale,
-                        cost = gm_cost,
-                        transformation,
-                    )
+                report_iteration(;
+                    iter,
+                    annealing_level = sqscale,
+                    cost = gm_cost,
+                    transformation,
+                )
 
-                    if iter > 1 && isapprox(transformation, prev_transformation)
-                        break
-                    end
-                    prev_transformation = transformation
+                if iter > 1 && isapprox(transformation, prev_transformation)
+                    break
                 end
             end
         end

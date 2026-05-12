@@ -1,7 +1,7 @@
 struct NoSmm end
 
 smm_iterator(::NoSmm, pc::PointCloud) =
-    PointCloudIterator(0, Nothing, pc, false)
+    PointCloudIterator(0, nothing, pc, false)
 
 struct Smm{Rng <: AbstractRNG}
     count::Int
@@ -37,5 +37,7 @@ function Base.iterate(pci::PointCloudIterator, i = 1)
     end
 end
 
-non_stochastic(pci::PointCloudIterator) =
+# For type stability during iterations in the registration algorithms, it is
+# crucial that this function returns something of the same type as its input.
+non_stochastic(pci::PCI)::PCI where {PCI <: PointCloudIterator} =
     PointCloudIterator(pci.count, pci.rng, pci.pc, false)
