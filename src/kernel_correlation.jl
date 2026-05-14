@@ -273,56 +273,55 @@ function eval_kernel_correlation(
     kc
 end
 
-default_axisalign() = false
-
 function axisalign_target(target)
     axisaligner = nearest_rotation(target.coveigvecs')
     axisaligner, LinearMap(axisaligner)(target)
 end
 
-struct PreparedTarget{
+struct PreparedTargetKernelCorrelation{
     N,
-    T,
     R <: RotMatrix{N},
     Al <: AnnealingLevel,
-    PC <: PointCloud{N, T},
 }
     axis_aligning_rotation::R
     annealing_levels::Vector{Al}
-    target::PC
 end
 
-Base.eltype(::PreparedTarget{N, T}) where {N, T} = T
+Base.eltype(::PreparedTargetKernelCorrelation{N, T}) where {N, T} = T
 
-dimension(::PreparedTarget{N}) where {N} = N
+dimension(::PreparedTargetKernelCorrelation{N}) where {N} = N
 
 """
-    prepare_target_kc(target[; scale, axisalign])
+    prepare_target_kernelcorrelation(target[; scale, axisalign])
 
-Perform all the necessary precomputation for `rigid_kc`.
+Perform all the source independent precomputation for the target that is used in
+`rigid_registration(source, target, ::KernelCorrelationMM)`.
 This function is especially useful if you plan to register multiple sources to
 the same target.
 
+For the meaning of the keyword arguments, see [`KernelCorrelationMM`](@ref).
+
+# Example
 ```julia
-X = PointCloud(rand(3, 100))
-Y1 = PointCloud(rand(3, 150))
-Y2 = PointCloud(rand(3, 130))
+X = rand(3, 100)
+Y1 = rand(3, 150)
+Y2 = rand(3, 130)
 
-prepd_X = prepare_target_kc(X) # this takes some time
+X_prep = prepare_target_kernelcorrelation(X) # this takes some time
 
-T1 = rigid_kc(prepd_X, Y1) # this is fast
-T2 = rigid_kc(prepd_X, Y2) # this is fast
+T1 = rigid_registration(X, Y1, KernelCorrelationMM(); target_preparation = X_prep) # this is fast
+T2 = rigid_registration(X, Y2, KernelCorrelationMM(); target_preparation = X_prep) # this is fast
 ```
 """
-function prepare_target_kc(
+function prepare_target_kernelcorrelation(
     target;
-    scale::ScaleType = default_scale(),
-    axisalign::Bool = default_axisalign(),
+    scale::ScaleType = TargetScales(),
+    axisalign::Bool = false,
 )
-    _prepare_target(PointCloud(target), scale, axisalign)
+    _prepare_target_kernelcorrelation(PointCloud(target), scale, axisalign)
 end
 
-function _prepare_target(target_original, scale, axisalign)
+function _prepare_target_kernelcorrelation(target_original, scale, axisalign)
     if axisalign
         axis_aligning_rotation, target = axisalign_target(target_original)
     else
@@ -331,109 +330,164 @@ function _prepare_target(target_original, scale, axisalign)
     end
     sqscales = annealing_plan(target, scale)
     annealing_levels = compute_annealing_levels(target, sqscales)
-    PreparedTarget(axis_aligning_rotation, annealing_levels, target)
+    PreparedTargetKernelCorrelation(axis_aligning_rotation, annealing_levels)
 end
 
 """
-    rigid_kc(source, target[; scale, axisalign, restarts, iterations, rng, accumulator])
+    KernelCorrelation([; scale, axisalign, restarts, iterations, batching, report_iteration, report_restart])
 
-$REGISTER_DOCS_START
-maximizes the Kernel Correlation to `target`,
-i.e.
+Rigid registration of point clouds that does not need any correspondence
+information while still having a runtime that depends *linearly* on the point
+cloud sizes.
+
+This algorithm maximizes the *kernel correlation* of the target and the
+transformed source via majorization minimization.
+For a weighted point cloud
+``x_1, \\dots, x_I \\in \\mathbb{R}^D`` with weights ``p_1, \\dots, p_I``,
+the (Gaussian) kernel density is
 ```math
-\\integral_{\\mathbb{R}^D}
-\\left(
-    \\sum_{i = 1}^I p_i \\exp(- \\Vert x_i - z \\Vert^2 / 2 \\sigma^2)
-\\right)
-\\left(
-    \\sum_{j = 1}^J q_j \\exp(- \\Vert R y_i + t - z \\Vert^2 / 2 \\sigma^2)
-\\right)
-\\mathrm{d} z
+\\mu(z) = \\sum_{i = 1}^I p_i \\, \\exp(- \\Vert x_i - z \\Vert^2 / 2 \\sigma^2)
 ```
-$REGISTER_DOCS_SYMBOLS
+The kernel correlation of two weighted point clouds with kernel densities
+``\\mu`` and ``\\nu`` is then simply the dot product
+``\\langle \\mu, \\nu \\rangle =
+\\int_{\\mathbb{R}^D} \\mu(z) \\nu(z) \\mathrm{d} z``.
+The scale parameter ``\\sigma`` determines how small/large details are resolved
+in the kernel densities.
 
-$REGISTER_DOCS_TYPES
-
-The bandwidth parameter ``\\sigma`` corresponds to the `scale` keyword argument
-and you can learn about how to use the keyword arguments in
-[this section](#Common-keyword-arguments).
-
-Use this function if you do not know correspondences.
+# Parameters
+- `scale`: Determines the value of ``\\sigma`` (see above).
+  Can be set to a specific number/collection of numbers or chosen heuristically,
+  see Section [Scale parameter](@ref).
+  Default: `TargetScales()`
+- `axisalign`: Whether or not to temporarily rotate the target to be more axis
+  aligned, which can improve performance for very "long" shapes.
+  Default: `false`
+- `restarts`: Determines how to restart the optimization to avoid local optima,
+  see Section [Restarts](@ref).
+  Default: `RandomRestarts(50)`
+- `iterations`: How many iterations to perform at most, might stop earlier if
+  convergence is detected.
+  Default: `100`
+- `batching`: How to select points from the source in each iteration, see
+  Section [Batching](@ref).
+  Default: `StochasticBatch(50)`
+- `report_iteration`: Callback to run on every iteration.
+  Must accept the following keyword arguments:
+  - `iter`: Number of the current iteration.
+  - `annealing_level`: Current value of ``\\sigma^2``.
+  - `cost`: Cost of the current solution candidate.
+  - `transformation`: Currently best found transformation.
+  Default: `(; kwargs...) -> nothing`
+- `report_restart`: Callback to run on every restart.
+  Must accept the following keyword arguments:
+  - `restart`: Number of the current restart.
+  - `cost`: Cost of the optimum found in this restart.
+  - `transformation`: Optimal transformation found in this restart.
+  Default: `(; kwargs...) -> nothing`
 """
-function rigid_kc(
+@kwdef struct KernelCorrelationMM{S <: ScaleType, R <: AbstractRestarts, B <: AbstractBatch, RI, RR}
+    scale::S = TargetScales()
+    axisalign::Bool = false
+    restarts::R = RandomRestarts(50)
+    iterations::Int = 100
+    batching::B = StochasticBatch(50)
+    report_iteration::RI = no_report
+    report_restart::RR = no_report
+end
+
+"""
+    rigid_registration(source, target, algorithm::KernelCorrelationMM[; target_preparation])
+
+Perform rigid registration via [`KernelCorrelationMM`](@ref).
+See [here](@ref rigid_registration(::Any, ::Any, ::Any)) for general info about
+this function.
+
+# Performance
+The runtime depends only linearly on the size of `source` and `target`, even
+though, conceptually, all pairs of points in both point clouds have to be
+considered in every iteration.
+To achieve this speed up, certain quantities are precomputed for the target,
+independently of the source.
+If you are planning to register multiple sources to the same target, it is
+advantageous to only do this precomputation once.
+This is possible via [`prepare_target_kernelcorrelation`](@ref) and its result
+can be given to this function as the `target_preparation` argument.
+
+# Example
+For this example, we generate a source point cloud with a sufficiently distinct
+shape (somewhat triangluar) and let the target be a more coarsly sampled and
+additionally randomly shuffled version of the same shape.
+Since the kernel correlation is oblivious to these properties, we still obtain
+an identity matrix and a zero vector as rotation and translation, respectively.
+```julia
+julia> source = stack([t, t * sin(10t)] for t in 0:0.01:10)
+2×1001 Matrix{Float64}:
+ 0.0  0.01         0.02        0.03        0.04       0.05       …   9.94      9.95      9.96      9.97      9.98      9.99     10.0
+ 0.0  0.000998334  0.00397339  0.00886561  0.0155767  0.0239713     -8.99395  -8.53506  -7.98988  -7.36366  -6.66253  -5.89334  -5.06366
+
+julia> shape_coarser = stack([t, t * sin(10t)] for t in 0:0.02:10)
+2×501 Matrix{Float64}:
+ 0.0  0.02        0.04       0.06       0.08       0.1        …   9.88      9.9       9.92      9.94      9.96      9.98     10.0
+ 0.0  0.00397339  0.0155767  0.0338785  0.0573885  0.0841471     -9.75354  -9.89215  -9.63607  -8.99395  -7.98988  -6.66253  -5.06366
+
+julia> target = shape_coarser[:, shuffle(axes(shape_coarser, 2))]
+2×501 Matrix{Float64}:
+ 1.3       3.8     2.78      1.84       5.54      9.38     2.1      …   3.6      2.86       6.06     0.02        7.62     5.1       9.98
+ 0.546217  1.1262  1.26975  -0.799601  -5.05369  -4.06121  1.75698     -3.5704  -0.915028  -4.78342  0.00397339  5.47568  3.41817  -6.66253
+
+julia> transformation = rigid_registration(source, target, KernelCorrelationMM());
+
+julia> transformation.linear
+2×2 RotMatrix2{Float64} with indices SOneTo(2)×SOneTo(2):
+ 1.0         -0.00011193
+ 0.00011193   1.0
+
+julia> transformation.translation
+2-element StaticArraysCore.SVector{2, Float64} with indices SOneTo(2):
+ -4.513610792056255e-5
+ -0.0042339181606050325
+```
+"""
+function rigid_registration(
     source,
-    target;
-    scale::ScaleType = default_scale(),
-    axisalign::Bool = default_axisalign(),
-    restarts::AbstractRestarts = RandomRestarts(50),
-    iterations::Int = 100,
-    smm = Smm(50),
-    report_iteration::RI = no_report,
-    report_restart::RR = no_report,
-) where {RI, RR}
-    @argcheck iterations >= 1
+    target,
+    alg::KernelCorrelationMM;
+    target_preparation = nothing
+)
+    @argcheck alg.iterations >= 1
 
     pc_source = PointCloud(source)
     pc_target = PointCloud(target)
     @argcheck dimension(pc_source) == dimension(pc_target)
 
-    prepared_target = prepare_target_kc(pc_target; scale, axisalign)
+    if isnothing(target_preparation)
+        target_preparation = prepare_target_kernelcorrelation(pc_target; alg.scale, alg.axisalign)
+    end
 
     _rigid_kc(
         pc_source,
-        prepared_target,
-        restarts,
-        iterations,
-        smm,
-        report_iteration,
-        report_restart,
-    )
-end
-
-"""
-    rigid_kc(source, prepared_target[; restarts, iterations, rng, accumulator])
-
-$REGISTER_DOCS_START
-maximizes the Kernel Correlation to `prepared_target` which was computed by
-[`prepare_target_kc`](@ref).
-
-Use this function if you plan to register multiple sources to the same target.
-"""
-function rigid_kc(
-    source,
-    prepared_target::PreparedTarget;
-    restarts::AbstractRestarts = RandomRestarts(50),
-    iterations::Int = 100,
-    smm = Smm(50),
-    report_iteration::RI = no_report,
-    report_restart::RR = no_report,
-) where {RI, RR}
-    @argcheck iterations >= 1
-
-    pc_source = PointCloud(source)
-    @argcheck dimension(pc_source) == dimension(prepared_target)
-
-    _rigid_kc(
-        pc_source,
-        prepared_target,
-        restarts,
-        iterations,
-        smm,
-        report_iteration,
-        report_restart,
+        pc_target,
+        target_preparation,
+        alg.restarts,
+        alg.iterations,
+        alg.batching,
+        alg.report_iteration,
+        alg.report_restart,
     )
 end
 
 function _rigid_kc(
     source::PointCloud{N},
-    prepared_target::PreparedTarget{N},
+    target::PointCloud{N},
+    prepared_target::PreparedTargetKernelCorrelation{N},
     restarts,
     iterations,
-    smm,
+    batching,
     report_iteration,
     report_restart,
 ) where {N}
-    (; annealing_levels, target, axis_aligning_rotation) = prepared_target
+    (; annealing_levels, axis_aligning_rotation) = prepared_target
 
     SrcT = eltype(source.points)
     TrgT = eltype(target.points)
@@ -446,7 +500,7 @@ function _rigid_kc(
     best = worst(CostT, transformation_type(source, target))
     kc = zero(CostT)
     restarts_iter = restarts_iterator(source, target, restarts)
-    source_iter = smm_iterator(smm, source)
+    source_iter = point_cloud_iterator(batching, source)
     for (restart, transformation) in enumerate(restarts_iter)
         for annealing_level in annealing_levels
             (; grid, convd_target, convd_weights_target) = annealing_level
@@ -505,6 +559,7 @@ function _rigid_kc(
                 if iter > 1 && isapprox(transformation, prev_transformation)
                     break
                 end
+                prev_transformation = transformation
             end
         end
         best = better(best, TransformationWithCost(-kc, transformation))

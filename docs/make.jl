@@ -39,6 +39,8 @@ makedocs(;
     sitename = "PointCloudRegistration.jl",
     pages = [
         "index.md",
+        "pointclouds.md",
+        "rigid.md",
         "Examples" => [
             "generated/ribosome-puzzle.md",
             "generated/biotisr.md",

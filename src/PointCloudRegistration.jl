@@ -17,10 +17,12 @@ using PrecompileTools: @compile_workload
 using ArgCheck
 
 export PointCloud,
-    rigid_rmsd,
+    rigid_registration,
+    GemanMcClureMM,
+    KernelCorrelationMM,
+    prepare_target_kernelcorrelation,
+    Kabsch,
     rigid_mad,
-    rigid_gmc,
-    rigid_kc,
     rigid_icp,
     nonrigid_cpd,
     nonrigid_sinkhorn,
@@ -30,7 +32,6 @@ export PointCloud,
     correspondences,
     displacements,
     apply_displacements,
-    prepare_target_kc,
     prepare_source_distancepreserving,
     guess_correspondences,
     DownTo,
@@ -59,6 +60,7 @@ include("restarts.jl")
 include("accumulation.jl")
 include("adam.jl")
 include("convergence.jl")
+include("rigid.jl")
 include("kabsch.jl")
 include("robust.jl")
 include("kernel_correlation.jl")
@@ -77,9 +79,9 @@ include("assets.jl")
     Y3 = PointCloud(rand(3, 10), rand(10))
 
     for (Y, X) in ((Y2, X2), (Y3, X3))
-        rigid_rmsd(Y, X)
-        rigid_gmc(Y, X)
-        rigid_kc(Y, X)
+        # rigid_rmsd(Y, X)
+        # rigid_gmc(Y, X)
+        # rigid_kc(Y, X)
     end
 end
 

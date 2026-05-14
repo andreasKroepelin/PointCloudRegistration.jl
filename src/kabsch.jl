@@ -16,38 +16,81 @@ function transformation_from_moments(covariance, source_mean, target_mean)
 end
 
 """
-    rigid_rmsd(source, target)
+    Kabsch()
 
-$REGISTER_DOCS_START
-minimizes the Root Mean Square Distance to
-`target`, i.e.
+Rigid registration that minimizes the squared distances of corresponding points.
+
+For two weighted point clouds
+``x_1, \\dots, x_I \\in \\mathbb{R}^D`` with weights ``p_1, \\dots, p_I`` and
+``y_1, \\dots, y_I \\in \\mathbb{R}^D`` with weights ``q_1, \\dots, q_I``
+their *Root Mean Square Displacement* (RMSD) is defined as
 ```math
-% \\operatorname{arg\\;min}\\limits_{
-%     \\text{rotation } R \\text{ and  translation } t
-% }
-\\sqrt{ \\frac{1}{n} \\sum_{i = 1}^n \\Vert R y_i + t - x_i \\Vert^2 }
+\\frac{1}{\\sum_{i = 1}^I p_i q_i} \\sum_{i = 1}^I p_i q_i \\Vert y_i - x_i \\Vert^2 .
 ```
-$REGISTER_DOCS_SYMBOLS
-$REGISTER_DOCS_EQUAL
+To find the rotation and translation minimising the RMSD between two point
+clouds, there exists a closed form solution in form of the Kabsch algorithm.
+Therefore, this method is very fast and performs only a single pass over the
+point clouds.
+However, it requires both point clouds having the same size and points with
+equal index corresponding to each other.
+It is also very susceptible to outliers.
 
-$REGISTER_DOCS_TYPES
-
-This is a konvex optimization problem with a closed form solution
-([Kabsch algorithm](https://en.wikipedia.org/wiki/Kabsch_algorithm))
-but is susceptible to outliers or wrong correspondences.
-
-Use this function if you do not expect outliers or wrong correspondences and
-you need maximum speed.
+**Unless you are very sure what you are doing, prefer [`GemanMcClureMM`](@ref)
+over `Kabsch` for rigid registration with known correspondences.**
 """
-function rigid_rmsd(source, target)
+struct Kabsch end
+
+"""
+    rigid_registration(source, target, algorithm::Kabsch)
+
+Perform rigid registration via [`Kabsch`](@ref).
+See [here](@ref rigid_registration(::Any, ::Any, ::Any)) for general info about
+this function.
+
+# Example
+We create a similar situation to the example
+[for the more robust Geman-McClure loss](@ref rigid_registration(::Any, ::Any, ::GemanMcClureMM))
+with an even smaller outlier.
+Still, we can observe that it significantly influences the Kabsch algorithm and
+the rigid registration returns a result visibly different from the identity
+transformation.
+```julia
+julia> source = randn(2, 50)
+2×50 Matrix{Float64}:
+  1.77965   0.179855  1.07821  -0.938728  -1.06811   0.560114  -1.03644   …  -1.93775  -0.188104  -1.22085  -1.39789  0.976599  -0.117102
+ -0.236629  0.669804  0.51261   0.609834   2.47462  -0.443925  -0.288543      1.00906  -1.16603   -2.34421   1.22799  0.652395   0.370768
+
+julia> target = copy(source);
+
+julia> target[:, 1] .+= 10;
+
+julia> target
+2×50 Matrix{Float64}:
+ 11.7797   0.179855  1.07821  -0.938728  -1.06811   0.560114  -1.03644   …  -1.93775  -0.188104  -1.22085  -1.39789  0.976599  -0.117102
+  9.76337  0.669804  0.51261   0.609834   2.47462  -0.443925  -0.288543      1.00906  -1.16603   -2.34421   1.22799  0.652395   0.370768
+
+julia> transformation = rigid_registration(source, target, Kabsch());
+
+julia> transformation.linear
+2×2 RotMatrix2{Float64} with indices SOneTo(2)×SOneTo(2):
+ 0.984029  -0.17801
+ 0.17801    0.984029
+
+julia> transformation.translation
+2-element StaticArraysCore.SVector{2, Float64} with indices SOneTo(2):
+ 0.22562894646802503
+ 0.20799830682893525
+```
+"""
+function rigid_registration(source, target, ::Kabsch)
     pc_source = PointCloud(source)
     pc_target = PointCloud(target)
     @argcheck size(pc_source) == size(pc_target)
 
-    _rigid_rmsd(pc_source, pc_target)
+    _rigid_kabsch(pc_source, pc_target)
 end
 
-function _rigid_rmsd(
+function _rigid_kabsch(
     source::PointCloud{N, TS},
     target::PointCloud{N, TT},
 ) where {N, TS, TT}

@@ -1,75 +1,155 @@
-struct GemanMcclure{T}
+struct GemanMcClureCost{T}
     sqscale::T
 end
 
-mm_weight(gm::GemanMcclure, x::AbstractVector, y::AbstractVector) =
+mm_weight(gm::GemanMcClureCost, x::AbstractVector, y::AbstractVector) =
     mm_weight(gm, sqeuclidean(x, y))
-mm_weight(gm::GemanMcclure, sqdist::Number) =
+mm_weight(gm::GemanMcClureCost, sqdist::Number) =
     gm.sqscale / (gm.sqscale + sqdist)^2
 
-function mm_weight_type(gm::GemanMcclure, Y::PointCloud, X::PointCloud)
+function mm_weight_type(gm::GemanMcClureCost, Y::PointCloud, X::PointCloud)
     typeof(mm_weight(gm, first(Y.points), first(X.points)))
 end
 
-cost(gm::GemanMcclure, x::AbstractVector, y::AbstractVector) =
+cost(gm::GemanMcClureCost, x::AbstractVector, y::AbstractVector) =
     cost(gm, sqeuclidean(x, y))
-cost(gm::GemanMcclure, sqdist::Number) = sqdist / (gm.sqscale + sqdist)
+cost(gm::GemanMcClureCost, sqdist::Number) = sqdist / (gm.sqscale + sqdist)
 
-cost_type(gm::GemanMcclure, Y::PointCloud, X::PointCloud) =
+cost_type(gm::GemanMcClureCost, Y::PointCloud, X::PointCloud) =
     typeof(cost(gm, first(Y.points), first(X.points)))
 
 """
-    rigid_gmc(source, target[; scale, restarts, iterations, rng, accumulator])
+    GemanMcClureMM([; scale, restarts, iterations, batching, report_iteration, report_restart])
 
-$REGISTER_DOCS_START
-minimizes the Geman-McClure loss to `target`,
-i.e.
+Rigid registration of point clouds with known correspondences that is robust
+against outliers and some wrong correspondences.
+
+This algorithm performs majorization minimization of the Geman-McClure loss.
+The Geman-McClure loss of two weighted point clouds
+``x_1, \\dots, x_I \\in \\mathbb{R}^D`` with weights ``p_1, \\dots, p_I`` and
+``y_1, \\dots, y_I \\in \\mathbb{R}^D`` with weights ``q_1, \\dots, q_I``
+is given as
 ```math
-\\sum_{i = 1}^n \\operatorname{GMC}_\\rho(\\Vert R y_i + t - x_i \\Vert)
+\\sum_{i = 1}^I p_i q_i \\rho(\\Vert y_i - x_i \\Vert)
 ```
-where
+with
 ```math
-\\operatorname{GMC}_\\rho(r) = \\frac{r^2}{\\rho^2 + r^2}
+\\rho(r) = \\frac{r^2}{2 \\sigma^2 + r^2} .
 ```
-$REGISTER_DOCS_SYMBOLS
-$REGISTER_DOCS_EQUAL
+The scale parameter ``\\sigma`` determines the range of distances the loss is
+sensitive to.
+``\\rho(r)`` behaves like ``r^2`` for ``r \\ll \\sigma`` and flattens out for
+large ``r``.
 
-$REGISTER_DOCS_TYPES
+Note that this assumes both point clouds having the same size and points with
+equal index are supposed to correspond to each other.
 
-The Geman-McClure loss has a scale parameter ``\\rho`` that defines the range of
-distances that affect the loss (making it robust against outliers).
-``\\rho`` corresponds to the `scale` keyword argument and you can learn about
-how to use the keyword arguments in [this section](#Common-keyword-arguments).
+# Parameters
+- `scale`: Determines the value of ``\\sigma`` (see above).
+  Can be set to a specific number/collection of numbers or chosen heuristically,
+  see Section [Scale parameter](@ref).
+  Default: `TargetScales()`
+- `restarts`: Determines how to restart the optimization to avoid local optima,
+  see Section [Restarts](@ref).
+  Default: `RandomRestarts(5)`
+- `iterations`: How many iterations to perform at most, might stop earlier if
+  convergence is detected.
+  Default: `50`
+- `batching`: How to select points from the source in each iteration, see
+  Section [Batching](@ref).
+  Default: `FullBatch()`
+- `report_iteration`: Callback to run on every iteration.
+  Must accept the following keyword arguments:
+  - `iter`: Number of the current iteration.
+  - `annealing_level`: Current value of ``\\sigma^2``.
+  - `cost`: Cost of the current solution candidate.
+  - `transformation`: Currently best found transformation.
+  Default: `(; kwargs...) -> nothing`
+- `report_restart`: Callback to run on every restart.
+  Must accept the following keyword arguments:
+  - `restart`: Number of the current restart.
+  - `cost`: Cost of the optimum found in this restart.
+  - `transformation`: Optimal transformation found in this restart.
+  Default: `(; kwargs...) -> nothing`
 
-Use this function if you expect outliers or wrong correspondences.
+# Usage
+```@repl
+using PointCloudRegistration
+using CoordinateTransformations, Rotations, StaticArrays
+source = PointCloud(randn(2, 50))
+true_transformation = AffineMap(Angle2d(1.36), SA[4.0, 2.0])
+target = true_transformation(source)
+source.points[12] += SA[1000.0, -2000.0] # we can introduce severe outliers
+transformation = rigid_registration(source, target, GemanMcClureMM())
+true_transformation ≈ transformation
+```
 """
-function rigid_gmc(
-    source,
-    target;
-    scale::ScaleType = default_scale(),
-    restarts::AbstractRestarts = default_restarts(),
-    iterations::Int = default_iterations(),
-    smm = NoSmm(),
-    # use type parameters `RI` and `RR` here to force specialization
-    report_iteration::RI = no_report,
-    report_restart::RR = no_report,
-) where {RI, RR}
-    @argcheck iterations >= 1
+@kwdef struct GemanMcClureMM{S <: ScaleType, R <: AbstractRestarts, B <: AbstractBatch, RI, RR}
+    scale::S = TargetScales()
+    restarts::R = RandomRestarts(5)
+    iterations::Int = 50
+    batching::B = FullBatch()
+    report_iteration::RI = no_report
+    report_restart::RR = no_report
+end
 
-    pc_source = PointCloud(source)
-    pc_target = PointCloud(target)
-    @argcheck size(pc_source) == size(pc_target)
+"""
+    rigid_registration(source, target, ::GemanMcClureMM)
 
-    sqscales = annealing_plan(pc_target, scale)
+Perform rigid registration via [`GemanMcClureMM`](@ref).
+See [here](@ref rigid_registration(::Any, ::Any, ::Any)) for general info about
+this function.
+
+# Example
+This demonstrates the robustness against outliers of the Geman-McClure cost by
+registering a point cloud with itself but creating one severe outlier.
+In the end, we still obtain an identity matrix and a zero vector as rotation and
+translation, respectively.
+```julia
+julia> source = randn(2, 50)
+2×50 Matrix{Float64}:
+  0.288016   1.3289   1.07965  -1.14399   1.48149    0.2409    1.11254  …  -0.799255  -0.454939  0.600287  -0.0679249  -2.12803   -1.42089
+ -0.673326  -1.38039  0.5257    1.64189  -0.317935  -0.834046  1.33805      0.476037  -0.801183  0.148831  -1.16099     0.882929  -1.94498
+
+julia> target = copy(source);
+
+julia> target[:, 1] .+= 1000; # severe outlier
+
+julia> target
+2×50 Matrix{Float64}:
+ 1000.29    1.3289   1.07965  -1.14399   1.48149    0.2409    1.11254  …  -0.799255  -0.454939  0.600287  -0.0679249  -2.12803   -1.42089
+  999.327  -1.38039  0.5257    1.64189  -0.317935  -0.834046  1.33805      0.476037  -0.801183  0.148831  -1.16099     0.882929  -1.94498
+
+julia> transformation = rigid_registration(source, target, GemanMcClureMM());
+
+julia> transformation.linear
+2×2 RotMatrix2{Float64} with indices SOneTo(2)×SOneTo(2):
+ 1.0         -4.68232e-6
+ 4.68232e-6   1.0
+
+julia> transformation.translation
+2-element StaticArraysCore.SVector{2, Float64} with indices SOneTo(2):
+ 1.3242532771004512e-5
+ 1.3159778492727314e-5
+```
+"""
+function rigid_registration(source, target, alg::GemanMcClureMM)
+    @argcheck alg.iterations >= 1
+
+    source_pc = PointCloud(source)
+    target_pc = PointCloud(target)
+    @argcheck size(source_pc) == size(target_pc)
+
+    sqscales = annealing_plan(target_pc, alg.scale)
     _rigid_gmc(
-        pc_source,
-        pc_target,
+        source_pc,
+        target_pc,
         sqscales,
-        restarts,
-        iterations,
-        smm,
-        report_iteration,
-        report_restart,
+        alg.restarts,
+        alg.iterations,
+        alg.batching,
+        alg.report_iteration,
+        alg.report_restart,
     )
 end
 
@@ -79,11 +159,11 @@ function _rigid_gmc(
     sqscales,
     restarts,
     iterations,
-    smm,
+    batching,
     report_iteration,
     report_restart,
 ) where {N}
-    gm = GemanMcclure(oneunit(eltype(sqscales)))
+    gm = GemanMcClureCost(oneunit(eltype(sqscales)))
     SrcT = eltype(source.points)
     TrgT = eltype(target.points)
     CostT = cost_type(gm, source, target)
@@ -91,13 +171,13 @@ function _rigid_gmc(
     best = worst(CostT, transformation_type(source, target))
     gm_cost = zero(CostT)
     restarts_iter = restarts_iterator(source, target, restarts)
-    source_iter = smm_iterator(smm, source)
+    source_iter = point_cloud_iterator(batching, source)
     for (restart, transformation) in enumerate(restarts_iter)
         for sqscale in sqscales
             # double `sqscale` such that the loss function has the same
             # quadratic behavior for small distances as the kernel correlation
             # loss with `sqscale`
-            gm = GemanMcclure(2sqscale)
+            gm = GemanMcClureCost(2sqscale)
             prev_transformation = identity_transformation(transformation)
             for iter in 1:iterations
                 if 10iter > 9iterations
@@ -109,7 +189,7 @@ function _rigid_gmc(
                 covariance = sum_w * zero(TrgT) * zero(SrcT)'
                 gm_cost = zero(CostT)
 
-                for source_element in this_source_iter
+                for source_element in source_iter
                     src = source_element.point
                     trg = target.points[source_element.idx]
                     w_src = source_element.weight
@@ -145,6 +225,7 @@ function _rigid_gmc(
                 if iter > 1 && isapprox(transformation, prev_transformation)
                     break
                 end
+                prev_transformation = transformation
             end
         end
         best = better(best, TransformationWithCost(gm_cost, transformation))
@@ -154,20 +235,19 @@ function _rigid_gmc(
     return best.transformation
 end
 
-function rigid_mad(
-    source,
-    target;
-    iterations::Int = default_iterations(),
-    # use type parameter `RI` here to force specialization
-    report_iteration::RI = no_report,
-) where {RI}
-    @argcheck iterations >= 1
+@kwdef struct MeanAbsoluteDeviationMM{RI}
+    iterations::Int = 50
+    report_iteration::RI = no_report
+end
+
+function rigid_registration(source, target, alg::MeanAbsoluteDeviationMM)
+    @argcheck alg.iterations >= 1
 
     pc_source = PointCloud(source)
     pc_target = PointCloud(target)
     @argcheck size(pc_source) == size(pc_target)
 
-    _rigid_mad(pc_source, pc_target, iterations, report_iteration)
+    _rigid_mad(pc_source, pc_target, alg.iterations, alg.report_iteration)
 end
 
 function _rigid_mad(
