@@ -11,6 +11,12 @@ rigid_registration(source, target, algorithm)
 
 ## Rigid registration algorithms
 
+- [Geman-McClure cost](@ref)
+- [Kernel Correlation](@ref)
+- [Kabsch](@ref)
+- [Iterative Closest Point](@ref)
+- [Mean Absolute Deviation](@ref)
+
 ### Geman-McClure cost
 ```@docs
 GemanMcClureMM
@@ -28,6 +34,18 @@ prepare_target_kernelcorrelation
 ```@docs
 Kabsch
 rigid_registration(source, target, ::Kabsch)
+```
+
+### Iterative Closest Point
+```@docs
+IterativeClosestPoint
+rigid_registration(source, target, ::IterativeClosestPoint)
+```
+
+### Mean Absolute Deviation
+```@docs
+MeanAbsoluteDeviationMM
+rigid_registration(source, target, ::MeanAbsoluteDeviationMM)
 ```
 
 ## Scale parameter

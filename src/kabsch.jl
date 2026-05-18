@@ -25,7 +25,10 @@ For two weighted point clouds
 ``y_1, \\dots, y_I \\in \\mathbb{R}^D`` with weights ``q_1, \\dots, q_I``
 their *Root Mean Square Displacement* (RMSD) is defined as
 ```math
-\\frac{1}{\\sum_{i = 1}^I p_i q_i} \\sum_{i = 1}^I p_i q_i \\Vert y_i - x_i \\Vert^2 .
+\\sqrt{
+    \\frac{1}{\\sum_{i = 1}^I p_i q_i}
+    \\sum_{i = 1}^I p_i q_i \\Vert y_i - x_i \\Vert^2
+} .
 ```
 To find the rotation and translation minimising the RMSD between two point
 clouds, there exists a closed form solution in form of the Kabsch algorithm.

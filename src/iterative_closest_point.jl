@@ -1,15 +1,66 @@
-function rigid_icp(
-    source,
-    target;
-    dist_cutoff = Inf,
-    restarts::AbstractRestarts = default_restarts(),
-    iterations::Int = default_iterations(),
-    # use type parameters `RI` and `RR` here to force specialization
-    report_pair::RP = no_report,
-    report_iteration::RI = no_report,
-    report_restart::RR = no_report,
-) where {RP, RI, RR}
-    @argcheck iterations >= 1
+struct NoUpperBound <: Number end
+
+Base.:<(::Number, ::NoUpperBound) = true
+Base.:<(::NoUpperBound, ::Number) = false
+
+"""
+    IterativeClosestPoint([; distance_cutoff, restarts, iterations, report_pair, report_iteration, report_restart])
+
+Rigid registration of point clouds that does not need any a priori
+correspondence information.
+
+The algorithm iteratively assumes correspondences between closest points and
+then minimizes the RMSD (see [`Kabsch`](@ref)).
+
+[Iterative Closest Point on Wikipedia](https://en.wikipedia.org/wiki/Iterative_closest_point)
+
+# Parameters
+- `distance_cutoff`: Even if two points are closest to eachother, they are not
+  considered to be corresponding if their distance is farther than this cutoff.
+  No cutoff by default.
+- `restarts`: Determines how to restart the optimization to avoid local optima,
+  see Section [Restarts](@ref).
+  Default: `RandomRestarts(50)`
+- `iterations`: How many iterations to perform at most, might stop earlier if
+  convergence is detected.
+  Default: `100`
+- `report_pair`: Callback to run on every correspondence pair.
+  Must accept the following keyword arguments:
+  - `source_idx`: Index in the source point cloud of the first point.
+  - `target_idx`: Index in the target point cloud of the second point.
+  - `distance`: Their distance.
+  Default: `(; kwargs...) -> nothing`
+- `report_iteration`: Callback to run on every iteration.
+  Must accept the following keyword arguments:
+  - `iter`: Number of the current iteration.
+  - `cost`: Cost of the current solution candidate.
+  - `transformation`: Currently best found transformation.
+  Default: `(; kwargs...) -> nothing`
+- `report_restart`: Callback to run on every restart.
+  Must accept the following keyword arguments:
+  - `restart`: Number of the current restart.
+  - `cost`: Cost of the optimum found in this restart.
+  - `transformation`: Optimal transformation found in this restart.
+  Default: `(; kwargs...) -> nothing`
+"""
+@kwdef struct IterativeClosestPoint{D <: Number, R <: AbstractRestarts, RP, RI, RR}
+    distance_cutoff::D = NoUpperBound()
+    restarts::R = RandomRestarts(50)
+    iterations::Int = 100
+    report_pair::RP = no_report
+    report_iteration::RI = no_report
+    report_restart::RR = no_report
+end
+
+"""
+    rigid_registration(source, target, algorithm::IterativeClosestPoint)
+
+Perform rigid registration via [`IterativeClosestPoint`](@ref).
+See [here](@ref rigid_registration(::Any, ::Any, ::Any)) for general info about
+this function.
+"""
+function rigid_registration(source, target, alg::IterativeClosestPoint)
+    @argcheck alg.iterations >= 1
 
     pc_source = PointCloud(source)
     pc_target = PointCloud(target)
@@ -17,12 +68,12 @@ function rigid_icp(
     _rigid_icp(
         pc_source,
         pc_target,
-        dist_cutoff,
-        restarts,
-        iterations,
-        report_pair,
-        report_iteration,
-        report_restart,
+        alg.distance_cutoff,
+        alg.restarts,
+        alg.iterations,
+        alg.report_pair,
+        alg.report_iteration,
+        alg.report_restart,
     )
 end
 
@@ -39,7 +90,7 @@ function _rigid_icp(
     T = promote_type(TS, TT)
 
     target_tree = KDTree(target.points)
-    best = worst(transformation_type(Val(N), T))
+    best = worst(T, transformation_type(Val(N), T))
     restarts_iter = restarts_iterator(source, target, restarts)
     for (restart, transformation) in enumerate(restarts_iter)
         prev_transformation = identity_transformation(transformation)
@@ -66,7 +117,7 @@ function _rigid_icp(
                 sum_w += w
                 cost += dist^2
 
-                report_pair(; source_idx = j, target_idx = i, dist)
+                report_pair(; source_idx = j, target_idx = i, distance = dist)
             end
             source_mean /= sum_w
             target_mean /= sum_w

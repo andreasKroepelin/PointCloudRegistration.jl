@@ -71,18 +71,6 @@ equal index are supposed to correspond to each other.
   - `cost`: Cost of the optimum found in this restart.
   - `transformation`: Optimal transformation found in this restart.
   Default: `(; kwargs...) -> nothing`
-
-# Usage
-```@repl
-using PointCloudRegistration
-using CoordinateTransformations, Rotations, StaticArrays
-source = PointCloud(randn(2, 50))
-true_transformation = AffineMap(Angle2d(1.36), SA[4.0, 2.0])
-target = true_transformation(source)
-source.points[12] += SA[1000.0, -2000.0] # we can introduce severe outliers
-transformation = rigid_registration(source, target, GemanMcClureMM())
-true_transformation ≈ transformation
-```
 """
 @kwdef struct GemanMcClureMM{S <: ScaleType, R <: AbstractRestarts, B <: AbstractBatch, RI, RR}
     scale::S = TargetScales()
@@ -94,7 +82,7 @@ true_transformation ≈ transformation
 end
 
 """
-    rigid_registration(source, target, ::GemanMcClureMM)
+    rigid_registration(source, target, algorithm::GemanMcClureMM)
 
 Perform rigid registration via [`GemanMcClureMM`](@ref).
 See [here](@ref rigid_registration(::Any, ::Any, ::Any)) for general info about
@@ -235,11 +223,47 @@ function _rigid_gmc(
     return best.transformation
 end
 
+"""
+Rigid registration of point clouds with known correspondences that is somewhat
+robust against outliers and wrong correspondences (more robust than
+[`Kabsch`](@ref), less robust than [`GemanMcClureMM`](@ref)).
+
+This algorithm performs majorization minimization of the mean absolute
+deviation.
+For two weighted point clouds
+``x_1, \\dots, x_I \\in \\mathbb{R}^D`` with weights ``p_1, \\dots, p_I`` and
+``y_1, \\dots, y_I \\in \\mathbb{R}^D`` with weights ``q_1, \\dots, q_I``
+it is given as
+```math
+\\frac{1}{\\sum_{i = 1}^I p_i q_i}
+\\sum_{i = 1}^I p_i q_i \\Vert y_i - x_i \\Vert
+```
+
+The optimisation problem is convex and only has one local optimum so this needs
+no restarts or annealing.
+
+# Parameters
+- `iterations`: How many iterations to perform at most, might stop earlier if
+  convergence is detected.
+  Default: `50`
+- `report_iteration`: Callback to run on every iteration.
+  Must accept the following keyword arguments:
+  - `iter`: Number of the current iteration.
+  - `transformation`: Currently best found transformation.
+  Default: `(; kwargs...) -> nothing`
+"""
 @kwdef struct MeanAbsoluteDeviationMM{RI}
     iterations::Int = 50
     report_iteration::RI = no_report
 end
 
+"""
+    rigid_registration(source, target, algorithm::MeanAbsoluteDeviationMM)
+
+Perform rigid registration via [`MeanAbsoluteDeviationMM`](@ref).
+See [here](@ref rigid_registration(::Any, ::Any, ::Any)) for general info about
+this function.
+"""
 function rigid_registration(source, target, alg::MeanAbsoluteDeviationMM)
     @argcheck alg.iterations >= 1
 

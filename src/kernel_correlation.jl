@@ -333,6 +333,12 @@ function _prepare_target_kernelcorrelation(target_original, scale, axisalign)
     PreparedTargetKernelCorrelation(axis_aligning_rotation, annealing_levels)
 end
 
+# We use sigma^2 and not 2sigma^2 in the exponent in the docstring because only
+# this way the sigma corresponds to the `scale` parameter.
+# The reason is that by muliplying the kernel denisities for the inner product
+# we obtain 2sigma^2 in the kernel correlation formula as it is implemented
+# here.
+
 """
     KernelCorrelation([; scale, axisalign, restarts, iterations, batching, report_iteration, report_restart])
 
@@ -346,10 +352,10 @@ For a weighted point cloud
 ``x_1, \\dots, x_I \\in \\mathbb{R}^D`` with weights ``p_1, \\dots, p_I``,
 the (Gaussian) kernel density is
 ```math
-\\mu(z) = \\sum_{i = 1}^I p_i \\, \\exp(- \\Vert x_i - z \\Vert^2 / 2 \\sigma^2)
+\\mu(z) = \\sum_{i = 1}^I p_i \\, \\exp(- \\Vert x_i - z \\Vert^2 / \\sigma^2)
 ```
 The kernel correlation of two weighted point clouds with kernel densities
-``\\mu`` and ``\\nu`` is then simply the dot product
+``\\mu`` and ``\\nu`` is then simply the inner product
 ``\\langle \\mu, \\nu \\rangle =
 \\int_{\\mathbb{R}^D} \\mu(z) \\nu(z) \\mathrm{d} z``.
 The scale parameter ``\\sigma`` determines how small/large details are resolved
