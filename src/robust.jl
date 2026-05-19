@@ -48,7 +48,7 @@ equal index are supposed to correspond to each other.
 - `scale`: Determines the value of ``\\sigma`` (see above).
   Can be set to a specific number/collection of numbers or chosen heuristically,
   see Section [Scale parameter](@ref).
-  Default: `TargetScales()`
+  Default: [`TargetScales()`](@ref)
 - `restarts`: Determines how to restart the optimization to avoid local optima,
   see Section [Restarts](@ref).
   Default: `RandomRestarts(5)`

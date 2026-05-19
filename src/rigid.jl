@@ -19,10 +19,10 @@ This makes the registration faster and more precise.
 !!! details "Default algorithms"
     Depending on the keyword argument `ordered`, `rigid_registration` uses these
     algorithms:
-    - `ordered = false`: Majorization Minimization of the Kernel Correlation
+    - `ordered = false`: Maximization of the Kernel Correlation
       ([`KernelCorrelationMM`](@ref)), tries to maximize the similarity of
-      densities obtained by Gaussian "blurring" `source` and `target`.
-    - `ordered = true`: Majorization Minimization of the Geman-McClure cost
+      densities obtained by Gaussian "blurring" of `source` and `target`.
+    - `ordered = true`: Minimization of the Geman-McClure cost
       ([`GemanMcClureMM`](@ref)), brings corresponding points close together but
       is robust against outliers.
 """
@@ -47,8 +47,8 @@ translates the point cloud `source` to "match" the point cloud `target` using
 See [here](#Rigid-registration-algorithms) for a list of available algorithms.
 
 This method is intended for more fine grained control over the registration.
-Alternatively, `rigid_registration(source, target; ordered)` is available for
-leaving the choice of the algorithm to a rule of thumb.
+Alternatively, [`rigid_registration(source, target; ordered)`](@ref) is
+available for leaving the choice of the algorithm to a rule of thumb.
 
 Both `source` and `target` can be given in a form described in Section
 [Representing point clouds](@ref).

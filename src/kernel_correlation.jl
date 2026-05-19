@@ -365,7 +365,7 @@ in the kernel densities.
 - `scale`: Determines the value of ``\\sigma`` (see above).
   Can be set to a specific number/collection of numbers or chosen heuristically,
   see Section [Scale parameter](@ref).
-  Default: `TargetScales()`
+  Default: [`TargetScales()`](@ref)
 - `axisalign`: Whether or not to temporarily rotate the target to be more axis
   aligned, which can improve performance for very "long" shapes.
   Default: `false`
