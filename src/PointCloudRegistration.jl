@@ -30,8 +30,6 @@ export PointCloud,
     nonrigid_kc_springs,
     nonrigid_distancepreserving,
     correspondences,
-    displacements,
-    apply_displacements,
     prepare_source_distancepreserving,
     guess_correspondences,
     DownTo,
@@ -53,21 +51,21 @@ public VecOfSVec
 
 include("pointcloud.jl")
 include("common.jl")
-include("annealing.jl")
-include("stochastic_majorization_minimization.jl")
-include("transformation_utils.jl")
-include("restarts.jl")
-include("accumulation.jl")
+include("rigid/annealing.jl")
+include("rigid/stochastic_majorization_minimization.jl")
+include("rigid/transformation_utils.jl")
+include("rigid/restarts.jl")
+include("rigid/accumulation.jl")
 include("adam.jl")
 include("convergence.jl")
-include("rigid.jl")
-include("kabsch.jl")
-include("robust.jl")
-include("kernel_correlation.jl")
-include("iterative_closest_point.jl")
-include("nonrigid.jl")
-include("coherent_point_drift.jl")
-include("distancepreserving.jl")
+include("rigid/rigid.jl")
+include("rigid/kabsch.jl")
+include("rigid/robust.jl")
+include("rigid/kernel_correlation.jl")
+include("rigid/iterative_closest_point.jl")
+include("nonrigid/nonrigid.jl")
+include("nonrigid/coherent_point_drift.jl")
+include("nonrigid/distancepreserving.jl")
 include("guess_correspondences.jl")
 include("thinning.jl")
 include("assets.jl")

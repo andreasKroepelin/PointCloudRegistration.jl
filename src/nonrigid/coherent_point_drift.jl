@@ -60,17 +60,23 @@ function (cpd::CpdRegistration)(pc::PointCloud)
     return PointCloud(pc.points .+ displacements, pc.weights)
 end
 
-function nonrigid_cpd(
+@kwdef struct CoherentPointDrift{C <: Number, E <: Number, O <: Real}
+    corr_length::C,
+    expected_displacement::E,
+    outlier_proportion::O = 0,
+    iterations::Int = 1000,
+end
+
+function nonrigid_registration(
     source,
-    target;
-    corr_length,
-    expected_displacement,
-    outlier_proportion = 0,
-    iterations = 1000,
+    target,
+    alg::CoherentPointDrift;
+    source_preparation = nothing,
 )
     source_prepd = prepare_source_cpd(source; corr_length, expected_displacement)
+    source_pc = PointCloud(source)
     target_pc = PointCloud(target)
-    _nonrigid_cpd(source_prepd, target, outlier_proportion, iterations)
+    _nonrigid_cpd(source_pc, target_pc, alg.outlier_proportion, alg.iterations)
 end
 
 function nonrigid_cpd(
