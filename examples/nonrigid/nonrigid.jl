@@ -5,12 +5,13 @@ using LinearAlgebra
 using GLMakie
 
 # X, Y = PointCloudRegistration.Assets.load_1ake_A_4ake_A()
-X, Y = PointCloudRegistration.Assets.load_1su4_A_1iwo_A()
+# X, Y = PointCloudRegistration.Assets.load_1su4_A_1iwo_A()
+Y, X = PointCloudRegistration.Assets.load_cats()
 # Y, X = PointCloudRegistration.Assets.load_1ih7_A_1ig9_A()
 # Y, X = PointCloudRegistration.Assets.load_1q9x_B_1q9y_A()
 # X = PointCloud(collect(map(x -> Float64.(x), X.points)))
 # Y = PointCloud(collect(map(x -> Float64.(x), Y.points)))
-T_rigid = rigid_kc(Y, X)
+T_rigid = rigid_registration(Y, X)
 Y = T_rigid(Y)
 
 function report_iteration(; iter, new_source_points, sqsigma, kwargs...)
@@ -33,8 +34,8 @@ end
 
 new_source_points_hist = []
 sigma_hist = []
-prepd_Y = prepare_source_distancepreserving(Y; max_edge_length = 10.)
-dpr = nonrigid_distancepreserving(prepd_Y, X; iterations = 100_000, report_iteration, regularizer = GeneralizedLogNormalRegularizer(1.5, 1.1))
+prepd_Y = prepare_source_distancepreserving(Y; max_edge_length = 20.)
+dpr = nonrigid_registration(Y, X, DistancePreserving(; max_edge_length = 20, iterations = 200_000, init_noise = 0, report_iteration, regularizer = GeneralizedLogNormalRegularizer(2, 1.00001)); source_preparation = prepd_Y)
 dY = dpr(Y)
 
 new_source_points_hist = []
@@ -45,8 +46,9 @@ kcsr = nonrigid_kc_springs(Y, X; stiffness = 8e6, scale = 10., max_spring_length
 
 let
     fig = Figure()
-    ax = Axis3(fig[1, 1]; aspect = :data)
-    plot!(ax, Y; sizefactor = 1)
+    # ax = Axis3(fig[1, 1]; aspect = :data)
+    ax = Axis(fig[1, 1]; autolimitaspect = 1)
+    plot!(ax, Y;#= sizefactor = 1=#)
     ls = mapreduce(((j1, j2),) -> [Y.points[j1], Y.points[j2]], vcat, prepd_Y.neighbor_graph.edges)
     linesegments!(ax, ls; color = :gray)
     fig
@@ -54,7 +56,8 @@ end
 
 let
     fig = Figure()
-    ax1 = Axis3(fig[1, 1]; aspect = :data)
+    # ax1 = Axis3(fig[1, 1]; aspect = :data)
+    ax1 = Axis(fig[1, 1]; autolimitaspect = 1)
     ax2 = Axis(fig[1, 2];)
     sl = Slider(fig[2, 1]; range = eachindex(new_source_points_hist))
     lines!(ax2, sigma_hist)
@@ -62,8 +65,8 @@ let
     io = @lift [Point2($(sl.value), sigma_hist[$(sl.value)])]
     # ls = @lift mapreduce((y, iy) -> [y, iy], vcat, Y.points, new_source_points_hist[$(sl.value)])
     # plot!(ax1, Y; sizefactor = 2)
-    plot!(ax1, X; sizefactor = 2)
-    plot!(ax1, iY; sizefactor = 2 #=, color = eachindex(Y.points) =#)
+    plot!(ax1, X; sizefactor = .1)
+    plot!(ax1, iY; sizefactor = .1 #=, color = eachindex(Y.points) =#)
     # linesegments!(ax1, ls; color = :gray)
     scatter!(ax2, io; markersize = 10)
     fig

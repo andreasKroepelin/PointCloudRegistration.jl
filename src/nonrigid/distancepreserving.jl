@@ -1,27 +1,11 @@
 using .Adam
 
-struct DistancePreservingRegistration{N, T, PC1 <: PointCloud{N, T}, PC2 <: PointCloud{N, T}}
-    source::PC1
-    new_source::PC2
-
-    function DistancePreservingRegistration(source::PointCloud{N, T}, new_source_points::VecOfSVec{N, T}) where {N, T}
-        new_source = PointCloud(new_source_points, source.weights)
-        new{N, T, typeof(source), typeof(new_source)}(source, new_source)
-    end
-end
-
-function (dpr::DistancePreservingRegistration)(pc::PointCloud)
-    @argcheck dpr.source == pc "Distance preserving registration result can only be applied to the source it was computed for."
-    return dpr.new_source
-end
-
 struct NeighborGraph{T}
     edges::Vector{NTuple{2, Int}}
     distances::Vector{T}
 end
 
-struct PreparedSourceDistPres{N, T, PC <: PointCloud{N, T}}
-    source::PC
+struct PreparedSourceDistPres{T}
     neighbor_graph::NeighborGraph{T}
     init_sqsigma::T
 end
@@ -48,58 +32,49 @@ function _prepare_source_distancepreserving(
         (1 * mean(dists))^2
     end
 
-    return PreparedSourceDistPres(source, NeighborGraph(edges, distances), init_sqsigma)
+    return PreparedSourceDistPres(NeighborGraph(edges, distances), init_sqsigma)
 end
 
-function nonrigid_distancepreserving(
+@kwdef struct DistancePreserving{E <: Number, R, N <: Number, RI}
+    max_edge_length::E
+    regularizer::R = GeneralizedLogNormalRegularizer(2, 1.01)
+    iterations::Int = 10_000
+    init_noise::N = false
+    report_iteration::RI = no_report
+end
+
+function nonrigid_registration(
     source,
-    target;
-    max_edge_length,
-    regularizer = GeneralizedLogNormalRegularizer(2, 1.01),
-    iterations = 10_000,
-    init_noise = false,
-    report_iteration::RI = no_report
-) where {RI}
-    prepd_source = prepare_source_distancepreserving(source; max_edge_length)
+    target,
+    alg::DistancePreserving;
+    source_preparation::Union{Nothing, PreparedSourceDistPres} = nothing,
+)
+    source_pc = PointCloud(source)
     target_pc = PointCloud(target)
+    if isnothing(source_preparation)
+        source_preparation = prepare_source_distancepreserving(source_pc; alg.max_edge_length)
+    end
     _nonrigid_distancepreserving(
-        prepd_source,
+        source_pc,
         target_pc,
-        regularizer,
-        iterations,
-        init_noise,
-        report_iteration,
-    )
-end
-
-function nonrigid_distancepreserving(
-    prepd_source::PreparedSourceDistPres,
-    target;
-    regularizer = GeneralizedLogNormalRegularizer(2, 1.01),
-    iterations = 10_000,
-    init_noise = false,
-    report_iteration::RI = no_report
-) where {RI}
-    target_pc = PointCloud(target)
-    _nonrigid_distancepreserving(
-        prepd_source,
-        target_pc,
-        regularizer,
-        iterations,
-        init_noise,
-        report_iteration,
+        source_preparation,
+        alg.regularizer,
+        alg.iterations,
+        alg.init_noise,
+        alg.report_iteration,
     )
 end
 
 function _nonrigid_distancepreserving(
-    prepd_source::PreparedSourceDistPres{N},
+    source::PointCloud{N},
     target::PointCloud{N},
+    prepd_source::PreparedSourceDistPres,
     regularizer,
     iterations,
     init_noise,
     report_iteration::RI,
 ) where {N, RI}
-    (; source, neighbor_graph, init_sqsigma) = prepd_source
+    (; neighbor_graph, init_sqsigma) = prepd_source
 
     I = length(target.points)
     J = length(source.points)
@@ -129,17 +104,25 @@ function _nonrigid_distancepreserving(
     R = pairwise(sqeuclidean, target.points, source.points)
 
     sqsigma = init_sqsigma
-    state[1] = sqsigma
+    state[1] = log(sqsigma)
 
     convergence_checker = ConvergenceChecker(state[1], 1000)
 
     for iter in 1:iterations
-        sqsigma = state[1]
+        sqsigma = exp(state[1])
 
         report_iteration(; iter, new_source_points, sqsigma)
 
         convergence_checker, converged = update_and_check(convergence_checker, sqsigma, iter)
-        converged && break
+        # converged && break
+
+        if false && iter % 1000 == 0
+            V = eltype(new_source_points)
+            noise = sqrt(sqsigma) / 5
+            for j in eachindex(new_source_points)
+                new_source_points[j] += noise * randn(V)
+            end
+        end
 
         exp_factor = -inv(2sqsigma)
         pairwise!(R, sqeuclidean, target.points, new_source_points)
@@ -166,15 +149,15 @@ function _nonrigid_distancepreserving(
             regularizer,
         )
 
-        sqsigma_gradient = -dot(vec(C), vec(R)) / sqsigma + N * target.sum_of_weights
-        sqsigma_gradient /= 2sqsigma
+        logsqsigma_gradient = -dot(vec(C), vec(R)) / 2sqsigma + N * target.sum_of_weights
+        # logsqsigma_gradient /= 2sqsigma
 
-        gradient[1] = sqsigma_gradient
+        gradient[1] = logsqsigma_gradient
 
         Adam.step!(adam, gradient, state, iter)
     end
 
-    DistancePreservingRegistration(new_source_points)
+    Displacement(source.points, new_source_points)
 end
 
 struct GeneralizedLogNormalRegularizer{B <: Number}
