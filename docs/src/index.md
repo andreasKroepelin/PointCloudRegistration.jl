@@ -32,23 +32,70 @@ If you were to compare them point coordinate by point coordinate, you would
 pick up lots of differences that are not related to the tail position.
 Point cloud registration aims at resolving this issue.
 
-First, we can find a *rigid transformation* that rotates and translates the
-source such that they sit on top of each other:
+We can inspect the numerical representation of the cats:
+
+```@repl 1
+source
+target
+```
+
+To perform registration, we can first find a *rigid transformation* that rotates
+and translates the source such that both point clouds sit on top of each other:
 
 ```@repl 1
 rigid_transformation = rigid_registration(source, target)
 ```
 
-Now, `rigid_transformation(source)` matches `target` quite well:
+We can apply `rigid_transformation` to `source` and obtain a new point cloud:
+
+```@repl 1
+source2 = rigid_transformation(source)
+```
+
+Plotting both `source2` and `target` shows that the two are aligned well:
 
 ```@repl 1
 fig = Figure() # hide
 ax = Axis(fig[1, 1]; autolimitaspect = 1, yreversed = true) # hide
 hidedecorations!(ax) # hide
-plot!(ax, rigid_transformation(source); label = "rigidly transformed source") # hide
+plot!(ax, source2; label = "rigidly registered source") # hide
 plot!(ax, target; label = "target") # hide
 axislegend(ax) # hide
 save("rr-source-target.png", fig); # hide
 ```
 
 ![](rr-source-target.png)
+
+Often, we are already done here.
+However, we might be interested in explaining more of the differences between
+the point clouds, for which we turn to _non-rigid registration_:
+
+```@repl 1
+cpd =  nonrigid_registration(
+  source2,
+  target,
+  CoherentPointDrift(; corr_length = 50, expected_displacement = 100),
+)
+```
+
+As we can see, this requires a bit more domain knowledge and fine-tuning of
+parameters compared to rigid registration.
+Applying the result to `source2` provides a new point cloud:
+
+```@repl 1
+source3 = cpd(source2)
+```
+
+The plot reveals the final result:
+
+```@repl 1
+fig = Figure() # hide
+ax = Axis(fig[1, 1]; autolimitaspect = 1, yreversed = true) # hide
+hidedecorations!(ax) # hide
+plot!(ax, source3; label = "rigidly and non-rigidly registered source") # hide
+plot!(ax, target; label = "target") # hide
+axislegend(ax) # hide
+save("nrr-source-target.png", fig); # hide
+```
+
+![](nrr-source-target.png)

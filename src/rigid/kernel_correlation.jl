@@ -459,7 +459,7 @@ function rigid_registration(
     source,
     target,
     alg::KernelCorrelationMM;
-    target_preparation = nothing
+    target_preparation::Union{Nothing, PreparedTargetKernelCorrelation} = nothing
 )
     @argcheck alg.iterations >= 1
 
