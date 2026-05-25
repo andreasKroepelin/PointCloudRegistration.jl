@@ -71,10 +71,10 @@ However, we might be interested in explaining more of the differences between
 the point clouds, for which we turn to _non-rigid registration_:
 
 ```@repl 1
-cpd =  nonrigid_registration(
+nonrigid_displacement =  nonrigid_registration(
   source2,
   target,
-  CoherentPointDrift(; corr_length = 50, expected_displacement = 100),
+  DistancePreserving(; max_edge_length = 45, sensitivity = 1.4, rel_deviation = 1e-4),
 )
 ```
 
@@ -83,7 +83,7 @@ parameters compared to rigid registration.
 Applying the result to `source2` provides a new point cloud:
 
 ```@repl 1
-source3 = cpd(source2)
+source3 = nonrigid_displacement(source2)
 ```
 
 The plot reveals the final result:

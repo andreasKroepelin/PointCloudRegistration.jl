@@ -35,10 +35,11 @@ function _prepare_source_distancepreserving(
     return PreparedSourceDistPres(NeighborGraph(edges, distances), init_sqsigma)
 end
 
-@kwdef struct DistancePreserving{E <: Number, R, N <: Number, RI}
+@kwdef struct DistancePreserving{E <: Number, S <: Real, D <: Real, N <: Number, RI}
     max_edge_length::E
-    regularizer::R = GeneralizedLogNormalRegularizer(2, 1.01)
-    iterations::Int = 10_000
+    sensitivity::S = 2
+    rel_deviation::D = 0.01
+    iterations::Int = 20_000
     init_noise::N = false
     report_iteration::RI = no_report
 end
@@ -58,7 +59,7 @@ function nonrigid_registration(
         source_pc,
         target_pc,
         source_preparation,
-        alg.regularizer,
+        GeneralizedLogNormalRegularizer(alg.sensitivity, alg.rel_deviation),
         alg.iterations,
         alg.init_noise,
         alg.report_iteration,
@@ -106,7 +107,7 @@ function _nonrigid_distancepreserving(
     sqsigma = init_sqsigma
     state[1] = log(sqsigma)
 
-    convergence_checker = ConvergenceChecker(state[1], 1000)
+    convergence_checker = ConvergenceChecker(state[1], 3000)
 
     for iter in 1:iterations
         sqsigma = exp(state[1])
@@ -114,11 +115,11 @@ function _nonrigid_distancepreserving(
         report_iteration(; iter, new_source_points, sqsigma)
 
         convergence_checker, converged = update_and_check(convergence_checker, sqsigma, iter)
-        # converged && break
+        converged && break
 
-        if false && iter % 1000 == 0
+        if false && iter % 5000 == 0
             V = eltype(new_source_points)
-            noise = sqrt(sqsigma) / 5
+            noise = sqrt(sqsigma) / 2
             for j in eachindex(new_source_points)
                 new_source_points[j] += noise * randn(V)
             end
@@ -165,7 +166,7 @@ struct GeneralizedLogNormalRegularizer{B <: Number}
     coefficient::Float64
 
     function GeneralizedLogNormalRegularizer(beta, expected_rel_deviation)
-        lambda = log(expected_rel_deviation)
+        lambda = log1p(expected_rel_deviation) * sqrt(gamma(1/beta) / gamma(3/beta))
         coefficient = beta / lambda^beta
         new{typeof(beta)}(beta, coefficient)
     end

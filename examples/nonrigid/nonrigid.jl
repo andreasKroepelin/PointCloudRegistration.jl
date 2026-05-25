@@ -34,8 +34,8 @@ end
 
 new_source_points_hist = []
 sigma_hist = []
-prepd_Y = prepare_source_distancepreserving(Y; max_edge_length = 20.)
-dpr = nonrigid_registration(Y, X, DistancePreserving(; max_edge_length = 20, iterations = 200_000, init_noise = 0, report_iteration, regularizer = GeneralizedLogNormalRegularizer(2, 1.00001)); source_preparation = prepd_Y)
+prepd_Y = prepare_source_distancepreserving(Y; max_edge_length = 45.)
+dpr = nonrigid_registration(Y, X, DistancePreserving(; max_edge_length = 45, iterations = 20_000, init_noise = 0, report_iteration, sensitivity = 1.4, rel_deviation = 1e-4); source_preparation = prepd_Y)
 dY = dpr(Y)
 
 new_source_points_hist = []
