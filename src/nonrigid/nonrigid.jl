@@ -33,7 +33,7 @@ function Base.show(
         " vectors of eltype ",
         eltype(eltype(vectors)),
     )
-    Base.print_matrix(mat_io, OneOffLazyStack(vectors))
+    Base.print_matrix(mat_io, to_matrix(vectors))
 end
 
 function nonrigid_sinkhorn end

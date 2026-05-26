@@ -214,12 +214,6 @@ Base.axes(pc::PointCloud{N}) where {N} = (SOneTo(N), eachindex(pc.points))
 dimension(::PointCloud{N}) where {N} = N
 Base.eltype(::PointCloud{N, T}) where {N, T} = T
 
-struct OneOffLazyStack{T, V <: AbstractVector{<: AbstractVector{T}}} <: AbstractMatrix{T}
-    vecs::V
-end
-Base.size(ools::OneOffLazyStack) = (length(first(ools.vecs)), length(ools.vecs))
-Base.getindex(ools::OneOffLazyStack, i, j) = ools.vecs[j][i]
-
 function Base.show(
     io::IO,
     ::MIME"text/plain",
@@ -234,7 +228,7 @@ function Base.show(
         " points of eltype ",
         T,
     )
-    Base.print_matrix(mat_io, OneOffLazyStack(pc.points))
+    Base.print_matrix(mat_io, to_matrix(pc.points))
     println(io)
     if pc.weights isa Trues || pc.weights isa Ones
         println(io, "and unit weights")
