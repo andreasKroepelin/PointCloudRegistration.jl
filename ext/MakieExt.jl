@@ -66,4 +66,13 @@ Makie.plottype(::PointCloud{2}) = PointCloudPlotFlat
 Makie.plottype(::PointCloud{3}) = PointCloudPlotMesh
 Makie.preferred_axis_type(::PointCloudPlotMesh) = Makie.LScene
 
+Makie.convert_arguments(
+    al::Makie.ArrowLike,
+    displacement::PointCloudRegistration.Displacement
+) = Makie.convert_arguments(
+    al,
+    displacement.origin,
+    displacement.result .- displacement.origin
+)
+
 end
