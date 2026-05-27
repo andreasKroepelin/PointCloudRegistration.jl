@@ -8,17 +8,26 @@ registration of point clouds, also known as *superimposing* or *aligning*.
 To understand what point cloud registration is and why we need it, let's have
 a look at these two cute cats:
 
+```@setup 1
+using PointCloudRegistration
+using GLMakie
+```
+
 ```@repl 1
 using PointCloudRegistration
 source, target = PointCloudRegistration.Assets.load_cats();
-using GLMakie # hide
-fig = Figure() # hide
-ax = Axis(fig[1, 1]; autolimitaspect = 1, yreversed = true) # hide
-hidedecorations!(ax) # hide
-plot!(ax, source; label = "source") # hide
-plot!(ax, target; label = "target") # hide
-axislegend(ax) # hide
-save("source-target.png", fig); # hide
+```
+
+```@setup 1
+let
+    fig = Figure()
+    ax = Axis(fig[1, 1]; autolimitaspect = 1, yreversed = true)
+    hidedecorations!(ax)
+    plot!(ax, source; label = "source")
+    plot!(ax, target; label = "target")
+    axislegend(ax)
+    save("source-target.png", fig)
+end
 ```
 
 ![](source-target.png)
@@ -54,14 +63,16 @@ source2 = rigid_transformation(source)
 
 Plotting both `source2` and `target` shows that the two are aligned well:
 
-```@repl 1
-fig = Figure() # hide
-ax = Axis(fig[1, 1]; autolimitaspect = 1, yreversed = true) # hide
-hidedecorations!(ax) # hide
-plot!(ax, source2; label = "rigidly registered source") # hide
-plot!(ax, target; label = "target") # hide
-axislegend(ax) # hide
-save("rr-source-target.png", fig); # hide
+```@setup 1
+let
+    fig = Figure()
+    ax = Axis(fig[1, 1]; autolimitaspect = 1, yreversed = true)
+    hidedecorations!(ax)
+    plot!(ax, source2; label = "rigidly registered source")
+    plot!(ax, target; label = "target")
+    axislegend(ax)
+    save("rr-source-target.png", fig)
+end
 ```
 
 ![](rr-source-target.png)
@@ -86,16 +97,33 @@ Applying the result to `source2` provides a new point cloud:
 source3 = nonrigid_displacement(source2)
 ```
 
-The plot reveals the final result:
+The plot shows the final result:
 
-```@repl 1
-fig = Figure() # hide
-ax = Axis(fig[1, 1]; autolimitaspect = 1, yreversed = true) # hide
-hidedecorations!(ax) # hide
-plot!(ax, source3; label = "rigidly and non-rigidly registered source") # hide
-plot!(ax, target; label = "target") # hide
-axislegend(ax) # hide
-save("nrr-source-target.png", fig); # hide
+```@setup 1
+let
+    fig = Figure()
+    ax = Axis(fig[1, 1]; autolimitaspect = 1, yreversed = true)
+    hidedecorations!(ax)
+    plot!(ax, source3; label = "rigidly and non-rigidly registered source")
+    plot!(ax, target; label = "target")
+    axislegend(ax)
+    save("nrr-source-target.png", fig)
+end
 ```
 
 ![](nrr-source-target.png)
+
+Plotting the `nonrigid_displacement` reveals the tail movement:
+
+```@setup 1
+let
+    fig = Figure()
+    ax = Axis(fig[1, 1]; autolimitaspect = 1, yreversed = true)
+    hidedecorations!(ax)
+    arrows2d!(ax, nonrigid_displacement; label = "displacement")
+    axislegend(ax)
+    save("nrr-displacement.png", fig)
+end
+```
+
+![](nrr-displacement.png)
