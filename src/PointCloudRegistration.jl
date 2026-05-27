@@ -27,10 +27,10 @@ export PointCloud,
     nonrigid_registration,
     CoherentPointDrift,
     DistancePreserving,
+    prepare_source_distancepreserving,
     nonrigid_sinkhorn,
     nonrigid_divfree,
     nonrigid_kc_springs,
-    prepare_source_distancepreserving,
     guess_correspondences,
     DownTo,
     TargetScales,
@@ -38,7 +38,6 @@ export PointCloud,
     FixedRestarts,
     NoSmm,
     Smm,
-    GeneralizedLogNormalRegularizer,
     thin_to_distance,
     thin_to_number,
     thin_to_grid,
@@ -47,7 +46,10 @@ export PointCloud,
     drop_quantile,
     density2pointcloud
 
-public VecOfSVec
+
+public VecOfSVec,
+    Displacement,
+    CpdDisplacement
 
 include("pointcloud.jl")
 include("common.jl")
