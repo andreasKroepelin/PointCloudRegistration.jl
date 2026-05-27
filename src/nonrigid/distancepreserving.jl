@@ -89,6 +89,11 @@ function _nonrigid_distancepreserving(
     state = zeros(1 + N * J)
     gradient = similar(state)
     new_source_points = extract_points(state)
+    convergence_checker = PointsConvergenceChecker(
+        new_source_points,
+        1000,
+        minimum(neighbor_graph.distances) / 20
+    )
     points_gradient = extract_points(gradient)
     adam = Adam.State(state)
 
@@ -107,14 +112,13 @@ function _nonrigid_distancepreserving(
     sqsigma = init_sqsigma
     state[1] = log(sqsigma)
 
-    convergence_checker = ConvergenceChecker(state[1], 3000)
-
+    @info "before loop"
     for iter in 1:iterations
         sqsigma = exp(state[1])
 
         report_iteration(; iter, new_source_points, sqsigma)
 
-        convergence_checker, converged = update_and_check(convergence_checker, sqsigma, iter)
+        converged = update_and_check!(convergence_checker, new_source_points, iter)
         converged && break
 
         if false && iter % 5000 == 0

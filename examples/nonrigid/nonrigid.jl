@@ -17,7 +17,7 @@ Y = T_rigid(Y)
 function report_iteration(; iter, new_source_points, sqsigma, kwargs...)
     pseudo_sqrt(x) = x < 0 ? NaN : sqrt(x)
     sigma = pseudo_sqrt(sqsigma)
-    iter % 100 == 0 && @info "iteration" iter sigma
+    # iter % 100 == 0 && @info "iteration" iter sigma
     push!(new_source_points_hist, copy(new_source_points))
     push!(sigma_hist, sigma)
 end
@@ -35,7 +35,7 @@ end
 new_source_points_hist = []
 sigma_hist = []
 prepd_Y = prepare_source_distancepreserving(Y; max_edge_length = 45.)
-dpr = nonrigid_registration(Y, X, DistancePreserving(; max_edge_length = 45, iterations = 20_000, init_noise = 0, report_iteration, sensitivity = 1.4, rel_deviation = 1e-4); source_preparation = prepd_Y)
+dpr = nonrigid_registration(Y, X, DistancePreserving(; max_edge_length = 45, iterations = 200_000, init_noise = 0, report_iteration, sensitivity = 1.4, rel_deviation = 1e-4); source_preparation = prepd_Y)
 dY = dpr(Y)
 
 new_source_points_hist = []
@@ -84,6 +84,42 @@ let
 end
 
 
+trials = [
+    let
+        @info "trial" sensitivity log10rel_deviation
+        displacement = nonrigid_registration(
+            Y,
+            X,
+            DistancePreserving(;
+                max_edge_length = 45,
+                iterations = 200_000,
+                init_noise = 0,
+                sensitivity,
+                rel_deviation = 10.0^log10rel_deviation,
+            )
+        )
+        (; sensitivity, log10rel_deviation, displacement)
+    end
+    for sensitivity in 1.0:0.2:2.0, log10rel_deviation in [-6, -4, -2]
+]
+
+let
+    fig = Figure()
+    axs = [Axis(fig[Tuple(ci)...]; yreversed = true, autolimitaspect = 1) for ci in CartesianIndices(trials)]
+    hidedecorations!.(axs)
+    for (ax, trial) in zip(axs, trials)
+        arrows2d!(ax, trial.displacement)
+    end
+    for (i, row) in enumerate(eachrow(trials))
+        sensitivity = [trial.sensitivity for trial in row] |> unique |> only
+        Label(fig[i, 0], string(sensitivity); tellheight = false)
+    end
+    for (i, col) in enumerate(eachcol(trials))
+        log10rel_deviation = [trial.log10rel_deviation for trial in col] |> unique |> only
+        Label(fig[0, i], "10^$log10rel_deviation"; tellwidth = false)
+    end
+    fig
+end
 
 
 
