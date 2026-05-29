@@ -40,8 +40,12 @@ makedocs(;
     pages = [
         "index.md",
         "pointclouds.md",
+        "api-overview.md",
         "rigid.md",
         "nonrigid.md",
+        "thinning.md",
+        "from-density.md",
+        "plotting.md",
         "Examples" => [
             # "generated/ribosome-puzzle.md",
             # "generated/biotisr.md",

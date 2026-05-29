@@ -1,4 +1,17 @@
-function nonrigid_registration(source, target)
+"""
+    nonrigid_registration(source, target, algorithm)
+
+Find a non-rigid transformation that transforms the point cloud `source` to
+"match" the point cloud `target` using `algorithm`.
+See [here](#Non-rigid-registration-algorithms) for a list of available
+algorithms.
+
+Both `source` and `target` can be given in a form described in Section
+[Representing point clouds](@ref).
+They must have matching dimensions (both 2D or both 3D and so forth).
+"""
+function nonrigid_registration(source, target, algorithm)
+    error("Unsopported algorithm of type ", typeof(algorithm))
 end
 
 struct Displacement{N, O <: VecOfSVec{N}, R <: VecOfSVec{N}}
