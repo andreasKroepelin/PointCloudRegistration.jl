@@ -2,12 +2,13 @@ using Revise
 using PointCloudRegistration
 # using OptimalTransport
 using LinearAlgebra
+using Distances
 using GLMakie
 
 # X, Y = PointCloudRegistration.Assets.load_1ake_A_4ake_A()
 # X, Y = PointCloudRegistration.Assets.load_1su4_A_1iwo_A()
-Y, X = PointCloudRegistration.Assets.load_cats()
-# Y, X = PointCloudRegistration.Assets.load_1ih7_A_1ig9_A()
+# Y, X = PointCloudRegistration.Assets.load_cats()
+Y, X = PointCloudRegistration.Assets.load_1ih7_A_1ig9_A()
 # Y, X = PointCloudRegistration.Assets.load_1q9x_B_1q9y_A()
 # X = PointCloud(collect(map(x -> Float64.(x), X.points)))
 # Y = PointCloud(collect(map(x -> Float64.(x), Y.points)))
@@ -22,67 +23,55 @@ function report_iteration(; iter, new_source_points, sqsigma, kwargs...)
     push!(sigma_hist, sigma)
 end
 
-function report_iteration(; iter, new_source_points, kc, spring_energy, spring_pairs, kwargs...)
-    push!(new_source_points_hist, copy(new_source_points))
-    push!(kc_hist, kc)
-    push!(spring_energy_hist, spring_energy)
-    if iter == 1
-        empty!(all_spring_pairs)
-        append!(all_spring_pairs, spring_pairs)
-    end
-end
-
 new_source_points_hist = []
 sigma_hist = []
-prepd_Y = prepare_source_distancepreserving(Y; max_edge_length = 45.)
-dpr = nonrigid_registration(Y, X, DistancePreserving(; max_edge_length = 45, iterations = 200_000, init_noise = 0, report_iteration, sensitivity = 1.4, rel_deviation = 1e-4); source_preparation = prepd_Y)
+prepd_Y = prepare_source_distancepreserving(Y; max_edge_length = 10.)
+dpr = nonrigid_registration(Y, X, DistancePreserving(; max_edge_length = 10, iterations = 200_000, report_iteration, sensitivity = 1.8, rel_deviation = 5e-2); source_preparation = prepd_Y)
 dY = dpr(Y)
-
-new_source_points_hist = []
-kc_hist = []
-spring_energy_hist = []
-all_spring_pairs = []
-kcsr = nonrigid_kc_springs(Y, X; stiffness = 8e6, scale = 10., max_spring_length = 7., report_iteration);
 
 let
     fig = Figure()
-    # ax = Axis3(fig[1, 1]; aspect = :data)
-    ax = Axis(fig[1, 1]; autolimitaspect = 1)
-    plot!(ax, Y;#= sizefactor = 1=#)
-    ls = mapreduce(((j1, j2),) -> [Y.points[j1], Y.points[j2]], vcat, prepd_Y.neighbor_graph.edges)
-    linesegments!(ax, ls; color = :gray)
+    ax = Axis3(fig[1, 1]; aspect = :data)
+    # ax = Axis(fig[1, 1]; autolimitaspect = 1)
+    plot!(ax, dY; color = :lightgray)
+    nodes = [(dY.points[j1], dY.points[j2]) for (j1, j2) in prepd_Y.neighbor_graph.edges]
+    distances = map(splat(euclidean), nodes)
+    abs_log_ratios = distances ./ prepd_Y.neighbor_graph.distances .|> log .|> abs
+    colormap = range(
+        Makie.to_color((:aqua, 0.01)),
+        Makie.to_color((:tomato, 1.0)),
+    )
+    # lsplt = linesegments!(ax, nodes; color = exp.(abs_log_ratios) .- 1, colormap, linewidth = abs_log_ratios .* 20)
+    # Colorbar(fig[1, 2], lsplt)
+    lsplt = linesegments!(ax, nodes; color = :gray)
     fig
 end
 
 let
     fig = Figure()
-    # ax1 = Axis3(fig[1, 1]; aspect = :data)
-    ax1 = Axis(fig[1, 1]; autolimitaspect = 1)
+    ax1 = Axis3(fig[1, 1]; aspect = :data)
+    # ax1 = Axis(fig[1, 1]; autolimitaspect = 1)
     ax2 = Axis(fig[1, 2];)
     sl = Slider(fig[2, 1]; range = eachindex(new_source_points_hist))
     lines!(ax2, sigma_hist)
     iY = @lift PointCloud(new_source_points_hist[$(sl.value)], Y.weights)
     io = @lift [Point2($(sl.value), sigma_hist[$(sl.value)])]
-    # ls = @lift mapreduce((y, iy) -> [y, iy], vcat, Y.points, new_source_points_hist[$(sl.value)])
     # plot!(ax1, Y; sizefactor = 2)
-    plot!(ax1, X; sizefactor = .1)
-    plot!(ax1, iY; sizefactor = .1 #=, color = eachindex(Y.points) =#)
-    # linesegments!(ax1, ls; color = :gray)
+    plot!(ax1, X; sizefactor = 2, color = (:gray, .3))
+    plot!(ax1, iY; sizefactor = 2, color = (:teal, .3))
+    nodes = @lift [(($iY).points[j1], ($iY).points[j2]) for (j1, j2) in prepd_Y.neighbor_graph.edges]
+    abs_log_ratios = @lift map(splat(euclidean), $nodes) ./ prepd_Y.neighbor_graph.distances .|> log .|> abs
+    color = @lift exp.($abs_log_ratios) .- 1
+    linewidth = @lift $abs_log_ratios .* 10
+    colormap = range(
+        Makie.to_color((:aqua, 0.01)),
+        Makie.to_color((:tomato, 1.0)),
+    )
+    lsplt = linesegments!(ax1, nodes; color, colormap, colorrange = (0, .5), linewidth)
+    Colorbar(fig[3, 1], lsplt; vertical = false)
     scatter!(ax2, io; markersize = 10)
     fig
 end
-
-let
-    fig = Figure()
-    ax = Axis3(fig[1, 1]; aspect = :data)
-    # src_plt = plot!(ax, Y; label = "source")
-    # trg_plt = plot!(ax, X; label = "target")
-    # plot!(ax, dY; label = "displaced source")
-    arrows3d!(ax, Y.points, dY.points .- Y.points; label = "displacement")
-    axislegend(ax)
-    fig
-end
-
 
 trials = [
     let
@@ -91,21 +80,20 @@ trials = [
             Y,
             X,
             DistancePreserving(;
-                max_edge_length = 45,
+                max_edge_length = 50,
                 iterations = 200_000,
-                init_noise = 0,
                 sensitivity,
                 rel_deviation = 10.0^log10rel_deviation,
             )
         )
         (; sensitivity, log10rel_deviation, displacement)
     end
-    for sensitivity in 1.0:0.2:2.0, log10rel_deviation in [-6, -4, -2]
+    for sensitivity in 1.0:0.2:2.0, log10rel_deviation in -5:1:-2
 ]
 
 let
     fig = Figure()
-    axs = [Axis(fig[Tuple(ci)...]; yreversed = true, autolimitaspect = 1) for ci in CartesianIndices(trials)]
+    axs = [Axis(fig[Tuple(ci)...]; yreversed = true, aspect = DataAspect()) for ci in CartesianIndices(trials)]
     hidedecorations!.(axs)
     for (ax, trial) in zip(axs, trials)
         arrows2d!(ax, trial.displacement)

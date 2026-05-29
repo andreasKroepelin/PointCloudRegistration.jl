@@ -48,3 +48,19 @@ Profile.clear()
 X, Y = PointCloudRegistration.Assets.load_1ake_A_4ake_A()
 pX = prepare_target_kc(X);
 @btime rigid_kc($Y, $pX; restarts = RandomRestarts(30), smm = Smm(100));
+
+
+X, Y = PointCloudRegistration.Assets.load_cats()
+Y = rigid_registration(Y, X)(Y)
+
+nonrigid_registration(
+    Y,
+    X,
+    DistancePreserving(max_edge_length = 45, sensitivity = 1.4, rel_deviation = 1e-4, iterations = 2_000)
+)
+Profile.clear()
+@pprof nonrigid_registration(
+    Y,
+    X,
+    DistancePreserving(max_edge_length = 45, sensitivity = 1.4, rel_deviation = 1e-4, iterations = 200_000)
+)
