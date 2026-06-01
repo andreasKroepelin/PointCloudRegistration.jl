@@ -13,7 +13,11 @@ section ([Representing point clouds](@ref)).
 They must have matching dimensions (both 2D or both 3D and so forth).
 
 The type of the returned `transformation` depends on the concrete registration.
-However, it always has the property that `transformation(source)` provides the
+However, it always has the property that
+```julia
+transformation(source)
+```
+provides the
 registered source.
 (To avoid potential type piracy, this only works when `source isa PointCloud`.)
 

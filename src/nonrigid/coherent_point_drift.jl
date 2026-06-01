@@ -4,6 +4,25 @@ struct CpdPreparedSource{T, T2, T3}
     corr_factor::T3
 end
 
+"""
+    prepare_source_coherentpointdrift(source; corr_length, expected_displacement)
+
+Perform all the target independent precomputation for the source that is used in
+[`nonrigid_registration(source, target, ::CoherentPointDrift)`](@ref).
+This function is especially useful if you plan to register the same source to
+multiple targets.
+
+For the meaning of the keyword arguments, see [`CoherentPointDrift`](@ref).
+
+# Example
+Say, you have the three point clouds `source`, `target1`, and `target2` where
+you want to register `source` to `target1` and `target2`:
+```julia
+prep = prepare_source_coherentpointdrift(source; corr_length = 13.0, expected_displacement = 42.0)
+transformation1 = nonrigid_registration(source, target1, CoherentPointDrift(); source_preparation = prep)
+transformation2 = nonrigid_registration(source, target2, CoherentPointDrift(); source_preparation = prep)
+```
+"""
 function prepare_source_coherentpointdrift(source; corr_length, expected_displacement)
     source_pc = PointCloud(source)
     _prepare_source_cpd(source_pc, expected_displacement, corr_length)
@@ -69,13 +88,68 @@ function Base.show(
     print(io, N, "-dimensional coherent point drift displacement")
 end
 
-@kwdef struct CoherentPointDrift{C <: Number, E <: Number, O <: Real}
-    corr_length::C
-    expected_displacement::E
-    outlier_proportion::O = 0
+"""
+    CoherentPointDrift(; corr_length, expected_displacement[, outlier_proportion, iterations])
+
+Non-rigid registration of point clouds that assumes that close-by points should
+be displaced coherently.
+
+This algorithm alternates between estimating a displacement that would bring the
+source close to the target and then smoothing this displacement via Gaussian
+Process regression.
+Involving Gaussian Processes has the side effect that the resulting
+displacements can be applied to other point clouds than the source as well.
+
+# Parameters
+
+* `corr_length`: Determines the range of coherence.
+  The smaller this value, the more independently parts of the source can be
+  displaced.
+* `expected_displacement`: How large (in the sense of vector magnitude) the
+  displacement is expected to be on average.
+  This acts as a regularization parameter.
+  Smaller values mean more regularization.
+* `outlier_proportion`: How much of the target point cloud is assumed to be
+  outliers, i.e. not produced by displacing the source.
+  Must be a number between zero and one.
+  Default: zero.
+- `iterations`: How many iterations to perform at most, might stop earlier if
+  convergence is detected.
+  Default: `1000`
+"""
+@kwdef struct CoherentPointDrift{C <: Union{Number, Nothing}, E <: Union{Number, Nothing}, O <: Real}
+    corr_length::C = nothing
+    expected_displacement::E = nothing
+    outlier_proportion::O = false
     iterations::Int = 1000
 end
 
+"""
+    nonrigid_registration(source, target, algorithm::CoherentPointDrift[; source_preparation])
+
+Perform non-rigid registration via [`CoherentPointDrift`](@ref).
+See [here](@ref nonrigid_registration(::Any, ::Any, ::Any)) for general info
+about this function.
+
+This method returns an object of type `CpdDisplacement` (public but not
+exported).
+It can be applied to arbitrary point clouds (of the same dimension as source and
+target).
+
+# Performance
+Some of the necessary computation depends only on the source and can thus be
+reused for different targets.
+To exploit this, use [`prepare_source_coherentpointdrift`](@ref) and provide its
+result to the `source_preparation` keyword argument.
+In this case, the `corr_length` and `expected_displacement` parameters of
+[`CoherentPointDrift`](@ref) do not have to be provided (and are ignored if
+provided).
+
+# Example
+```julia
+julia> # TODO: add example with thinned source
+```
+"""
 function nonrigid_registration(
     source,
     target,
@@ -85,6 +159,8 @@ function nonrigid_registration(
     source_pc = PointCloud(source)
     target_pc = PointCloud(target)
     if isnothing(source_preparation)
+        @argcheck !isnothing(alg.corr_length) "without `source_preparation`, `corr_length` must be specified"
+        @argcheck !isnothing(alg.expected_displacement) "without `source_preparation`, `expected_displacement` must be specified"
         source_preparation = prepare_source_coherentpointdrift(
             source_pc;
             alg.corr_length,
@@ -152,5 +228,5 @@ function _nonrigid_cpd(
         lmul!(ratio_vars, to_matrix(displacements))
     end
 
-    return CpdRegistration(source, displacements, source_preparation)
+    return CpdDisplacement(source, displacements, source_preparation)
 end
