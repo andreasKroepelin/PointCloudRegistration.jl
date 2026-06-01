@@ -14,28 +14,20 @@ This is also known as aligning or superimposing.
 Given two point clouds `source` and `target`, this package can perform
 * **rigid registration**, i.e. rotate and translate `source` such that it
   matches `target`, or
-* **nonrigid registration**, i.e. shift the points in `source` individually but
+* **non-rigid registration**, i.e. shift the points in `source` individually but
   coherently to match `target`.
 
-The animation above shows first a rigid and then a nonrigid registration of the
+The animation above shows first a rigid and then a non-rigid registration of the
 blue and green point clouds.
 
-Currently, the following four methods are implemented:
-* **`rigid_rmsd`:**
-  Rigid registration that minimizes the *root mean square deviation* between
-  `source` and `target`; assumes that equal-index points correspond to each
-  other and that all pairs of points are equally relevant.
-* **`rigid_gmc`:**
-  Rigid registration that minimizes the *Geman-McClure loss* between `source`
-  and `target`; assumes that equal-index points correspond to each
-  other but caps the influence of far apart pairs of points (outliers).
-* **`rigid_kc`:**
-  Rigid registration that maximizes the *kernel correlation* between `source`
-  and `target`; assumes no correspondences and is robust against outliers.
-* **`nonrigid_cpd`:**
-  Nonrigid registration that estimates a *coherent point drift* from `source`
-  to `target`; internally estimates correspondences and is configurable to
-  account for outliers.
+## Feature overview
+
+* **Rigid registration** (via Kabsch, Iterative Closest Point, optimising the
+  Geman-McClure loss, the Kernel Correlation, or the Mean Absolute Deviation)
+* **Non-rigid** registration (via Coherent Point Drift, Neighbor Distance
+  Preservation, Divergence Free registration, Optimal Transport)
+* **Thinning** of point clouds (to a specified number or resolution)
+* Conversion from **density arrays** (such as images, cryo-EM volumes)
 
 The package handles 2D, 3D and any higher dimensional point clouds, as well as
 point clouds with varyingly weighted points.
@@ -49,33 +41,28 @@ pkg> add PointCloudRegistration
 
 julia> using PointCloudRegistration
 
-julia> target = cumsum(randn(3, 100), dims=2)
-3×100 Matrix{Float64}:
-  0.951501   0.86076    1.24536  …  14.4517   14.0935   14.7221
- -0.195826  -0.756038  -1.77237      8.11216   6.41248   7.25313
-  0.185991   2.2701     2.06564      8.23514   6.98      7.02232
+julia> source = [ 1.0 2.3 0.4 7.5
+                  0.0 1.6 8.3 4.2 ]
+2×4 Matrix{Float64}:
+ 1.0  2.3  0.4  7.5
+ 0.0  1.6  8.3  4.2
 
-julia> source = target .+ 1
-3×100 Matrix{Float64}:
- 1.9515    1.86076    2.24536  …  15.4517   15.0935   15.7221
- 0.804174  0.243962  -0.77237      9.11216   7.41248   8.25313
- 1.18599   3.2701     3.06564      9.23514   7.98      8.02232
+julia> target = [ 5.8 3.7 4.6 0.0 2.2
+                  6.1 2.5 4.8 3.5 1.8 ]
+2×5 Matrix{Float64}:
+ 5.8  3.7  4.6  0.0  2.2
+ 6.1  2.5  4.8  3.5  1.8
 
-julia> T = rigid_gmc(source, target) # returns an `AffineMap` from CoordinateTransformations.jl
-AffineMap([0.9999999999999999 1.0075742162992266e-16 -1.2502288632455386e-15; 2.524927231180851e-16 1.0 7.771435197962951e-16; 1.1339360284051926e-15 -6.237558778696607e-16 1.0], [-0.9999999999999947, -1.0000000000000067, -1.000000000000007])
+julia> transformation = rigid_registration(source, target)
+AffineMap([0.9562894108822751 -0.292421891510248; 0.29242189151024794 0.9562894108822753], [0.9889581453816962, 0.9702886675687052])
 
-julia> T.linear
-3×3 StaticArraysCore.SMatrix{3, 3, Float64, 9} with indices SOneTo(3)×SOneTo(3):
- 1.0           1.00757e-16  -1.25023e-15
- 2.52493e-16   1.0           7.77144e-16
- 1.13394e-15  -6.23756e-16   1.0
+julia> transformation.linear
+2×2 RotMatrix2{Float64} with indices SOneTo(2)×SOneTo(2):
+ 0.956289  -0.292422
+ 0.292422   0.956289
 
-julia> T.translation
-3-element StaticArraysCore.SVector{3, Float64} with indices SOneTo(3):
- -0.9999999999999947
- -1.0000000000000067
- -1.000000000000007
-
-julia> T.(eachcol(source)) ≈ eachcol(target)
-true
+julia> transformation.translation
+2-element StaticArraysCore.SVector{2, Float64} with indices SOneTo(2):
+ 0.9889581453816962
+ 0.9702886675687052
 ```
