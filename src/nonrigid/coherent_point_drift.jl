@@ -115,7 +115,11 @@ function _nonrigid_cpd(
     c_per_trg = sum(C; dims = 2)
     Z = sum(c_per_trg)
 
-    convergence_checker = ConvergenceChecker(sqsigma, 100)
+    convergence_checker = PointsConvergenceChecker(
+        displacements,
+        10,
+        promote_type(TT, TS) |> eps |> sqrt
+    )
     for iter in 1:iterations
         for j in 1:J
             dsrc = source.points[j] + displacements[j]
@@ -126,7 +130,7 @@ function _nonrigid_cpd(
         end
         sqsigma = dot(vec(R), vec(C)) / (Z * N)
 
-        convergence_checker, converged = update_and_check(convergence_checker, sqsigma, iter)
+        converged = update_and_check!(convergence_checker, displacements, iter)
         converged && break
 
         expfactor = inv(-2 * sqsigma)
