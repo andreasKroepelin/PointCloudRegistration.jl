@@ -24,7 +24,7 @@ blue and green point clouds.
 
 * **Rigid registration** (via Kabsch, Iterative Closest Point, optimising the
   Geman-McClure loss, the Kernel Correlation, or the Mean Absolute Deviation)
-* **Non-rigid** registration (via Coherent Point Drift, Neighbor Distance
+* **Non-rigid registration** (via Coherent Point Drift, Neighbor Distance
   Preservation, Divergence Free registration, Optimal Transport)
 * **Thinning** of point clouds (to a specified number or resolution)
 * Conversion from **density arrays** (such as images, cryo-EM volumes)
