@@ -5,6 +5,7 @@ using Literate
 
 using PointCloudRegistration
 using CoordinateTransformations
+using OptimalTransport
 
 Revise.revise()
 
@@ -12,6 +13,10 @@ links = InterLinks(
     "CoordinateTransformations" => (
         "https://juliageometry.github.io/CoordinateTransformations.jl/dev/",
         joinpath(@__DIR__, "inventories", "coordinatetransformations.inv"),
+    ),
+    "OptimalTransport" => (
+        "https://juliaoptimaltransport.github.io/OptimalTransport.jl/dev/",
+        joinpath(@__DIR__, "inventories", "optimaltransport.inv"),
     ),
 )
 
@@ -52,11 +57,10 @@ makedocs(;
             # "generated/wglmakie-test.md",
         ],
     ],
-    remotes = nothing,
     plugins = [links],
+    repo = Remotes.Forgejo("codeberg.org", "a5s", "PointCloudRegistration.jl"),
     format = Documenter.HTMLWriter.HTML(;
         canonical = "a5s.eu/PointCloudRegistration.jl/",
-        repolink = "https://codeberg.org/andreas-k/PointCloudRegistration.jl",
         assets = [asset("assets/logo.png"; islocal = true, class = :ico)],
         size_threshold_ignore = [
             "generated/ribosome-puzzle.md",

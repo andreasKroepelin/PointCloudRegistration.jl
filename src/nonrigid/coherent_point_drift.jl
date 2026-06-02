@@ -113,7 +113,7 @@ displacements can be applied to other point clouds than the source as well.
   outliers, i.e. not produced by displacing the source.
   Must be a number between zero and one.
   Default: zero.
-- `iterations`: How many iterations to perform at most, might stop earlier if
+* `iterations`: How many iterations to perform at most, might stop earlier if
   convergence is detected.
   Default: `1000`
 """

@@ -4,6 +4,30 @@ using PointCloudRegistration
 using ExactOptimalTransport
 using Distances
 
+"""
+    nonrigid_registration(source, target, algorithm::EarthMover)
+
+Perform non-rigid registration via [`EarthMover`](@ref).
+See [here](@ref nonrigid_registration(::Any, ::Any, ::Any)) for general info
+about this function.
+
+This method returns a
+[`Displacement`](@ref PointCloudRegistration.Displacement)
+that can only be applied to `source`.
+
+This method is defined in a package extension that is only available when the
+`ExactOptimalTransport.jl` package is loaded.
+
+# Example
+
+```julia
+using PointCloudRegistration
+using ExactOptimalTransport
+using Tulip
+
+nonrigid_registration(source, target, EarthMover(optimizer = Tulip.Optimizer()))
+```
+"""
 function PointCloudRegistration.nonrigid_registration(
     source, target, algorithm::EarthMover
 )

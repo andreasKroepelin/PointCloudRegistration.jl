@@ -10,6 +10,25 @@ struct PreparedSourceDistPres{T}
     init_sqsigma::T
 end
 
+"""
+    prepare_source_distancepreserving(source; max_edge_length)
+
+Perform all the target independent precomputation for the source that is used in
+[`nonrigid_registration(source, target, ::DistancePreserving)`](@ref).
+This function is especially useful if you plan to register the same source to
+multiple targets.
+
+For the meaning of the keyword arguments, see [`DistancePreserving`](@ref).
+
+# Example
+Say, you have the three point clouds `source`, `target1`, and `target2` where
+you want to register `source` to `target1` and `target2`:
+```julia
+prep = prepare_source_coherentpointdrift(source; max_edge_length = 10)
+transformation1 = nonrigid_registration(source, target1, DistancePreserving(sensitivity = 1.8, rel_deviation = 1e-2); source_preparation = prep)
+transformation2 = nonrigid_registration(source, target2, DistancePreserving(sensitivity = 1.2, rel_deviation = 3e-4); source_preparation = prep)
+```
+"""
 function prepare_source_distancepreserving(source; max_edge_length)
     source_pc = PointCloud(source)
     _prepare_source_distancepreserving(source_pc, max_edge_length)
@@ -35,15 +54,103 @@ function _prepare_source_distancepreserving(
     return PreparedSourceDistPres(NeighborGraph(edges, distances), init_sqsigma)
 end
 
-@kwdef struct DistancePreserving{E <: Number, S <: Real, D <: Real, N <: Number, RI}
-    max_edge_length::E
-    sensitivity::S = 2
-    rel_deviation::D = 0.01
-    iterations::Int = 20_000
+"""
+    DistancePreserving(; max_edge_length, sensitivity, rel_deviation[, iterations, report_iteration])
+
+Non-rigid registration of point clouds that tries to preserve distances of
+neighboring points in the source.
+
+The algorithm finds new source points by optimizing the regularized matching
+score via gradient descent (ADAM).
+
+The matching of (registered) source and target is quantified by a Gaussian
+Mixture Model likelihood.
+That is, for two weighted point clouds
+``x_1, \\dots, x_I \\in \\mathbb{R}^D`` with weights ``p_1, \\dots, p_I`` and
+``y_1, \\dots, y_J \\in \\mathbb{R}^D`` with weights ``q_1, \\dots, q_J``,
+their matching is
+```math
+\\prod{i = 1}^I \\left( \\sum_{j = 1}^J q_j \\exp(-\\Vert x_i - y_j \\Vert^2 / 2 \\sigma^2) \\right)^{p_i}
+.
+```
+
+For regularization, it is assumed that the ratio of a distance between two
+points in the transformed source to their distance in the original source
+follows a generalized log-normal distribution.
+That is,
+for two source points ``y_j`` and ``y_k``
+with distance ``d_{j k} = \\Vert y_j - y_k \\Vert``
+and the corresponding transformed points ``\\hat{y}_j`` and ``\\hat{y}_k``
+with distance ``\\hat{d}_{j k} = \\Vert \\hat{y}_j - \\hat{y}_k \\Vert``
+we quantify the deviation of ``\\hat{d}_{j k}`` from ``d_{j k}`` as
+```math
+\\frac{1}{\\lambda \\hat{d}_{j k} / d_{j k}}
+\\exp(- \\vert \\log(\\hat{d}_{j k} / d_{j k}) \\vert^\\beta / \\lambda^\\beta)
+.
+```
+
+# Parameters
+* `max_edge_length`: All pairs of point in the source with a distance up to
+  `max_edge_length` are considered for regularization.
+  It therefore expresses the length scale of rigid units in the source.
+  Registration tends to work better when setting this value rather large.
+* `sensitivity`: This value is the ``\\beta`` in the regularizer explained
+  above.
+  Values between one and two are sensible.
+  The parameter deterimines how sensitive the regularizer is regarding
+  outliers of distance ratios.
+  With `sensitivity = 1`, some larger deviations of neighbor distances are
+  permitted by the regularizer, while with `sensitivity = 2`, necessary
+  deviations get more evenly distributed between the neighbor edges.
+* `rel_deviation`: In terms of the explanation above, this corresponds to
+  the average expected ``\\vert 1 - \\hat{d}_{j k} / d_{j k} \\vert``.
+  It determines the value of ``\\lambda``.
+  That is, `rel_deviation = 0.1` means "distances between neighbors will be
+  10 % larger or smaller in the registered source compared to the original".
+* `iterations`: How many iterations to perform at most, might stop earlier if
+  convergence is detected.
+  Default: `100_000`
+* `report_iteration`: Callback to run on every iteration.
+  Must accept the following keyword arguments:
+  * `iter`: Number of the current iteration.
+  * `new_source_points`: Vector of points of the current candidate for the
+    registered source.
+  * `sqsigma`: Current value of ``\\sigma^2``.
+  Default: `(; kwargs...) -> nothing`
+"""
+@kwdef struct DistancePreserving{E <: Union{Number, Nothing}, S <: Real, D <: Real, N <: Number, RI}
+    max_edge_length::E = nothing
+    sensitivity::S
+    rel_deviation::D
+    iterations::Int = 100_000
     init_noise::N = false
     report_iteration::RI = no_report
 end
 
+"""
+    nonrigid_registration(source, target, algorithm::DistancePreserving[; source_preparation])
+
+Perform non-rigid registration via [`DistancePreserving`](@ref).
+See [here](@ref nonrigid_registration(::Any, ::Any, ::Any)) for general info
+about this function.
+
+This method returns a
+[`Displacement`](@ref PointCloudRegistration.Displacement)
+that can only be applied to `source`.
+
+# Performance
+Some of the necessary computation depends only on the source and can thus be
+reused for different targets.
+To exploit this, use [`prepare_source_distancepreserving`](@ref) and provide its
+result to the `source_preparation` keyword argument.
+In this case, the `max_edge_length` parameter of [`DistancePreserving`](@ref) do
+not have to be provided (and are ignored if provided).
+
+# Example
+```julia
+nonrigid_registration(source, target, DistancePreserving(max_edge_length = 10, sensitivity = 1.3, rel_deviation = 1e-3))
+```
+"""
 function nonrigid_registration(
     source,
     target,
@@ -53,6 +160,7 @@ function nonrigid_registration(
     source_pc = PointCloud(source)
     target_pc = PointCloud(target)
     if isnothing(source_preparation)
+        @argcheck !isnothing(alg.max_edge_length) "without `source_preparation`, `max_edge_length` must be specified"
         source_preparation = prepare_source_distancepreserving(source_pc; alg.max_edge_length)
     end
     _nonrigid_distancepreserving(
