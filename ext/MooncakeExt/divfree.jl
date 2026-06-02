@@ -42,8 +42,8 @@ end
     for i in 1:N
         for j in (i + 1):N
             addition = quote
-                $(Symbol(:v, i)) += c[$k] * $(Symbol(:s, j)) 
-                $(Symbol(:v, j)) -= c[$k] * $(Symbol(:s, i)) 
+                $(Symbol(:v, i)) += c[$k] * $(Symbol(:s, j))
+                $(Symbol(:v, j)) -= c[$k] * $(Symbol(:s, i))
             end
             push!(additions, addition)
             k += 1
@@ -205,15 +205,15 @@ struct DivFreeRegistration{S, V, C, PS}
     end
 end
 
-function PointCloudRegistration.correspondences(dfr::DivFreeRegistration)
-    return dfr.correspondences
-end
+# function PointCloudRegistration.correspondences(dfr::DivFreeRegistration)
+#     return dfr.correspondences
+# end
 
-function PointCloudRegistration.displacements(dfr::DivFreeRegistration)
-    return map(dfr.source.points) do src
-        invubs(displace(ubs(src), dfr.velocity))
-    end
-end
+# function PointCloudRegistration.displacements(dfr::DivFreeRegistration)
+#     return map(dfr.source.points) do src
+#         invubs(displace(ubs(src), dfr.velocity))
+#     end
+# end
 
 function PointCloudRegistration.nonrigid_divfree(
     source,
@@ -248,7 +248,7 @@ function _nonrigid_divfree(
     for iter in 1:100
         for j in eachindex(source_box.points)
             src = source_box.points[j]
-            dsrc = displace(src, Velocity{N}(coefficients)) 
+            dsrc = displace(src, Velocity{N}(coefficients))
             src_w = source_box.weights[j]
             for i in eachindex(target_box.points)
                 trg = target_box.points[i]
