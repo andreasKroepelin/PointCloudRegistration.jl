@@ -38,7 +38,7 @@ function update_and_check!(pcc::PointsConvergenceChecker{N, T}, points::VecOfSVe
     (; bboxes, period, threshold) = pcc
     if iteration % period == 0
         movement = maximum(splat(euclidean), bboxes)
-        @info "convergence check" iteration movement threshold
+        # @info "convergence check" iteration movement threshold
         converged = movement < threshold
         lo = @SVector fill(typemax(T), N)
         hi = @SVector fill(typemin(T), N)
