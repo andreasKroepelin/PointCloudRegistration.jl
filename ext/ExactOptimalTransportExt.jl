@@ -23,8 +23,8 @@ function _nonrigid_emd(
 
     transport = emd(source_distr, target_distr, costs, optimizer)
 
-    new_source_points = map(eachcol(transport)) do tcol
-        PointCloudRegistration.wsum(target.points, tcol) / sum(tcol)
+    new_source_points = map(eachrow(transport)) do trow
+        PointCloudRegistration.wsum(target.points, trow) / sum(trow)
     end
 
     return PointCloudRegistration.Displacement(source.points, new_source_points)

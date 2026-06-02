@@ -1,6 +1,7 @@
 using Revise
 using PointCloudRegistration
-# using OptimalTransport
+# using ExactOptimalTransport
+# using Tulip
 using LinearAlgebra
 using Distances
 using GLMakie
