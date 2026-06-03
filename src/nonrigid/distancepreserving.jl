@@ -70,7 +70,7 @@ That is, for two weighted point clouds
 ``y_1, \\dots, y_J \\in \\mathbb{R}^D`` with weights ``q_1, \\dots, q_J``,
 their matching is
 ```math
-\\prod{i = 1}^I \\left( \\sum_{j = 1}^J q_j \\exp(-\\Vert x_i - y_j \\Vert^2 / 2 \\sigma^2) \\right)^{p_i}
+\\prod_{i = 1}^I \\left( \\sum_{j = 1}^J q_j \\exp(-\\Vert x_i - y_j \\Vert^2 / 2 \\sigma^2) \\right)^{p_i}
 .
 ```
 
@@ -90,7 +90,7 @@ we quantify the deviation of ``\\hat{d}_{j k}`` from ``d_{j k}`` as
 ```
 
 # Parameters
-* `max_edge_length`: All pairs of point in the source with a distance up to
+* `max_edge_length`: All pairs of points in the source with a distance up to
   `max_edge_length` are considered for regularization.
   It therefore expresses the length scale of rigid units in the source.
   Registration tends to work better when setting this value rather large.
@@ -143,8 +143,8 @@ Some of the necessary computation depends only on the source and can thus be
 reused for different targets.
 To exploit this, use [`prepare_source_distancepreserving`](@ref) and provide its
 result to the `source_preparation` keyword argument.
-In this case, the `max_edge_length` parameter of [`DistancePreserving`](@ref) do
-not have to be provided (and are ignored if provided).
+In this case, the `max_edge_length` parameter of [`DistancePreserving`](@ref)
+does not have to be provided (and is ignored if provided).
 
 # Example
 ```julia
