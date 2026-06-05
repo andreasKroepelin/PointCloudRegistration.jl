@@ -326,7 +326,7 @@ function _prepare_target_kernelcorrelation(target_original, scale, axisalign)
         axis_aligning_rotation, target = axisalign_target(target_original)
     else
         target = target_original
-        axis_aligning_rotation = one(rotation_type(target, target))
+        axis_aligning_rotation = one(orthogonal_type(target, target, NoFlip()))
     end
     sqscales = annealing_plan(target, scale)
     annealing_levels = compute_annealing_levels(target, sqscales)
@@ -458,7 +458,7 @@ julia> transformation.translation
 function rigid_registration(
     source,
     target,
-    alg::KernelCorrelationMM
+    alg::KernelCorrelationMM,
     flip::FlipMarker = NoFlip();
     target_preparation::Union{Nothing, PreparedTargetKernelCorrelation} = nothing
 )

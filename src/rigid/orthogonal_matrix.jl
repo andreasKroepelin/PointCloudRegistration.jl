@@ -1,6 +1,6 @@
 # copied and adapted from the definition of `RotMatrix` in Rotations.jl
 
-struct OrthognalMatrix{N, T, L} <: StaticMatrix{N, N, T}
+struct OrthogonalMatrix{N, T, L} <: StaticMatrix{N, N, T}
     mat::SMatrix{N, N, T, L}
     OrthogonalMatrix{N, T, L}(x::AbstractArray) where {N, T, L} = new{N, T, L}(convert(SMatrix{N, N, T, L}, x))
     # fixes #49 ambiguity introduced in StaticArrays 0.6.5
@@ -19,7 +19,12 @@ Base.one(::OM) where {OM <: OrthogonalMatrix} = one(OM)
 Base.zero(::OM) where {OM <: OrthogonalMatrix} = zero(OM)
 Base.inv(om::OrthogonalMatrix) = OrthogonalMatrix(om.mat')
 
+Base.:*(o1::OrthogonalMatrix, o2::OrthogonalMatrix) = OrthogonalMatrix(o1.mat * o2.mat)
+Base.:*(o::OrthogonalMatrix, r::RotMatrix) = OrthogonalMatrix(o.mat * r.mat)
+Base.:*(r::RotMatrix, o::OrthogonalMatrix) = OrthogonalMatrix(r.mat * o.mat)
+
 isflip(om::OrthogonalMatrix{N, T}) where {N, T} = det(om) < zero(T)
+isflip(::RotMatrix) = false
 
 function nearest_orthogonal(M::StaticMatrix{N, N}, flip::Flip) where {N, Flip <: FlipMarker}
     u, _, v = svd(M)

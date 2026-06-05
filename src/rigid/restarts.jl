@@ -23,7 +23,7 @@ struct RandomRestartIterator{
     target::PT
     random_restarts::RR
 
-    function RandomRestartsIterator{Flip}(source, target, random_restarts) where {Flip <: FlipMarker}
+    function RandomRestartIterator{Flip}(source, target, random_restarts) where {Flip <: FlipMarker}
         new{Flip, typeof(source), typeof(target), typeof(random_restarts)}(source, target, random_restarts)
     end
 end

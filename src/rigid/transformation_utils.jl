@@ -14,7 +14,7 @@ orthogonal_type(::Val{N}, ::Type{T}, ::WithFlip) where {N, T} = OrthogonalMatrix
 function flip_matrix(::Val{N}, ::Type{T}) where {N, T}
     o = @SVector ones(T, N - 1)
     negone = oftype(one(T), -1) # inspired by Base.sign
-    return Diagonal(push(d, negone))
+    return Diagonal(push(o, negone))
 end
 
 function translation_type(
@@ -72,7 +72,7 @@ function rand_transformation(
     j = rand(rng, eachindex(target.points))
     translation = target.points[j] - orthogonal * source.points[i]
 
-    AffineMap(rotation, translation)::transformation_type(source, target, flip)
+    AffineMap(orthogonal, translation)::transformation_type(source, target, flip)
 end
 
 function rand_transformation(
@@ -94,7 +94,7 @@ function simple_transformation(
     target_mean, _ = mean_cov(target)
     source_mean, _ = mean_cov(source)
     translation = target_mean - orthogonal * source_mean
-    AffineMap(rotation, translation)::transformation_type(source, target, flip)
+    AffineMap(orthogonal, translation)::transformation_type(source, target, flip)
 end
 
 function identity_transformation(::Type{<:AffineMap{R, L}}) where {R, L}
