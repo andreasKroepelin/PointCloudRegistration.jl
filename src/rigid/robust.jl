@@ -121,7 +121,7 @@ julia> transformation.translation
  1.3159778492727314e-5
 ```
 """
-function rigid_registration(source, target, alg::GemanMcClureMM)
+function rigid_registration(source, target, alg::GemanMcClureMM, flip::FlipMarker = NoFlip())
     @argcheck alg.iterations >= 1
 
     source_pc = PointCloud(source)
@@ -132,6 +132,7 @@ function rigid_registration(source, target, alg::GemanMcClureMM)
     _rigid_gmc(
         source_pc,
         target_pc,
+        flip,
         sqscales,
         alg.restarts,
         alg.iterations,
@@ -144,6 +145,7 @@ end
 function _rigid_gmc(
     source::PointCloud{N},
     target::PointCloud{N},
+    flip,
     sqscales,
     restarts,
     iterations,
@@ -156,9 +158,9 @@ function _rigid_gmc(
     TrgT = eltype(target.points)
     CostT = cost_type(gm, source, target)
     WeightT = mm_weight_type(gm, source, target)
-    best = worst(CostT, transformation_type(source, target))
+    best = worst(CostT, transformation_type(source, target, flip))
     gm_cost = zero(CostT)
-    restarts_iter = restarts_iterator(source, target, restarts)
+    restarts_iter = restarts_iterator(source, target, restarts, flip)
     source_iter = point_cloud_iterator(batching, source)
     for (restart, transformation) in enumerate(restarts_iter)
         for sqscale in sqscales
@@ -201,6 +203,7 @@ function _rigid_gmc(
                     covariance,
                     source_mean,
                     target_mean,
+                    flip,
                 )
 
                 report_iteration(;
@@ -264,25 +267,26 @@ Perform rigid registration via [`MeanAbsoluteDeviationMM`](@ref).
 See [here](@ref rigid_registration(::Any, ::Any, ::Any)) for general info about
 this function.
 """
-function rigid_registration(source, target, alg::MeanAbsoluteDeviationMM)
+function rigid_registration(source, target, alg::MeanAbsoluteDeviationMM, flip::FlipMarker = NoFlip())
     @argcheck alg.iterations >= 1
 
     pc_source = PointCloud(source)
     pc_target = PointCloud(target)
     @argcheck size(pc_source) == size(pc_target)
 
-    _rigid_mad(pc_source, pc_target, alg.iterations, alg.report_iteration)
+    _rigid_mad(pc_source, pc_target, flip, alg.iterations, alg.report_iteration)
 end
 
 function _rigid_mad(
     source::PointCloud{N},
     target::PointCloud{N},
+    flip,
     iterations,
     report_iteration,
 ) where {N}
     SrcT = eltype(source.points)
     TrgT = eltype(target.points)
-    transformation = simple_transformation(source, target)
+    transformation = simple_transformation(source, target, flip)
     prev_transformation = identity_transformation(transformation)
     for iter in 1:iterations
         sum_w = float(zero(eltype(source.weights)) * zero(eltype(target.weights)))
@@ -313,6 +317,7 @@ function _rigid_mad(
             covariance,
             source_mean,
             target_mean,
+            flip,
         )
 
         report_iteration(; iter, transformation)

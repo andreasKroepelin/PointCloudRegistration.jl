@@ -59,7 +59,7 @@ Perform rigid registration via [`IterativeClosestPoint`](@ref).
 See [here](@ref rigid_registration(::Any, ::Any, ::Any)) for general info about
 this function.
 """
-function rigid_registration(source, target, alg::IterativeClosestPoint)
+function rigid_registration(source, target, alg::IterativeClosestPoint, flip::FlipMarker = NoFlip())
     @argcheck alg.iterations >= 1
 
     pc_source = PointCloud(source)
@@ -68,6 +68,7 @@ function rigid_registration(source, target, alg::IterativeClosestPoint)
     _rigid_icp(
         pc_source,
         pc_target,
+        flip,
         alg.distance_cutoff,
         alg.restarts,
         alg.iterations,
@@ -80,6 +81,7 @@ end
 function _rigid_icp(
     source::PointCloud{N, TS},
     target::PointCloud{N, TT},
+    flip,
     dist_cutoff,
     restarts,
     iterations,
@@ -90,8 +92,8 @@ function _rigid_icp(
     T = promote_type(TS, TT)
 
     target_tree = KDTree(target.points)
-    best = worst(T, transformation_type(Val(N), T))
-    restarts_iter = restarts_iterator(source, target, restarts)
+    best = worst(T, transformation_type(Val(N), T, flip))
+    restarts_iter = restarts_iterator(source, target, restarts, flip)
     for (restart, transformation) in enumerate(restarts_iter)
         prev_transformation = identity_transformation(transformation)
         cost = zero(T)
@@ -129,6 +131,7 @@ function _rigid_icp(
                 covariance,
                 source_mean,
                 target_mean,
+                flip,
             )
 
             report_iteration(; iter, cost, transformation)

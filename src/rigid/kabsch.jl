@@ -1,20 +1,3 @@
-# vendored from Rotations.jl since the upstream version currently has issues
-# with the return type
-function nearest_rotation(M::StaticMatrix{N,N}) where N
-    u, _, v = svd(M)
-    s = sign(det(u * v'))
-    d = @SVector ones(eltype(M), N-1)
-    R = u * Diagonal(push(d,s)) * v'
-    return RotMatrix{N}(R)
-end
-
-function transformation_from_moments(covariance, source_mean, target_mean)
-    unit_free_covariance = covariance ./ oneunit(eltype(covariance))
-    rotation = nearest_rotation(unit_free_covariance)
-    translation = target_mean - rotation * source_mean
-    AffineMap(rotation, translation)
-end
-
 """
     Kabsch()
 
@@ -85,17 +68,18 @@ julia> transformation.translation
  0.20799830682893525
 ```
 """
-function rigid_registration(source, target, ::Kabsch)
+function rigid_registration(source, target, ::Kabsch, flip::FlipMarker = NoFlip())
     pc_source = PointCloud(source)
     pc_target = PointCloud(target)
     @argcheck size(pc_source) == size(pc_target)
 
-    _rigid_kabsch(pc_source, pc_target)
+    _rigid_kabsch(pc_source, pc_target, flip)
 end
 
 function _rigid_kabsch(
     source::PointCloud{N, TS},
     target::PointCloud{N, TT},
+    flip::FlipMarker,
 ) where {N, TS, TT}
     @argcheck length(source.points) == length(target.points)
     SrcT = eltype(source.points)
@@ -120,7 +104,7 @@ function _rigid_kabsch(
     target_mean /= sum_w
     covariance /= sum_w
     covariance -= target_mean * source_mean'
-    transformation_from_moments(covariance, source_mean, target_mean)
+    transformation_from_moments(covariance, source_mean, target_mean, flip)
 end
 
 function evaluate_rmsd(source::PointCloud{N}, target::PointCloud{N}, transformation = identity_transformation(source, target)) where {N}

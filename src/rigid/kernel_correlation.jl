@@ -458,7 +458,8 @@ julia> transformation.translation
 function rigid_registration(
     source,
     target,
-    alg::KernelCorrelationMM;
+    alg::KernelCorrelationMM
+    flip::FlipMarker = NoFlip();
     target_preparation::Union{Nothing, PreparedTargetKernelCorrelation} = nothing
 )
     @argcheck alg.iterations >= 1
@@ -475,6 +476,7 @@ function rigid_registration(
         pc_source,
         pc_target,
         target_preparation,
+        flip,
         alg.restarts,
         alg.iterations,
         alg.batching,
@@ -487,6 +489,7 @@ function _rigid_kc(
     source::PointCloud{N},
     target::PointCloud{N},
     prepared_target::PreparedTargetKernelCorrelation{N},
+    flip,
     restarts,
     iterations,
     batching,
@@ -503,9 +506,9 @@ function _rigid_kc(
         zero(SrcWT) *
         zero(eltype(first(annealing_levels).convd_weights_target)),
     )
-    best = worst(CostT, transformation_type(source, target))
+    best = worst(CostT, transformation_type(source, target, flip))
     kc = zero(CostT)
-    restarts_iter = restarts_iterator(source, target, restarts)
+    restarts_iter = restarts_iterator(source, target, restarts, flip)
     source_iter = point_cloud_iterator(batching, source)
     for (restart, transformation) in enumerate(restarts_iter)
         for annealing_level in annealing_levels
@@ -553,6 +556,7 @@ function _rigid_kc(
                     covariance,
                     source_mean,
                     target_mean,
+                    flip,
                 )
 
                 report_iteration(;

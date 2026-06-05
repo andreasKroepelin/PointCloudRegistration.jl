@@ -17,6 +17,8 @@ using PrecompileTools: @compile_workload
 using ArgCheck
 
 export PointCloud,
+    WithFlip,
+    NoFlip,
     rigid_registration,
     GemanMcClureMM,
     KernelCorrelationMM,
@@ -55,6 +57,7 @@ include("pointcloud.jl")
 include("common.jl")
 include("rigid/annealing.jl")
 include("rigid/stochastic_majorization_minimization.jl")
+include("rigid/orthogonal_matrix.jl")
 include("rigid/transformation_utils.jl")
 include("rigid/restarts.jl")
 include("rigid/accumulation.jl")

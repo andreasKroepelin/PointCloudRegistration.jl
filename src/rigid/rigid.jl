@@ -1,3 +1,14 @@
+struct WithFlip end
+struct NoFlip end
+const FlipMarker = Union{WithFlip, NoFlip}
+
+function transformation_from_moments(covariance, source_mean, target_mean, flip::Flip) where {Flip <: FlipMarker}
+    unit_free_covariance = covariance ./ oneunit(eltype(covariance))
+    rotation = nearest_orthogonal(unit_free_covariance, flip)
+    translation = target_mean - rotation * source_mean
+    AffineMap(rotation, translation)
+end
+
 """
     rigid_registration(source, target; ordered::Bool = false)
 
@@ -26,16 +37,14 @@ This makes the registration faster and more precise.
       ([`GemanMcClureMM`](@ref)), brings corresponding points close together but
       is robust against outliers.
 """
-function rigid_registration(source, target; ordered = false)
+function rigid_registration(source, target, flip::Flip = NoFlip(); ordered = false) where Flip <: FlipMarker
     source_pc = PointCloud(source)
     target_pc = PointCloud(target)
     @argcheck dimension(source_pc) == dimension(target_pc)
 
-    if ordered
-        rigid_registration(source_pc, target_pc, GemanMcClureMM())
-    else
-        rigid_registration(source_pc, target_pc, KernelCorrelationMM())
-    end
+    algorithm = ordered ? GemanMcClureMM() : KernelCorrelationMM()
+
+    return rigid_registration(source_pc, target_pc, algorithm, flip)
 end
 
 """
@@ -54,6 +63,6 @@ Both `source` and `target` can be given in a form described in Section
 [Representing point clouds](@ref).
 They must have matching dimensions (both 2D or both 3D and so forth).
 """
-function rigid_registration(source, target, alg)
+function rigid_registration(source, target, alg, flip)
     error("Unsopported algorithm of type ", typeof(alg))
 end
