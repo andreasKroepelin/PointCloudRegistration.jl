@@ -43,13 +43,8 @@ end
 rand_orthogonal(rng, R::Type{<: RotMatrix}) = rand(rng, R)
 
 function rand_orthogonal(rng, O::Type{<: OrthogonalMatrix{N, T}}) where {N, T}
-    R = rand(rng, RotMatrix{N, T})
-    maybe_flip = if rand(Bool)
-        flip_matrix(Val(N), T)
-    else
-        Diagonal(ones(SVector{N, T}))
-    end
-    return OrthogonalMatrix(R * maybe_flip)
+    m = rand(rng, SMatrix{N, N, T})
+    return nearest_orthogonal(m, WithFlip())
 end
 
 function rand_rotation(rng, SM::Type{<: SMatrix{N, N, T}}) where {N, T}

@@ -26,7 +26,7 @@ Base.:*(r::RotMatrix, o::OrthogonalMatrix) = OrthogonalMatrix(r.mat * o.mat)
 isflip(om::OrthogonalMatrix{N, T}) where {N, T} = det(om) < zero(T)
 isflip(::RotMatrix) = false
 
-function nearest_orthogonal(M::StaticMatrix{N, N}, flip::Flip) where {N, Flip <: FlipMarker}
+function nearest_orthogonal(M::StaticMatrix{N, N}, flip::FlipMarker) where {N}
     u, _, v = svd(M)
     if flip isa NoFlip
         s = det(u * v')
