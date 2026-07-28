@@ -1,36 +1,16 @@
 using Documenter
 
-pseudo_remote = abspath(".pseudo_remote")
-if !isdir(pseudo_remote)
-    mkdir(pseudo_remote)
-    cd(pseudo_remote) do
-        run(`$(Documenter.git()) init --bare`)
-    end
+struct CodebergDeploy <: Documenter.DeployConfig
+    https_url
 end
-
-struct LocalDeploy <: Documenter.DeployConfig end
-Documenter.deploy_folder(::LocalDeploy; repo, branch, kwargs...) =
-    Documenter.DeployDecision(; all_ok = true, branch, repo, subfolder = "main")
-Documenter.authentication_method(::LocalDeploy) = Documenter.HTTPS
-Documenter.authenticated_repo_url(::LocalDeploy) = pseudo_remote
+Documenter.deploy_folder(::CodebergDeploy; repo, branch, tag_prefix, kwargs...) =
+    Documenter.DeployDecision(; all_ok = true, branch, repo, subfolder = tag_prefix)
+Documenter.authentication_method(::CodebergDeploy) = Documenter.HTTPS
+Documenter.authenticated_repo_url(cd::CodebergDeploy) = cd.https_url
 
 deploydocs(;
-    repo = pseudo_remote,
-    branch = "main",
-    deploy_config = LocalDeploy(),
-    devurl = "main",
-)
-
-deploy_dir = "public"
-if isdir(deploy_dir)
-    cd(deploy_dir) do
-        run(`$(Documenter.git()) pull`)
-    end
-else
-    run(`$(Documenter.git()) clone $pseudo_remote $deploy_dir`)
-end
-
-items = filter(!endswith(".git"), readdir("public/"; join = true))
-run(
-    `scp -r $items andreask@perseus.uberspace.de:html/PointCloudRegistration.jl`,
+    repo = "codeberg.org/a5s/PointCloudRegistration.jl.git",
+    branch = "pages",
+    deploy_config = CodebergDeploy("https://codeberg.org/a5s/PointCloudRegistration.jl.git"),
+    # devurl = "main",
 )
