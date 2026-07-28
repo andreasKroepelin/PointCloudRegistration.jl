@@ -6,7 +6,7 @@ cloud, the _source_, to optimally match the other point cloud, the _target_.
 
 ```@docs
 rigid_registration(source, target; ordered)
-rigid_registration(source, target, algorithm)
+rigid_registration(source, target, algorithm, flip)
 ```
 
 ## Rigid registration algorithms
