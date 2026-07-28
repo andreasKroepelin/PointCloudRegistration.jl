@@ -3,7 +3,7 @@
 **This package is work in progress and not published to the General Registry
 of Julia packages yet.**
 
-[![docs badge](https://img.shields.io/badge/docs-main-4063d8)](http://a5s.eu/PointCloudRegistration.jl/main)
+[![docs badge](https://img.shields.io/badge/docs-main-4063d8)](https://a5s.codeberg.page/PointCloudRegistration.jl/)
 
 <video src="PointCloudRegistration/raw/branch/main/examples/animations/register-julia-logo.mp4" type="video/mp4" width="600" height="400" controls>
 </video>
