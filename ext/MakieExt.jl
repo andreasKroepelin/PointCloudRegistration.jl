@@ -75,4 +75,21 @@ Makie.convert_arguments(
     displacement.result .- displacement.origin
 )
 
+@recipe PointCloudPlotScaffold (prep::PointCloudRegistration.PreparedSourceDistPres, pointcloud::PointCloud2Or3) begin
+    Makie.documented_attributes(LineSegments)...
+end
+
+function Makie.plot!(plot::PointCloudPlotScaffold)
+    map!(plot.attributes, [:prep, :pointcloud], :segments) do prep, pc
+        [(pc.points[i], pc.points[j]) for (i, j) in prep.neighbor_graph.edges]
+    end
+    linesegments!(
+        plot,
+        plot.attributes,
+        plot.segments;
+    )
+end
+
+Makie.plottype(::PointCloudRegistration.PreparedSourceDistPres, :: PointCloud2Or3) = PointCloudPlotScaffold
+
 end
