@@ -66,9 +66,10 @@ function annealing_plan(target, ann::TargetScales)
 end
 
 function annealing_plan(target::PointCloud{N, T}, ann::DownTo) where {N, T}
-    hi = maxcoveigval(target)
+    # hi = maxcoveigval(target)
     lo = T(ann.scale) ^ 2
-    _logrange(hi, lo; length = ann.steps)
+    (4 * lo, lo)
+    # _logrange(hi, lo; length = ann.steps)
 end
 
 _logrange(start::Real, stop::Real; length) = logrange(start, stop; length)
