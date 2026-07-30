@@ -161,7 +161,7 @@ end
 function run!(vo::VelocityOptimizer, coefficients; iterations = 100)
     Adam.reset!(vo.adam)
     for iter in 1:iterations
-        val, grad = value_and_gradient!!(vo.energy, vo.cache, coefficients)
+        val, (_, grad) = value_and_gradient!!(vo.cache, vo.energy, coefficients)
         # norm(vo.grad) / length(vo.grad) < 1e-3 && break
         Adam.step!(vo.adam, grad, coefficients, iter)
     end
@@ -182,51 +182,23 @@ function unit_box_squisher(pointclouds::PointCloud{N, T}...) where {N, T}
     return center_to_half ∘ scaling ∘ center_to_zero
 end
 
-struct DivFreeRegistration{S, V, C, PS}
-    ubs::S
-    invubs::S
-    velocity::V
-    correspondences::C
-    source::PS
-
-    function DivFreeRegistration(ubs, velocity, correspondences, source)
-    new{
-        typeof(ubs),
-        typeof(velocity),
-        typeof(correspondences),
-        typeof(source),
-    }(
-        ubs,
-        inv(ubs),
-        velocity,
-        correspondences,
-        source,
-    )
+function (dfd::PointCloudRegistration.DivFreeDisplacement)(pc::PointCloud)
+    return map(pc.points) do src
+        dfd.invubs(displace(dfd.ubs(src), dfd.velocity))
     end
 end
 
-# function PointCloudRegistration.correspondences(dfr::DivFreeRegistration)
-#     return dfr.correspondences
-# end
-
-# function PointCloudRegistration.displacements(dfr::DivFreeRegistration)
-#     return map(dfr.source.points) do src
-#         invubs(displace(ubs(src), dfr.velocity))
-#     end
-# end
-
-function PointCloudRegistration.nonrigid_divfree(
-    source,
-    target;
-    scale = nothing,
-    degree::Int = 3,
+function PointCloudRegistration.nonrigid_registration(
+    source, target, algorithm::DivergenceFree,
 )
     source_pc = PointCloud(source)
     target_pc = PointCloud(target)
-    if isnothing(scale)
+    if isnothing(algorithm.scale)
         scale = PointCloudRegistration.avg_nn_dist(target_pc)
+    else
+        scale = algorithm.scale
     end
-    _nonrigid_divfree(source_pc, target_pc, scale, degree)
+    _nonrigid_divfree(source_pc, target_pc, scale, algorithm.degree, algorithm.iterations)
 end
 
 function _nonrigid_divfree(
@@ -234,6 +206,7 @@ function _nonrigid_divfree(
     target::PointCloud{N},
     scale,
     degree,
+    iterations,
 ) where {N}
     ubs = unit_box_squisher(source, target)
     source_box = ubs(source)
@@ -245,7 +218,7 @@ function _nonrigid_divfree(
     coefficients = zeros(eltype(source_box), N * degree^N)
     velocity_optimizer = VelocityOptimizer(energy, coefficients)
 
-    for iter in 1:100
+    for iteration in 1:iterations
         for j in eachindex(source_box.points)
             src = source_box.points[j]
             dsrc = displace(src, Velocity{N}(coefficients))
@@ -263,11 +236,9 @@ function _nonrigid_divfree(
         run!(velocity_optimizer, coefficients)
     end
 
-    return DivFreeRegistration(
+    return PointCloudRegistration.DivFreeDisplacement(
         ubs,
         Velocity{N}(coefficients),
-        energy.correspondences,
-        source,
     )
 end
 

@@ -32,14 +32,14 @@ export PointCloud,
     DistancePreserving,
     prepare_source_distancepreserving,
     EarthMover,
-    nonrigid_divfree,
+    DivergenceFree,
     guess_correspondences,
     DownTo,
     TargetScales,
     RandomRestarts,
     FixedRestarts,
-    NoSmm,
-    Smm,
+    FullBatch,
+    StochasticBatch,
     thin_to_distance,
     thin_to_number,
     thin_to_grid,
@@ -51,7 +51,8 @@ export PointCloud,
 
 public VecOfSVec,
     Displacement,
-    CpdDisplacement
+    CpdDisplacement,
+    DivFreeDisplacement
 
 include("pointcloud.jl")
 include("common.jl")

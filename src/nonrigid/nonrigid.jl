@@ -93,4 +93,18 @@ and then computes the registered source points as
     optimizer::O
 end
 
-function nonrigid_divfree end
+@kwdef struct DivergenceFree{S}
+    scale::S = nothing
+    degree::Int = 3
+    iterations::Int = 100
+end
+
+struct DivFreeDisplacement{S, V}
+    ubs::S
+    invubs::S
+    velocity::V
+
+    function DivFreeDisplacement(ubs, velocity)
+        new{typeof(ubs), typeof(velocity)}(ubs, inv(ubs), velocity)
+    end
+end

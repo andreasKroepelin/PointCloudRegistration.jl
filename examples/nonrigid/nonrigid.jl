@@ -2,6 +2,7 @@ using Revise
 using PointCloudRegistration
 # using ExactOptimalTransport
 # using Tulip
+using Mooncake
 using LinearAlgebra
 using Distances
 using GLMakie
