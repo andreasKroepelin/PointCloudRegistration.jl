@@ -6,6 +6,7 @@ using Literate
 using PointCloudRegistration
 using CoordinateTransformations
 using OptimalTransport
+using Mooncake
 
 Revise.revise()
 

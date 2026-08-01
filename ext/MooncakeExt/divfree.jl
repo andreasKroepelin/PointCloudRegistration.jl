@@ -188,6 +188,18 @@ function (dfd::PointCloudRegistration.DivFreeDisplacement)(pc::PointCloud)
     end
 end
 
+"""
+    nonrigid_registration(source, target, algorithm::DivergenceFree)
+
+Perform non-rigid registration via [`DivergenceFree`](@ref).
+See [here](@ref nonrigid_registration(::Any, ::Any, ::Any)) for general info
+about this function.
+
+This method returns an object of type `DivFreeDisplacement` (public but not
+exported).
+It can be applied to arbitrary point clouds (of the same dimension as source and
+target).
+"""
 function PointCloudRegistration.nonrigid_registration(
     source, target, algorithm::DivergenceFree,
 )

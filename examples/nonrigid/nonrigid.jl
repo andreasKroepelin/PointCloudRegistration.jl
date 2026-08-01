@@ -9,8 +9,8 @@ using GLMakie
 
 # X, Y = PointCloudRegistration.Assets.load_1ake_A_4ake_A()
 # X, Y = PointCloudRegistration.Assets.load_1su4_A_1iwo_A()
-# Y, X = PointCloudRegistration.Assets.load_cats()
-Y, X = PointCloudRegistration.Assets.load_1ih7_A_1ig9_A()
+Y, X = PointCloudRegistration.Assets.load_cats()
+# Y, X = PointCloudRegistration.Assets.load_1ih7_A_1ig9_A()
 # Y, X = PointCloudRegistration.Assets.load_1q9x_B_1q9y_A()
 # X = PointCloud(collect(map(x -> Float64.(x), X.points)))
 # Y = PointCloud(collect(map(x -> Float64.(x), Y.points)))

@@ -93,6 +93,31 @@ and then computes the registered source points as
     optimizer::O
 end
 
+"""
+    DivergenceFree(; [scale, degree, iterations])
+
+Non-rigid registration of point clouds that ensures that the displacement field
+is divergence free.
+The method is presented in _"Divergence-Free Shape Correspondence by
+Deformation"_ by Eisenberger, Lähner, and Cremers
+(<https://doi.org/10.1111/cgf.13785>).
+
+Using this algorithm requires the `Mooncake.jl` package to be loaded.
+
+The algorithm first shifts and scales the point clouds such that they are
+contained in the unit (hyper-) cube.
+Then, it estimates a displacement field as a linear combination of increasingly
+finegrained "swirls" that each have zero divergence across this unit cube.
+This is done using gradient descent (ADAM).
+
+# Parameters
+- `scale`: The residual standard deviation for the matching score.
+  Default: average nearest neighbor distance of target.
+- `degree`: The maximum number of "swirls" per direction.
+  Default: `3`.
+- `iterations`: How many optimizing iterations to perform.
+  Default: `100`.
+"""
 @kwdef struct DivergenceFree{S}
     scale::S = nothing
     degree::Int = 3

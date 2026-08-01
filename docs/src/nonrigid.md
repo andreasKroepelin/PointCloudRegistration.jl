@@ -21,7 +21,7 @@ PointCloudRegistration.Displacement
 
 * [Coherent Point Drift](@ref)
 * [Distance Preserving](@ref)
-* Divergence Free
+* [Divergence Free](@ref)
 * [Optimal Transport](@ref)
 
 ### Coherent Point Drift
@@ -36,6 +36,12 @@ prepare_source_coherentpointdrift
 DistancePreserving
 nonrigid_registration(source, target, ::DistancePreserving)
 prepare_source_distancepreserving
+```
+
+### Divergence Free
+```@docs
+DivergenceFree
+nonrigid_registration(source, target, ::DivergenceFree)
 ```
 
 ### Optimal Transport
