@@ -61,20 +61,12 @@ annealing_plan(::PointCloud{N, T}, scales::AbstractVector) where {N, T} =
     T.(scales) .^ 2
 
 function annealing_plan(target, ann::TargetScales)
-    lo = avg_nn_dist(target) ^ 2
-    (4 * lo, lo)
+    scale = avg_nn_dist(target)
+    return annealing_plan(target, DownTo(scale, ann.steps))
 end
 
 function annealing_plan(target::PointCloud{N, T}, ann::DownTo) where {N, T}
     # hi = maxcoveigval(target)
-    lo = T(ann.scale) ^ 2
-    (4 * lo, lo)
-    # _logrange(hi, lo; length = ann.steps)
-end
-
-_logrange(start::Real, stop::Real; length) = logrange(start, stop; length)
-# Fallback for types not covered by stdlib logrange
-function _logrange(start::Number, stop::Number; length)
-    factor = (stop / start)^inv(length - 1)
-    start .* factor .^ (0:(length - 1))
+    lo = T(ann.scale)^2
+    return [2^i * lo for i in ann.steps:-1:1]
 end
