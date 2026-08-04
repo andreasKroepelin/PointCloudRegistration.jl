@@ -100,18 +100,20 @@ end
 
 numclusters(dp::DpMeansState) = length(dp.centers)
 
+"""
+    thin_to_distance(pointcloud, distance)
+
+Represents the shape of `pointcloud` by a new point cloud where nearest
+neighbors have a distance of `distance`.
+"""
 function thin_to_distance(
     pc::PointCloud{N},
-    cutoffdist;
+    distance;
     iterations = 100,
     convergence = 1e-2,
     report_iteration::RI = no_report,
 ) where {N, RI}
     state = DpMeansState(pc)
-
-    # gridinit!(state, pc, sqrt(N) * cutoffdist)
-    # recenter!(state, pc)
-    # remove_empty!(state; relabel = true)
 
     for iteration in 1:iterations
         change = 0.0
@@ -123,7 +125,7 @@ function thin_to_distance(
             point = pc.points[i]
             j, dist = closest_cluster(state, point)
 
-            if dist <= cutoffdist
+            if dist <= distance
                 setlabel!(state, i, j) && (change += w)
             else
                 newcluster!(state, i, point)
@@ -148,6 +150,12 @@ function thin_to_distance(
     PointCloud(state.centers, state.weightsums)
 end
 
+"""
+    thin_to_number(pointcloud, number)
+
+Represents the shape of `pointcloud` by a new point cloud with exactly
+`number` points.
+"""
 function thin_to_number(
     pc::PointCloud,
     numclusters;
@@ -201,6 +209,12 @@ function thin_to_number(
     PointCloud(centers, weightsums)
 end
 
+"""
+    thin_to_grid(pointcloud, gridsize)
+
+Places a grid with side length `gridsize` per cell over `pointcloud` and finds
+the centroid of each grid cell.
+"""
 function thin_to_grid(pc::PointCloud, gridsize)
     lo, hi = bbox(pc)
     grid = Grid(lo, hi, gridsize)
@@ -221,16 +235,34 @@ function thin_to_grid(pc::PointCloud, gridsize)
     return PointCloud(points, weights)
 end
 
+"""
+    drop_threshold(pointcloud, threshold)
+
+Returns a new point cloud with only the points that have a weight of at least
+`threshold`.
+"""
 function drop_threshold(pc::PointCloud, threshold::Number)
     pc[pc.weights .>= threshold]
 end
 
+"""
+    drop_proportion(pointcloud, proportion)
+
+Returns a new point cloud with only the points that have a weight of at least
+`proportion` times the maximum weight in `pointcloud`.
+"""
 function drop_proportion(pc::PointCloud, proportion::Number)
     @argcheck zero(proportion) <= proportion <= oneunit(proportion)
     threshold = proportion * maximum(pc.weights)
     drop_threshold(pc, threshold)
 end
 
+"""
+    drop_quantile(pointcloud, quantile)
+
+Returns a new point cloud with only the points that have a weight of at least
+the `quantile`-quantile of weights in `pointcloud`.
+"""
 function drop_quantile(pc::PointCloud, q::Number)
     @argcheck zero(q) <= q <= oneunit(q)
     threshold = quantile(pc.weights, q)
