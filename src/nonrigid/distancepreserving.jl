@@ -220,7 +220,6 @@ function _nonrigid_distancepreserving(
     sqsigma = init_sqsigma
     state[1] = log(sqsigma)
 
-    @info "before loop"
     for iter in 1:iterations
         sqsigma = exp(state[1])
 
