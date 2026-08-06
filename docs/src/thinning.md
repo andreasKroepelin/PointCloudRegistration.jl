@@ -20,6 +20,8 @@ thin_to_grid
 thin_to_number
 ```
 
+## Creating subsets of point clouds
+
 Additionally, one may want to _drop_ points in a point cloud that have a low
 weight.
 For this, there are the function [`drop_threshold`](@ref),
