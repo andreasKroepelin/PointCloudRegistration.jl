@@ -82,11 +82,11 @@ equal index are supposed to correspond to each other.
 end
 
 """
-    rigid_registration(source, target, algorithm::GemanMcClureMM)
+    rigid_registration(source, target, algorithm::GemanMcClureMM, [flip = NoFlip()])
 
 Perform rigid registration via [`GemanMcClureMM`](@ref).
-See [here](@ref rigid_registration(::Any, ::Any, ::Any)) for general info about
-this function.
+See [here](@ref rigid_registration(::Any, ::Any, ::Any, ::Any)) for general info
+about this function.
 
 # Example
 This demonstrates the robustness against outliers of the Geman-McClure cost by
@@ -261,11 +261,11 @@ no restarts or annealing.
 end
 
 """
-    rigid_registration(source, target, algorithm::MeanAbsoluteDeviationMM)
+    rigid_registration(source, target, algorithm::MeanAbsoluteDeviationMM, [flip = NoFlip()])
 
 Perform rigid registration via [`MeanAbsoluteDeviationMM`](@ref).
-See [here](@ref rigid_registration(::Any, ::Any, ::Any)) for general info about
-this function.
+See [here](@ref rigid_registration(::Any, ::Any, ::Any, ::Any)) for general info
+about this function.
 """
 function rigid_registration(source, target, alg::MeanAbsoluteDeviationMM, flip::FlipMarker = NoFlip())
     @argcheck alg.iterations >= 1

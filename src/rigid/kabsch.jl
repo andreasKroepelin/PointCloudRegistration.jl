@@ -27,11 +27,11 @@ over `Kabsch` for rigid registration with known correspondences.**
 struct Kabsch end
 
 """
-    rigid_registration(source, target, algorithm::Kabsch)
+    rigid_registration(source, target, algorithm::Kabsch, [flip = NoFlip()])
 
 Perform rigid registration via [`Kabsch`](@ref).
-See [here](@ref rigid_registration(::Any, ::Any, ::Any)) for general info about
-this function.
+See [here](@ref rigid_registration(::Any, ::Any, ::Any, ::Any)) for general info
+about this function.
 
 # Example
 We create a similar situation to the example

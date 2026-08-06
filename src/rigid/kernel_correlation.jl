@@ -403,11 +403,11 @@ in the kernel densities.
 end
 
 """
-    rigid_registration(source, target, algorithm::KernelCorrelationMM[; target_preparation])
+    rigid_registration(source, target, algorithm::KernelCorrelationMM, [flip = NoFlip()]; [target_preparation])
 
 Perform rigid registration via [`KernelCorrelationMM`](@ref).
-See [here](@ref rigid_registration(::Any, ::Any, ::Any)) for general info about
-this function.
+See [here](@ref rigid_registration(::Any, ::Any, ::Any, ::Any)) for general info
+about this function.
 
 # Performance
 The runtime depends only linearly on the size of `source` and `target`, even

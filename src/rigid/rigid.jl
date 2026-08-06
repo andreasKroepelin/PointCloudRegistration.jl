@@ -25,7 +25,7 @@ function transformation_from_moments(covariance, source_mean, target_mean, flip:
 end
 
 """
-    rigid_registration(source, target, [flip::FlipMarker = NoFlip()]; ordered::Bool = false)
+    rigid_registration(source, target, [flip = NoFlip()]; ordered::Bool = false)
 
 Find a [`CoordinateTransformations.AffineMap`](@extref) that rotates and
 translates (and possibly reflects if `flip isa WithFlip`) the point cloud

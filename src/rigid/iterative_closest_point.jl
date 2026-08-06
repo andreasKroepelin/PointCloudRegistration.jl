@@ -53,11 +53,11 @@ then minimizes the RMSD (see [`Kabsch`](@ref)).
 end
 
 """
-    rigid_registration(source, target, algorithm::IterativeClosestPoint)
+    rigid_registration(source, target, algorithm::IterativeClosestPoint, [flip = NoFlip()])
 
 Perform rigid registration via [`IterativeClosestPoint`](@ref).
-See [here](@ref rigid_registration(::Any, ::Any, ::Any)) for general info about
-this function.
+See [here](@ref rigid_registration(::Any, ::Any, ::Any, ::Any)) for general info
+about this function.
 """
 function rigid_registration(source, target, alg::IterativeClosestPoint, flip::FlipMarker = NoFlip())
     @argcheck alg.iterations >= 1
