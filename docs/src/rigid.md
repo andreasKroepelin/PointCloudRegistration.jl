@@ -132,5 +132,3 @@ WithFlip
 NoFlip
 PointCloudRegistration.OrthogonalMatrix
 ```
-
-## Performance Tips
