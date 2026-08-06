@@ -155,7 +155,7 @@ function PointCloud(points::VecOfSVec, weights::AbstractVector)
     else
         last(weights_cumsum)
     end
-    @argcheck sum_of_weights > 0 "weights cannot all be zero"
+    sum_of_weights > 0 || @warn "weights cannot all be zero" sum_of_weights
     PointCloud(
         points,
         weights,
