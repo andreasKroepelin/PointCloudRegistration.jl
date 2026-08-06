@@ -30,3 +30,10 @@ drop_threshold
 drop_proportion
 drop_quantile
 ```
+
+You can also create a subset of a point cloud completely at your own control
+using `Base.getindex`
+
+```@docs
+Base.getindex(::PointCloud, ::AbstractVector{<:Integer})
+```

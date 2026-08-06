@@ -204,6 +204,40 @@ Base.size(pc::PointCloud{N}) where {N} = (N, length(pc.points))
 StaticArrays.Size(pc::PointCloud{N}) where {N} = Size(N, StaticArrays.Dynamic())
 Base.@propagate_inbounds Base.getindex(pc::PointCloud, i, j) =
     getindex(getindex(pc.points, j), i)
+
+"""
+    getindex(pointcloud, idcs::AbstractVector{<:Integer})
+
+Returns a new point cloud with points and weights chosen from `pointcloud`
+according to `idcs`.
+
+# Example
+```julia
+julia> pointcloud = PointCloud([1.0 2.0 3.0; 4.0 5.0 6.0], [7.0, 8.0, 9.0])
+2-dimensional point cloud with 3 points of eltype Float64
+ 1.0  2.0  3.0
+ 4.0  5.0  6.0
+and weights
+ 3-element Vector{Float64}
+ 7.0  8.0  9.0
+
+julia> pointcloud[[1, 3]] # select indices
+2-dimensional point cloud with 2 points of eltype Float64
+ 1.0  3.0
+ 4.0  6.0
+and weights
+ 2-element Vector{Float64}
+ 7.0  9.0
+
+julia> pointcloud[[false, true, true]] # boolean mask
+2-dimensional point cloud with 2 points of eltype Float64
+ 2.0  3.0
+ 5.0  6.0
+and weights
+ 2-element Vector{Float64}
+ 8.0  9.0
+```
+"""
 Base.@propagate_inbounds function Base.getindex(
     pc::PointCloud,
     idcs::AbstractVector{<: Integer},

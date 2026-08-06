@@ -105,6 +105,25 @@ numclusters(dp::DpMeansState) = length(dp.centers)
 
 Represents the shape of `pointcloud` by a new point cloud where nearest
 neighbors have a distance of `distance`.
+
+# Example
+```julia
+julia> pointcloud = PointCloud(randn(3, 1000))
+3-dimensional point cloud with 1000 points of eltype Float64
+  0.408793    0.627892  …  -1.01152   0.119291
+ -0.0527832  -1.15918      -1.15897  -0.37836
+ -2.94632     0.129725      1.69753  -0.439848
+and unit weights
+
+julia> thinned = thin_to_distance(pointcloud, 1.0)
+3-dimensional point cloud with 78 points of eltype Float64
+ -0.00862524   0.590869  …  -1.04324    1.0296
+ -0.341446    -0.306642     -0.860819  -2.36446
+ -0.234004    -2.19875       1.73244    1.442
+and weights
+ 78-element Vector{Int64}
+ 40  9  33  22  2  20  …  2  1  17  1  16  5  1
+```
 """
 function thin_to_distance(
     pc::PointCloud{N},
@@ -155,6 +174,25 @@ end
 
 Represents the shape of `pointcloud` by a new point cloud with exactly
 `number` points.
+
+# Example
+```julia
+julia> pointcloud = PointCloud(randn(3, 1000))
+3-dimensional point cloud with 1000 points of eltype Float64
+  0.408793    0.627892  …  -1.01152   0.119291
+ -0.0527832  -1.15918      -1.15897  -0.37836
+ -2.94632     0.129725      1.69753  -0.439848
+and unit weights
+
+julia> thinned = thin_to_number(pointcloud, 100)
+3-dimensional point cloud with 100 points of eltype Float64
+ -0.00643297  -1.89047   …  -0.18303    0.0797447
+ -1.03833      0.51101       2.09415   -1.64585
+ -0.30948     -0.157822      0.986703  -0.573778
+and weights
+ 100-element Vector{Int64}
+ 12  10  14  13  14  11  …  10  12  10  5  10  8
+```
 """
 function thin_to_number(
     pc::PointCloud,
@@ -214,6 +252,25 @@ end
 
 Places a grid with side length `gridsize` per cell over `pointcloud` and finds
 the centroid of each grid cell.
+
+# Example
+```julia
+julia> pointcloud = PointCloud(randn(3, 1000))
+3-dimensional point cloud with 1000 points of eltype Float64
+  0.408793    0.627892  …  -1.01152   0.119291
+ -0.0527832  -1.15918      -1.15897  -0.37836
+ -2.94632     0.129725      1.69753  -0.439848
+and unit weights
+
+julia> thinned = thin_to_grid(pointcloud, 1.0)
+3-dimensional point cloud with 132 points of eltype Float64
+ -0.646268   0.094386  …  0.703849  -0.90062
+ -0.902819  -0.159374     0.267762   1.20793
+ -2.81872   -2.78622      2.74575    2.61375
+and weights
+ 132-element Vector{Int64}
+ 1  2  2  1  1  1  2  4  …  2  1  1  1  2  2  1
+```
 """
 function thin_to_grid(pc::PointCloud, gridsize)
     lo, hi = bbox(pc)
