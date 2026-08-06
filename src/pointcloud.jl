@@ -345,6 +345,49 @@ function Base.vcat(pc1::PointCloud{N}, pc2::PointCloud{N}) where {N}
     )
 end
 
+"""
+    density2pointcloud(density::AbstractArray{T, N}) where {T, N}
+
+Creates an `N`-dimensional point cloud that represents the `density` by placing
+a point at every index of `density` with the corresponding value as the point's
+weight.
+
+# Example
+```julia
+julia> pixels = reshape(11:19, 3, 3)
+3×3 reshape(::UnitRange{Int64}, 3, 3) with eltype Int64:
+ 11  14  17
+ 12  15  18
+ 13  16  19
+
+julia> density2pointcloud(pixels)
+2-dimensional point cloud with 9 points of eltype Float64
+ 1.0  2.0  3.0  1.0  2.0  3.0  1.0  2.0  3.0
+ 1.0  1.0  1.0  2.0  2.0  2.0  3.0  3.0  3.0
+and weights
+ 9-element UnitRange{Int64}
+ 11  12  13  14  15  16  17  18  19
+
+julia> voxels = reshape(11:18, 2, 2, 2)
+2×2×2 reshape(::UnitRange{Int64}, 2, 2, 2) with eltype Int64:
+[:, :, 1] =
+ 11  13
+ 12  14
+
+[:, :, 2] =
+ 15  17
+ 16  18
+
+julia> density2pointcloud(voxels)
+3-dimensional point cloud with 8 points of eltype Float64
+ 1.0  2.0  1.0  2.0  1.0  2.0  1.0  2.0
+ 1.0  1.0  2.0  2.0  1.0  1.0  2.0  2.0
+ 1.0  1.0  1.0  1.0  2.0  2.0  2.0  2.0
+and weights
+ 8-element UnitRange{Int64}
+ 11  12  13  14  15  16  17  18
+```
+"""
 function density2pointcloud(density::AbstractArray)
     points = CartesianIndices(density) |> vec .|> Tuple .|> SVector .|> float
     weights = vec(density)

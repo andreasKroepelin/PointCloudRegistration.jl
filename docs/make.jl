@@ -7,6 +7,7 @@ using PointCloudRegistration
 using CoordinateTransformations
 using OptimalTransport
 using Mooncake
+using DimensionalData
 
 Revise.revise()
 
