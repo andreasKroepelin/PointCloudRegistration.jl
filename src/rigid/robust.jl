@@ -48,7 +48,7 @@ equal index are supposed to correspond to each other.
 - `scale`: Determines the value of ``\\sigma`` (see above).
   Can be set to a specific number/collection of numbers or chosen heuristically,
   see Section [Scale parameter](@ref).
-  Default: [`TargetScales()`](@ref)
+  Default: [`LogAnnealingToNearestNeighborDistance()`](@ref)
 - `restarts`: Determines how to restart the optimization to avoid local optima,
   see Section [Restarts](@ref).
   Default: `RandomRestarts(5)`
@@ -73,7 +73,7 @@ equal index are supposed to correspond to each other.
   Default: `(; kwargs...) -> nothing`
 """
 @kwdef struct GemanMcClureMM{S <: ScaleType, R <: AbstractRestarts, B <: AbstractBatch, RI, RR}
-    scale::S = TargetScales()
+    scale::S = LogAnnealingToNearestNeighborDistance()
     restarts::R = RandomRestarts(5)
     iterations::Int = 50
     batching::B = FullBatch()

@@ -48,27 +48,89 @@ MeanAbsoluteDeviationMM
 rigid_registration(source, target, ::MeanAbsoluteDeviationMM)
 ```
 
-## Scale parameter
+## Dealing with non-convexity
+
+Only [`Kabsch`](@ref) and [`MeanAbsoluteDeviationMM`](@ref) solve _convex_
+optimization problems, meaning they are guaranteed to find the global optimum.
+The other algorithms perform non-convex optimization and can thus get stuck in
+local optima, in principle.
+To counteract this issue, three strategies can be employed:
+Simulated annealing, multiple restarts, and stochastic batching.
+
+### Scale parameter
 Both the Geman-McClure loss and the Kernel Correlation have a scale parameter
 that determines up to what distances they are sensitive to.
 Thus, the scale should eventually take a value that is relevant for the
 application at hand.
-In the simplest case, you can just set to a **scalar value**.
+In the simplest case, you can just set it to a **scalar value**.
 
-However, optimizing the rotation and translation can easily get stuck in a
-non-global optimum when starting with a scale too small.
-Too avoid that, you can specify how the scale should be successively decreased.
-For maximum control, you can set `scale` to any **`AbstractVector{<: Real}`**.
+To perform simulated annealing, you can specify how the scale should be
+successively decreased.
+For maximum control, you can set `scale` to any **`AbstractVector{<: Number}`**.
 
-If you are unsure what values are sensible to use, two heuristics are
-implemented.
+If you are unsure what values are sensible to use, the following heuristics are
+implemented:
 ```@docs
-DownTo
+LogAnnealingToNearestNeighborDistance
+LogAnnealingTo
 TargetScales
 ```
 
-## Restarts
+### Restarts
+For multiple restarts, you can specify if the initial optimization candidates
+should be chosen randomly or from a given list.
 
-## Batching
+```@docs
+RandomRestarts
+FixedRestarts
+```
+
+### Batching
+In machine learning, the technique of _Stochastic Gradient Descent_ is a
+standard strategy to speed up training and avoid local optima.
+The idea is that each training iteration uses only a small randomly chosen
+subset of the training data.
+Similarly, it can help to only use some of the points in every iteration of a
+rigid registration algorithm.
+
+```@docs
+FullBatch
+StochasticBatch
+```
+
+
+## Reflections
+
+By default, rigid registration does not allow _reflecting_ or _flipping_ the
+source.
+The phyiscal process producing the point cloud data typically determines their
+orientation.
+Sometimes, however, orientation is not known and has to be estimated as well.
+To this end, the [`rigid_registration`](@ref) function accepts an additional
+argument that can either be [`WithFlip()`](@ref) or [`NoFlip()`](@ref).
+
+This choice influences the return type of `rigid_registration`.
+For `NoFlip()` and `source isa PointCloud{N}`, `target isa PointCloud{N}`, it is
+a subtype of
+```julia
+CoordinateTransformations.AffineMap{
+  <: Rotations.RotMatrix{N},
+  <: StaticArrays.SVector{N},
+}
+```
+For `WithFlip()` and `source isa PointCloud{N}`, `target isa PointCloud{N}`, it
+is a subtype of
+```julia
+CoordinateTransformations.AffineMap{
+  <: PointCloudRegistration.OrthogonalMatrix{N},
+  <: StaticArrays.SVector{N},
+}
+```
+
+```@docs
+WithFlip
+NoFlip
+PointCloudRegistration.OrthogonalMatrix
+```
 
 ## Performance Tips

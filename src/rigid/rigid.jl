@@ -1,8 +1,23 @@
+"""
+    WithFlip()
+
+Indicates that rigid registration will search for the optimal rotation,
+translation, *and reflection*.
+That is, the full Euclidean group is eligible for the returned motion.
+"""
 struct WithFlip end
+
+"""
+    NoFlip()
+
+Indicates that rigid registration will search for the optimal rotation and
+translation, *disallowing reflections*.
+That is, only the Special Euclidean group is eligible for the returned motion.
+"""
 struct NoFlip end
 const FlipMarker = Union{WithFlip, NoFlip}
 
-function transformation_from_moments(covariance, source_mean, target_mean, flip::Flip) where {Flip <: FlipMarker}
+function transformation_from_moments(covariance, source_mean, target_mean, flip::FlipMarker)
     unit_free_covariance = covariance ./ oneunit(eltype(covariance))
     rotation = nearest_orthogonal(unit_free_covariance, flip)
     translation = target_mean - rotation * source_mean
@@ -10,10 +25,11 @@ function transformation_from_moments(covariance, source_mean, target_mean, flip:
 end
 
 """
-    rigid_registration(source, target; ordered::Bool = false)
+    rigid_registration(source, target, [flip::FlipMarker = NoFlip()]; ordered::Bool = false)
 
 Find a [`CoordinateTransformations.AffineMap`](@extref) that rotates and
-translates the point cloud `source` to "match" the point cloud `target`.
+translates (and possibly reflects if `flip isa WithFlip`) the point cloud
+`source` to "match" the point cloud `target`.
 
 Both `source` and `target` can be given in a form described in Section
 [Representing point clouds](@ref).
@@ -37,7 +53,7 @@ This makes the registration faster and more precise.
       ([`GemanMcClureMM`](@ref)), brings corresponding points close together but
       is robust against outliers.
 """
-function rigid_registration(source, target, flip::Flip = NoFlip(); ordered = false) where Flip <: FlipMarker
+function rigid_registration(source, target, flip::FlipMarker = NoFlip(); ordered = false)
     source_pc = PointCloud(source)
     target_pc = PointCloud(target)
     @argcheck dimension(source_pc) == dimension(target_pc)
@@ -48,10 +64,11 @@ function rigid_registration(source, target, flip::Flip = NoFlip(); ordered = fal
 end
 
 """
-    rigid_registration(source, target, algorithm)
+    rigid_registration(source, target, algorithm, [flip = NoFlip()])
 
 Find a [`CoordinateTransformations.AffineMap`](@extref) that rotates and
-translates the point cloud `source` to "match" the point cloud `target` using
+translates (and possibly reflects if `flip isa WithFlip`) the point cloud
+`source` to "match" the point cloud `target` using
 `algorithm`.
 See [here](#Rigid-registration-algorithms) for a list of available algorithms.
 

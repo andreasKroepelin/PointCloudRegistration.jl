@@ -1,10 +1,35 @@
 abstract type AbstractBatch end
 
+"""
+    FullBatch()
+
+Always use all the points of the source in every iteration of the rigid
+registration algorithm.
+"""
 struct FullBatch <: AbstractBatch end
 
 point_cloud_iterator(::FullBatch, pc::PointCloud) =
     PointCloudIterator(0, nothing, pc, false)
 
+"""
+    StochasticBatch(count, [rng = Random.default_rng()])
+
+Only use `count` points of the source in every iteration of the rigid
+registration algorithm, chosen randomly by the random number generator `rng`.
+After 90 % of iterations (unless convergence occurs earlier), the remaining
+iterations will be performed with non-stochastic full batches.
+
+In case the source has less than `count` points, `count` is set to the number
+of points in the source.
+
+You can make the batching fully deterministic by specifying a random number
+generator with fixed seed, i.e.
+```julia
+using Random
+
+StochasticBatch(50, Xoshiro(123))
+```
+"""
 struct StochasticBatch{Rng <: AbstractRNG} <: AbstractBatch
     count::Int
     rng::Rng

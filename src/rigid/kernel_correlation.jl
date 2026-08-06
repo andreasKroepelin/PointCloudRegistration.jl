@@ -315,7 +315,7 @@ T2 = rigid_registration(X, Y2, KernelCorrelationMM(); target_preparation = X_pre
 """
 function prepare_target_kernelcorrelation(
     target;
-    scale::ScaleType = TargetScales(),
+    scale::ScaleType = LogAnnealingToNearestNeighborDistance(),
     axisalign::Bool = false,
 )
     _prepare_target_kernelcorrelation(PointCloud(target), scale, axisalign)
@@ -365,7 +365,7 @@ in the kernel densities.
 - `scale`: Determines the value of ``\\sigma`` (see above).
   Can be set to a specific number/collection of numbers or chosen heuristically,
   see Section [Scale parameter](@ref).
-  Default: [`TargetScales()`](@ref)
+  Default: [`LogAnnealingToNearestNeighborDistance()`](@ref)
 - `axisalign`: Whether or not to temporarily rotate the target to be more axis
   aligned, which can improve performance for very "long" shapes.
   Default: `false`
@@ -393,7 +393,7 @@ in the kernel densities.
   Default: `(; kwargs...) -> nothing`
 """
 @kwdef struct KernelCorrelationMM{S <: ScaleType, R <: AbstractRestarts, B <: AbstractBatch, RI, RR}
-    scale::S = TargetScales()
+    scale::S = LogAnnealingToNearestNeighborDistance()
     axisalign::Bool = false
     restarts::R = RandomRestarts(50)
     iterations::Int = 100

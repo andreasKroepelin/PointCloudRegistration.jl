@@ -34,7 +34,8 @@ export PointCloud,
     EarthMover,
     DivergenceFree,
     guess_correspondences,
-    DownTo,
+    LogAnnealingTo,
+    LogAnnealingToNearestNeighborDistance,
     TargetScales,
     RandomRestarts,
     FixedRestarts,
@@ -52,7 +53,8 @@ export PointCloud,
 public VecOfSVec,
     Displacement,
     CpdDisplacement,
-    DivFreeDisplacement
+    DivFreeDisplacement,
+    OrthogonalMatrix
 
 include("pointcloud.jl")
 include("common.jl")

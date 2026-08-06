@@ -1,5 +1,24 @@
 abstract type AbstractRestarts end
 
+"""
+    RandomRestarts(number, [rng = Random.default_rng()])
+
+Starts rigid registration from `number` random initial transformations.
+The random number generator `rng` is used to generate them.
+Always uses the identity transformation as the first initial transformation.
+
+You can make the initial transformations fully deterministic by specifying
+a random number generator with fixed seed, i.e.
+```julia
+using Random
+
+RandomRestarts(42, Xoshiro(123))
+```
+
+Depending on whether reflections are allowed in the rigid registration
+(`WithFlip()` or `NoFlip()`), this also generates initial transformations with
+reflections.
+"""
 struct RandomRestarts{Rng} <: AbstractRestarts
     number::Int
     rng::Rng
@@ -40,6 +59,11 @@ function Base.iterate(rri::RandomRestartIterator{Flip}, i = 0) where {Flip}
     end
 end
 
+"""
+    FixedRestarts(transformations)
+
+Start rigid registration from the given initial transformations.
+"""
 struct FixedRestarts{Ts <: AbstractVector{<: AffineMap}} <: AbstractRestarts
     transformations::Ts
 end

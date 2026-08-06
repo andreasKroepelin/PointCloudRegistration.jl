@@ -1,5 +1,9 @@
 # copied and adapted from the definition of `RotMatrix` in Rotations.jl
 
+"""
+A special `StaticMatrix` that encodes orthogonality in its type.
+That is `inv(o) == o'` for `o isa OrthogonalMatrix`.
+"""
 struct OrthogonalMatrix{N, T, L} <: StaticMatrix{N, N, T}
     mat::SMatrix{N, N, T, L}
     OrthogonalMatrix{N, T, L}(x::AbstractArray) where {N, T, L} = new{N, T, L}(convert(SMatrix{N, N, T, L}, x))
@@ -18,6 +22,8 @@ Base.zero(::Type{<: OrthogonalMatrix}) = error("There is no zero orthogonal matr
 Base.one(::OM) where {OM <: OrthogonalMatrix} = one(OM)
 Base.zero(::OM) where {OM <: OrthogonalMatrix} = zero(OM)
 Base.inv(om::OrthogonalMatrix) = OrthogonalMatrix(om.mat')
+Base.adjoint(om::OrthogonalMatrix) = OrthogonalMatrix(om.mat')
+Base.transpose(om::OrthogonalMatrix) = OrthogonalMatrix(transpose(om.mat))
 
 Base.:*(o1::OrthogonalMatrix, o2::OrthogonalMatrix) = OrthogonalMatrix(o1.mat * o2.mat)
 Base.:*(o::OrthogonalMatrix, r::RotMatrix) = OrthogonalMatrix(o.mat * r.mat)
