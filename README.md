@@ -29,8 +29,10 @@ blue and green point clouds.
 * **Thinning** of point clouds (to a specified number or resolution)
 * Conversion from **density arrays** (such as images, cryo-EM volumes)
 
-The package handles 2D, 3D and any higher dimensional point clouds, as well as
-point clouds with varyingly weighted points.
+The package handles 2D, 3D and any higher dimensional point clouds, point clouds
+with varyingly weighted points, as well as
+[`Unitful`](https://juliaphysics.github.io/Unitful.jl/stable/)
+point coordinates.
 
 ## Quickstart
 
