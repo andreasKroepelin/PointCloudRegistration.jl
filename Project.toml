@@ -32,9 +32,9 @@ Mooncake = "da2b9cff-9c12-43a0-ae48-6db2b0edb7d6"
 
 [extensions]
 DimensionalDataExt = "DimensionalData"
+ExactOptimalTransportExt = "ExactOptimalTransport"
 MakieExt = "Makie"
 MooncakeExt = "Mooncake"
-ExactOptimalTransportExt = "ExactOptimalTransport"
 
 [compat]
 Accessors = "0.1.42"

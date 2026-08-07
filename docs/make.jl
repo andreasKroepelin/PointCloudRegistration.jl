@@ -20,6 +20,10 @@ links = InterLinks(
         "https://juliaoptimaltransport.github.io/OptimalTransport.jl/dev/",
         joinpath(@__DIR__, "inventories", "optimaltransport.inv"),
     ),
+    "Makie" => (
+        "https://docs.makie.org/stable/",
+        joinpath(@__DIR__, "inventories", "makie.inv"),
+    ),
 )
 
 # the following is from

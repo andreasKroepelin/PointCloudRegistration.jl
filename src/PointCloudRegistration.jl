@@ -47,7 +47,13 @@ export PointCloud,
     drop_threshold,
     drop_proportion,
     drop_quantile,
-    density2pointcloud
+    density2pointcloud,
+    pointcloudplotflat,
+    pointcloudplotmesh,
+    scaffoldplot,
+    pointcloudplotflat!,
+    pointcloudplotmesh!,
+    scaffoldplot!
 
 
 public VecOfSVec,
@@ -77,6 +83,7 @@ include("nonrigid/distancepreserving.jl")
 include("guess_correspondences.jl")
 include("thinning.jl")
 include("assets.jl")
+include("plotting.jl")
 
 @compile_workload begin
     X2 = rand(2, 10)
