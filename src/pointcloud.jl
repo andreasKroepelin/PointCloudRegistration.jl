@@ -345,6 +345,14 @@ function Base.vcat(pc1::PointCloud{N}, pc2::PointCloud{N}) where {N}
     )
 end
 
+function Base.isapprox(pc1::PointCloud{N}, pc2::PointCloud{N}; kwargs...) where {N}
+    return all(fieldnames(PointCloud)) do fn
+        f1 = getfield(pc1, fn)
+        f2 = getfield(pc2, fn)
+        isapprox(f1, f2; kwargs...)
+    end
+end
+
 """
     density2pointcloud(density::AbstractArray{T, N}) where {T, N}
 

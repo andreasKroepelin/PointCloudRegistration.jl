@@ -3,15 +3,13 @@ using InteractiveUtils
 using PointCloudRegistration
 import PointCloudRegistration as PCReg
 using StaticArrays
+using Rotations
 using CoordinateTransformations
 using Distances
 using DelimitedFiles
 using LinearAlgebra
 using Random
 using Base.Iterators
-
-load_1ake() = PointCloud(readdlm("../assets/ake/1ake.csv", ','))
-load_4ake() = PointCloud(readdlm("../assets/ake/4ake.csv", ','))
 
 @testset "VecOfSVec" begin
     @test_throws ArgumentError PCReg.to_vec_of_svec(zeros(1, 10))
@@ -26,69 +24,58 @@ load_4ake() = PointCloud(readdlm("../assets/ake/4ake.csv", ','))
     end
 end
 
-@testset "mean_cov_sumw" begin
+@testset "mean_cov" begin
     m = randn(SVector{3, Float64})
     sqrtcov = randn(SMatrix{3, 3, Float64})
     cov = sqrtcov * sqrtcov'
     n = 100_000
     points = [sqrtcov * randn(SVector{3, Float64}) + m for _ in 1:n]
     weights = ones(n)
-    m_, cov_, sumw_ = PCReg.mean_cov_sumw(points, weights)
+    pc = PointCloud(points, weights)
+    m_, cov_ = PCReg.mean_cov(pc)
     @test isapprox(m, m_; atol = 1e-1)
     @test isapprox(cov, cov_; atol = 1e-1)
-    @test sumw_ == n
 
-    function alloc_counter(points, weights)
-        @allocations PCReg.mean_cov_sumw(points, weights)
+    function alloc_counter(pc)
+        @allocations PCReg.mean_cov(pc)
     end
-    alloc_counter(points, weights) # precompile
-    @test alloc_counter(points, weights) == 0
+    alloc_counter(pc) # precompile
+    @test alloc_counter(pc) == 0
 end
 
 @testset "bbox" begin
-    pc_1ake = load_1ake()
-    lo, hi = PCReg.bbox(pc_1ake)
+    pc, _ = PCReg.Assets.load_1ake_A_4ake_A()
+    lo, hi = PCReg.bbox(pc)
 
     # proper lower/upper bound?
-    @test all(>=(lo), pc_1ake.points)
-    @test all(<=(hi), pc_1ake.points)
+    @test all(>=(lo), pc.points)
+    @test all(<=(hi), pc.points)
 
     # tight bound?
-    N = size(pc_1ake, 1)
-    @test all(k -> any(p -> p[k] == lo[k], pc_1ake.points), 1:N)
-    @test all(k -> any(p -> p[k] == hi[k], pc_1ake.points), 1:N)
-end
-
-@testset "PointCloud indexing" begin
-    N = 2
-    T = Float64
-    pc = PointCloud(zeros(T, N, 5))
-    i = 4
-    x = pc[:, i]
-    @test x == pc.points[i]
-    @test x isa SVector{N, T}
+    N = PCReg.dimension(pc)
+    @test all(k -> any(p -> p[k] == lo[k], pc.points), 1:N)
+    @test all(k -> any(p -> p[k] == hi[k], pc.points), 1:N)
 end
 
 @testset "mapping PointCloud" begin
-    pc_1ake = load_1ake()
-    rotation = qr(randn(SMatrix{3, 3, Float64})).Q
-    translation = randn(SVector{3, Float64})
-    transformation = AffineMap(rotation, translation)
+    pc, _ = PCReg.Assets.load_1ake_A_4ake_A()
+    transformation = PCReg.rand_transformation(pc)
 
     manual_mapping =
-        PointCloud(transformation.(pc_1ake.points), pc_1ake.weights)
-    clever_mapping = transformation(pc_1ake)
-    @test manual_mapping == clever_mapping
+        PointCloud(transformation.(pc.points), pc.weights)
+    clever_mapping = transformation(pc)
+    @test isapprox(manual_mapping, clever_mapping)
 
-    linear = LinearMap(rotation)
+    linear = LinearMap(transformation.linear)
 
-    manual_mapping = PointCloud(linear.(pc_1ake.points), pc_1ake.weights)
-    clever_mapping = linear(pc_1ake)
-    @test manual_mapping == clever_mapping
+    manual_mapping = PointCloud(linear.(pc.points), pc.weights)
+    clever_mapping = linear(pc)
+    @test isapprox(manual_mapping, clever_mapping)
 end
 
 @testset "weighted PointCloud" begin
-    points = load_1ake().points
+    pc, _ = PCReg.Assets.load_1ake_A_4ake_A()
+    points = pc.points
     weights = rand(0:10, length(points))
     weighted_pc = PointCloud(points, weights)
 
@@ -96,9 +83,11 @@ end
     repeated_pc = PointCloud(repeated_points)
 
     @test isapprox(weighted_pc.sum_of_weights, repeated_pc.sum_of_weights)
-    @test isapprox(weighted_pc.mean, repeated_pc.mean)
-    @test isapprox(weighted_pc.coveigvecs, repeated_pc.coveigvecs)
-    @test isapprox(weighted_pc.coveigvals, repeated_pc.coveigvals)
+
+    weighted_mean, weighted_cov = PCReg.mean_cov(weighted_pc)
+    repeated_mean, repeated_cov = PCReg.mean_cov(repeated_pc)
+    @test isapprox(weighted_mean, repeated_mean)
+    @test isapprox(weighted_cov, repeated_cov)
 end
 
 @testset "no_report" begin
@@ -115,11 +104,11 @@ end
 end
 
 @testset "transformation_type" begin
-    for T in (Float32, Float64), N in 2:4
+    for T in (Float32, Float64), N in 2:4, (flip, M) in ((WithFlip(), PCReg.OrthogonalMatrix), (NoFlip(), RotMatrix))
         mat = zeros(T, N, 10)
         pc = PointCloud(mat)
-        @test PCReg.transformation_type(pc, pc) ==
-              AffineMap{SMatrix{N, N, T, N * N}, SVector{N, T}}
+        @test PCReg.transformation_type(pc, pc, flip) ==
+              AffineMap{M{N, T, N * N}, SVector{N, T}}
     end
 end
 
@@ -128,7 +117,7 @@ end
         source_mean = randn(SVector{N, Float64})
         target_mean = randn(SVector{N, Float64})
         cov = randn(SMatrix{N, N, Float64}) |> (A -> A' * A)
-        T = PCReg.transformation_from_moments(cov, source_mean, target_mean)
+        T = PCReg.transformation_from_moments(cov, source_mean, target_mean, NoFlip())
 
         @test det(T.linear) > 0.5 # should not only be slightly positive
         @test isapprox(T.linear' * T.linear, one(T.linear))
@@ -136,48 +125,20 @@ end
     end
 end
 
-@testset "negative_last_column" begin
-    A = SA[1 2 3; 4 5 6; 7 8 9]
-    B = SA[1 2 -3; 4 5 -6; 7 8 -9]
-    @test PCReg.negative_last_column(A) == B
-end
-
-@testset "rigid_rmsd" begin
-    @test_throws ArgumentError rigid_rmsd(zeros(2, 5), zeros(2, 6))
-
-    pc_1ake = load_1ake()
+@testset "known correspondences" begin
+    pc, _ = PCReg.Assets.load_1ake_A_4ake_A()
     rng = Random.Xoshiro(136)
-    for _ in 1:10
-        T_true = PCReg.rand_transformation(rng, pc_1ake, pc_1ake)
-        T = rigid_rmsd(pc_1ake, T_true(pc_1ake))
-        @test isapprox(T_true, T)
+    for alg in (Kabsch(), GemanMcClureMM(scale = 1.0), MeanAbsoluteDeviationMM())
+        @test_throws ArgumentError rigid_registration(zeros(2, 5), zeros(2, 6), alg)
+        for flip in (NoFlip(), WithFlip()), _ in 1:10
+            T_true = PCReg.rand_transformation(rng, pc, pc, flip)
+            T = rigid_registration(pc, T_true(pc), alg, flip)
+            @test isapprox(T_true, T)
+        end
+        alloc_wrapper(pc, alg) = @allocations rigid_registration(pc, pc, alg)
+        alloc_wrapper(pc, alg)
+        @test alloc_wrapper(pc, alg) == 0
     end
-end
-
-@testset "TargetScales" begin
-    pc_1ake = load_1ake()
-    min_dist, max_dist = extrema(
-        splat(sqeuclidean),
-        Iterators.product(pc_1ake.points, pc_1ake.points),
-    )
-    sqscales = PCReg.annealing_plan(pc_1ake, TargetScales())
-    @test all(sqscale -> min_dist <= sqscale <= max_dist, sqscales)
-end
-
-@testset "rigid_gmc" begin
-    @test_throws ArgumentError rigid_gmc(zeros(2, 5), zeros(2, 6))
-
-    pc_1ake = load_1ake()
-    rng = Random.Xoshiro(136)
-    for _ in 1:10
-        T_true = PCReg.rand_transformation(rng, pc_1ake, pc_1ake)
-        T = rigid_gmc(pc_1ake, T_true(pc_1ake); scale = 1.0)
-        @test isapprox(T_true, T)
-    end
-
-    alloc_wrapper(pc) = @allocations rigid_gmc(pc, pc; scale = 1.0)
-    alloc_wrapper(pc_1ake)
-    @test alloc_wrapper(pc_1ake) == 0
 end
 
 @testset "compute_gaussians" begin
@@ -265,23 +226,24 @@ end
 
 @testset "KDE" begin
     # test that our KDE computation is reasonably close to naive computation
-    pc_1ake = load_1ake()
-    sigma = 20.0
-    grid = PCReg.kde_grid(PCReg.bbox(pc_1ake)...; sigma)
-    kde! = PCReg.KdeComputation(pc_1ake.points, grid, sigma^2)
-    buffer = zeros(size(grid))
-    kde!(buffer, pc_1ake.weights)
+    pc, _ = PCReg.Assets.load_1ake_A_4ake_A()
+    T = eltype(pc)
+    sigma = T(20)
+    grid = PCReg.kde_grid(PCReg.bbox(pc)...; sigma)
+    kde! = PCReg.KdeComputation(pc.points, grid, T)
+    buffer = zeros(T, size(grid))
+    kde!(buffer, pc.weights)
 
     # this is the smallest number we consider > zero for KDE purposes
-    almost_zero = last(PCReg.compute_gaussians(Float64))
-    atol = length(pc_1ake.points) * almost_zero
+    almost_zero = last(PCReg.compute_gaussians(T))
+    atol = length(pc.points) * almost_zero
     @info "KDE" size(grid) maximum(buffer) atol
 
     grid_centers = Iterators.product(PCReg.domains(grid)...)
     for (ci, center) in zip(CartesianIndices(buffer), grid_centers)
         rand() < 0.1 || continue # only test 10 % to save time
         s = 0.0
-        for (x, w) in zip(pc_1ake.points, pc_1ake.weights)
+        for (x, w) in zip(pc.points, pc.weights)
             s += w * exp(sqeuclidean(SVector(center), x) / (-2 * sigma^2))
         end
         @test buffer[ci] >= 0
@@ -289,21 +251,22 @@ end
     end
 end
 
-@testset "rigid_kc" begin
-    pc_1ake = load_1ake()
-    prep_1ake = prepare_target_kc(pc_1ake)
+@testset "kernel correlation" begin
+    pc, _ = PCReg.Assets.load_1ake_A_4ake_A()
+    prep = prepare_target_kernelcorrelation(pc)
     rng = Random.Xoshiro(136)
     for _ in 1:10
-        T_true = PCReg.rand_transformation(rng, pc_1ake, pc_1ake)
-        T = rigid_kc(
-            inv(T_true)(pc_1ake),
-            prep_1ake;
-            restarts = RandomRestarts(20, rng),
+        T_true = PCReg.rand_transformation(rng, pc, pc)
+        T = rigid_registration(
+            inv(T_true)(pc),
+            pc,
+            KernelCorrelationMM(restarts = RandomRestarts(20, rng),);
+            target_preparation = prep,
         )
         @test isapprox(T_true, T, rtol = 5e-2)
     end
 
-    alloc_wrapper(pc, prep) = @allocations rigid_kc(pc, prep)
-    alloc_wrapper(pc_1ake, prep_1ake)
-    @test alloc_wrapper(pc_1ake, prep_1ake) == 0
+    alloc_wrapper(pc, prep) = @allocations rigid_registration(pc, pc, KernelCorrelationMM(); target_preparation = prep)
+    alloc_wrapper(pc, prep)
+    @test alloc_wrapper(pc, prep) == 0
 end
