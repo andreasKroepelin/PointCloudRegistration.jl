@@ -6,9 +6,6 @@ mirror of the
 The mirror exists for integration into the Julia package registry pipeline.
 Collaboration is preferred to happen on Codeberg.**
 
-**This package is work in progress and not published to the General Registry
-of Julia packages yet.**
-
 [![docs badge](https://img.shields.io/badge/docs-main-4063d8)](https://a5s.codeberg.page/PointCloudRegistration.jl/)
 
 <video src="PointCloudRegistration/raw/branch/main/examples/animations/register-julia-logo.mp4" type="video/mp4" width="600" height="400" controls>
