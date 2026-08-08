@@ -31,4 +31,3 @@ let
     # arrows3d!(ax, Y_thin_rr.points, cpd(Y_thin_rr).points .- Y_thin_rr.points)
     fig
 end
-

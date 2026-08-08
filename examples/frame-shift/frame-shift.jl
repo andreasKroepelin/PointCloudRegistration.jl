@@ -103,11 +103,17 @@ target = pointclouds[target_idx]
 sources = pointclouds[begin:end]
 prepd_target = prepare_target_kc(target; scale = DownTo(resolution));
 
-Ts = map(sources) do source
-    Threads.@spawn begin
-        rigid_kc(source, prepd_target; restarts = RandomRestarts(30), smm = Smm(50))
-    end
-end .|> fetch
+Ts =
+    map(sources) do source
+        Threads.@spawn begin
+            rigid_kc(
+                source,
+                prepd_target;
+                restarts = RandomRestarts(30),
+                smm = Smm(50),
+            )
+        end
+    end .|> fetch
 
 let
     fig = Figure()
@@ -115,18 +121,35 @@ let
     sl = Slider(fig[2, 1]; range = eachindex(sources))
     factor = 2resolution / maximum(pc -> maximum(pc.weights), pointclouds)
     # scatter!(ax, target.points; markersize = factor .* target.weights)
-    src_plt = scatter!(ax, Ts[1](sources[1]).points, markersize = factor .* sources[1].weights, markerspace = :data)
+    src_plt = scatter!(
+        ax,
+        Ts[1](sources[1]).points;
+        markersize = factor .* sources[1].weights,
+        markerspace = :data,
+    )
     on(sl.value) do i
-        Makie.update!(src_plt; arg1 = Ts[i](sources[i]).points, markersize = factor .* sources[i].weights)
+        Makie.update!(
+            src_plt;
+            arg1 = Ts[i](sources[i]).points,
+            markersize = factor .* sources[i].weights,
+        )
     end
     fig
 end
 
-cpds = map(sources, Ts) do source, T
-    Threads.@spawn begin
-        nonrigid_cpd(target, T(source); scale = resolution, outlier_proportion = 0.01f0, regularizer_strength = .01f0, regularizer_lengthscale = 20f0)
-    end
-end .|> fetch
+cpds =
+    map(sources, Ts) do source, T
+        Threads.@spawn begin
+            nonrigid_cpd(
+                target,
+                T(source);
+                scale = resolution,
+                outlier_proportion = 0.01f0,
+                regularizer_strength = 0.01f0,
+                regularizer_lengthscale = 20.0f0,
+            )
+        end
+    end .|> fetch
 
 let
     fig = Figure()
@@ -137,15 +160,37 @@ let
     # scatter!(ax, target.points; markersize = factor .* target.weights)
     for j in eachindex(target.points)
         pts = [Point(cpd.target_representatives[j]) for cpd in cpds]
-        lines!(ax, pts; linewidth = 1, color = 1:length(cpds), colormap = :blues)
+        lines!(
+            ax,
+            pts;
+            linewidth = 1,
+            color = 1:length(cpds),
+            colormap = :blues,
+        )
     end
-    src_plt = scatter!(ax, Ts[1](sources[1]).points, markersize = factor .* sources[1].weights, markerspace = :data, label = "original")
+    src_plt = scatter!(
+        ax,
+        Ts[1](sources[1]).points;
+        markersize = factor .* sources[1].weights,
+        markerspace = :data,
+        label = "original",
+    )
     # dtrg_plt = scatter!(ax, target.points .+ cpds[1].displacement, markersize = factor .* target.weights, markerspace = :data, label = "reconstructed")
-    dtrg_plt = scatter!(ax, cpds[1].target_representatives, markersize = factor .* target.weights, markerspace = :data, label = "reconstructed")
+    dtrg_plt = scatter!(
+        ax,
+        cpds[1].target_representatives;
+        markersize = factor .* target.weights,
+        markerspace = :data,
+        label = "reconstructed",
+    )
     # dis_plt = arrows2d!(ax, Ts[1](sources[1]).points, cpds[1].displacement)
     hm_plt = heatmap!(ax_h, cpds[1].correspondences)
     on(sl.value) do i
-        Makie.update!(src_plt; arg1 = Ts[i](sources[i]).points, markersize = factor .* sources[i].weights)
+        Makie.update!(
+            src_plt;
+            arg1 = Ts[i](sources[i]).points,
+            markersize = factor .* sources[i].weights,
+        )
         # Makie.update!(dis_plt; arg1 = Ts[i](sources[i]).points, arg2 = cpds[i].displacement)
         # Makie.update!(dtrg_plt; arg1 = target.points .+ cpds[i].displacement)
         Makie.update!(dtrg_plt; arg1 = cpds[i].target_representatives)
@@ -158,41 +203,72 @@ end
 # for publication:
 
 let
-    fig = Figure(size = (5, 2) .* img_size .÷ 2)
+    fig = Figure(; size = (5, 2) .* img_size .÷ 2)
     idcs = CartesianIndices((2, 5))
     for (img, idx) in zip(bg_contrast_images, idcs)
-        ax = Axis(fig[Tuple(idx)...], aspect = DataAspect())
+        ax = Axis(fig[Tuple(idx)...]; aspect = DataAspect())
         hidedecorations!(ax)
-        image!(ax, Gray(1f0) .- img)
+        image!(ax, Gray(1.0f0) .- img)
     end
     # GLMakie.activate!()
     # display(fig)
-    CairoMakie.activate!(pdf_version = "1.5")
+    CairoMakie.activate!(; pdf_version = "1.5")
     save("../../paper/bioinformatics/src/img/frame-shift-imgs.pdf", fig)
 end
 
 let
-    fig = Figure(size = (400, 300))
-    ax = Axis(fig[1, 1]; #= autolimitaspect = 1, =# aspect = DataAspect(), title = "not registered")
-    ax_t = Axis(fig[1, 2]; #= autolimitaspect = 1, =# aspect = DataAspect(), title = "registered")
+    fig = Figure(; size = (400, 300))
+    ax = Axis(
+        fig[1, 1];
+        #= autolimitaspect = 1, =#
+        aspect = DataAspect(),
+        title = "not registered",
+    )
+    ax_t = Axis(
+        fig[1, 2];
+        #= autolimitaspect = 1, =#
+        aspect = DataAspect(),
+        title = "registered",
+    )
     hidedecorations!(ax)
     hidedecorations!(ax_t)
     linkxaxes!(ax, ax_t)
     linkyaxes!(ax, ax_t)
     factor = 5 / maximum(pc -> maximum(pc.weights), pointclouds)
     for (pc, T) in zip(pointclouds, Ts)
-        scatter!(ax, pc.points; markersize = factor .* pc.weights, markerspace = :data)
-        scatter!(ax_t, T(pc).points; markersize = factor .* pc.weights, markerspace = :data)
+        scatter!(
+            ax,
+            pc.points;
+            markersize = factor .* pc.weights,
+            markerspace = :data,
+        )
+        scatter!(
+            ax_t,
+            T(pc).points;
+            markersize = factor .* pc.weights,
+            markerspace = :data,
+        )
     end
-    GLMakie.activate!(); display(fig)
+    GLMakie.activate!()
+    display(fig)
     # CairoMakie.activate!(pdf_version = "1.5")
     # save("../../paper/bioinformatics/src/img/frame-shift-pointclouds.pdf", fig)
 end
 
 let
-    fig = Figure(size = (400, 300))
-    ax = Axis(fig[1, 1]; #= autolimitaspect = 1, =# aspect = DataAspect(), title = "not registered")
-    ax_t = Axis(fig[1, 2]; #= autolimitaspect = 1, =# aspect = DataAspect(), title = "registered")
+    fig = Figure(; size = (400, 300))
+    ax = Axis(
+        fig[1, 1];
+        #= autolimitaspect = 1, =#
+        aspect = DataAspect(),
+        title = "not registered",
+    )
+    ax_t = Axis(
+        fig[1, 2];
+        #= autolimitaspect = 1, =#
+        aspect = DataAspect(),
+        title = "registered",
+    )
     hidedecorations!(ax)
     hidedecorations!(ax_t)
     linkxaxes!(ax, ax_t)
@@ -200,9 +276,10 @@ let
     for (img, T) in zip(bg_contrast_images, Ts)
         # scatter!(ax, pc.points; markersize = factor .* pc.weights, markerspace = :data)
         # scatter!(ax_t, T(pc).points; markersize = factor .* pc.weights, markerspace = :data)
-        heatmap!(ax, gray.(img), alpha = 0.3)
+        heatmap!(ax, gray.(img); alpha = 0.3)
     end
-    GLMakie.activate!(); display(fig)
+    GLMakie.activate!()
+    display(fig)
     # CairoMakie.activate!(pdf_version = "1.5")
     # save("../../paper/bioinformatics/src/img/frame-shift-pointclouds.pdf", fig)
 end

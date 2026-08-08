@@ -10,14 +10,20 @@ function @main(args)
 
     if !isfile("BioTISR_Mitochondria.zip")
         @info "Dataset not found, downloading it..."
-        Downloads.download("https://zenodo.org/records/13843670/files/BioTISR_Mitochondria.zip")
+        Downloads.download(
+            "https://zenodo.org/records/13843670/files/BioTISR_Mitochondria.zip",
+        )
     end
     archive = ZipReader(read("BioTISR_Mitochondria.zip"))
 
     cell_id = "006"
-    mrcdata = zip_readentry(archive, "BioTISR_Mitochondria/Cell_$cell_id/SIM_gt.mrc")
+    mrcdata =
+        zip_readentry(archive, "BioTISR_Mitochondria/Cell_$cell_id/SIM_gt.mrc")
     write("biotisr-mitochondria-sim-gt-$cell_id.mrc", mrcdata)
-    mrc = pyconvert(Array, mrcfile.read("biotisr-mitochondria-sim-gt-$cell_id.mrc"))
+    mrc = pyconvert(
+        Array,
+        mrcfile.read("biotisr-mitochondria-sim-gt-$cell_id.mrc"),
+    )
     img_tensor = permutedims(mrc, (3, 2, 1))
 
     @save "../biotisr-mitochondria-sim-gt-$cell_id.jld2" img_tensor

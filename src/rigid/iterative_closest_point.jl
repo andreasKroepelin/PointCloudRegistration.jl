@@ -43,7 +43,13 @@ then minimizes the RMSD (see [`Kabsch`](@ref)).
   - `transformation`: Optimal transformation found in this restart.
   Default: `(; kwargs...) -> nothing`
 """
-@kwdef struct IterativeClosestPoint{D <: Number, R <: AbstractRestarts, RP, RI, RR}
+@kwdef struct IterativeClosestPoint{
+    D <: Number,
+    R <: AbstractRestarts,
+    RP,
+    RI,
+    RR,
+}
     distance_cutoff::D = NoUpperBound()
     restarts::R = RandomRestarts(50)
     iterations::Int = 100
@@ -59,7 +65,12 @@ Perform rigid registration via [`IterativeClosestPoint`](@ref).
 See [here](@ref rigid_registration(::Any, ::Any, ::Any, ::Any)) for general info
 about this function.
 """
-function rigid_registration(source, target, alg::IterativeClosestPoint, flip::FlipMarker = NoFlip())
+function rigid_registration(
+    source,
+    target,
+    alg::IterativeClosestPoint,
+    flip::FlipMarker = NoFlip(),
+)
     @argcheck alg.iterations >= 1
 
     pc_source = PointCloud(source)

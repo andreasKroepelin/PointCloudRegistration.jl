@@ -19,7 +19,7 @@ function avg_nn_dist_fast(pc::PointCloud)
     mins = map(Returns(typemax(some_dist)), test_points)
     discount_zero(x) = ifelse(iszero(x), typemax(x), x)
     for p in pc.points
-        mins = min.(mins, discount_zero.(sqeuclidean.(test_points, (p, ))))
+        mins = min.(mins, discount_zero.(sqeuclidean.(test_points, (p,))))
     end
     mean(sqrt, mins)
 end
@@ -64,8 +64,13 @@ end
 LogAnnealingToNearestNeighborDistance() =
     LogAnnealingToNearestNeighborDistance(2)
 
-const ScaleType =
-    Union{T, <: AbstractVector{T}, TargetScales, LogAnnealingTo{T}, LogAnnealingToNearestNeighborDistance} where {T <: Number}
+const ScaleType = Union{
+    T,
+    <: AbstractVector{T},
+    TargetScales,
+    LogAnnealingTo{T},
+    LogAnnealingToNearestNeighborDistance,
+} where {T <: Number}
 
 annealing_plan(::PointCloud{N, T}, scale::Number) where {N, T} =
     tuple(T(scale)^2)

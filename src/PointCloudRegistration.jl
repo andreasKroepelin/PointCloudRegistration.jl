@@ -55,12 +55,8 @@ export PointCloud,
     pointcloudplotmesh!,
     scaffoldplot!
 
-
 public VecOfSVec,
-    Displacement,
-    CpdDisplacement,
-    DivFreeDisplacement,
-    OrthogonalMatrix
+    Displacement, CpdDisplacement, DivFreeDisplacement, OrthogonalMatrix
 
 include("pointcloud.jl")
 include("common.jl")

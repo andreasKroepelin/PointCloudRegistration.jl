@@ -17,7 +17,12 @@ That is, only the Special Euclidean group is eligible for the returned motion.
 struct NoFlip end
 const FlipMarker = Union{WithFlip, NoFlip}
 
-function transformation_from_moments(covariance, source_mean, target_mean, flip::FlipMarker)
+function transformation_from_moments(
+    covariance,
+    source_mean,
+    target_mean,
+    flip::FlipMarker,
+)
     unit_free_covariance = covariance ./ oneunit(eltype(covariance))
     rotation = nearest_orthogonal(unit_free_covariance, flip)
     translation = target_mean - rotation * source_mean
@@ -53,7 +58,12 @@ This makes the registration faster and more precise.
       ([`GemanMcClureMM`](@ref)), brings corresponding points close together but
       is robust against outliers.
 """
-function rigid_registration(source, target, flip::FlipMarker = NoFlip(); ordered = false)
+function rigid_registration(
+    source,
+    target,
+    flip::FlipMarker = NoFlip();
+    ordered = false,
+)
     source_pc = PointCloud(source)
     target_pc = PointCloud(target)
     @argcheck dimension(source_pc) == dimension(target_pc)

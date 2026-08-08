@@ -51,9 +51,7 @@ function remove_empty!(dp::DpMeansState; relabel::Bool)
     end
 end
 
-function closest_cluster(dp::DpMeansState, point)
-    nn(dp.tree[], point)
-end
+closest_cluster(dp::DpMeansState, point) = nn(dp.tree[], point)
 
 function setlabel!(dp::DpMeansState, i, j)
     changed = false
@@ -202,7 +200,8 @@ function thin_to_number(
     report_iteration::RI = no_report,
 ) where {RI}
     # state = DpMeansState(pc)
-    centers = sample(pc.points, Weights(pc.weights), numclusters; replace = false)
+    centers =
+        sample(pc.points, Weights(pc.weights), numclusters; replace = false)
     weightsums = zeros(typeof(pc.sum_of_weights), numclusters)
     clustersizes = zeros(Int, numclusters)
     indicators = ones(Int, length(pc.points))
@@ -298,9 +297,7 @@ end
 Returns a new point cloud with only the points that have a weight of at least
 `threshold`.
 """
-function drop_threshold(pc::PointCloud, threshold::Number)
-    pc[pc.weights .>= threshold]
-end
+drop_threshold(pc::PointCloud, threshold::Number) = pc[pc.weights .>= threshold]
 
 """
     drop_proportion(pointcloud, proportion)

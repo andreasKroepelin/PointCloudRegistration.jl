@@ -68,7 +68,12 @@ julia> transformation.translation
  0.20799830682893525
 ```
 """
-function rigid_registration(source, target, ::Kabsch, flip::FlipMarker = NoFlip())
+function rigid_registration(
+    source,
+    target,
+    ::Kabsch,
+    flip::FlipMarker = NoFlip(),
+)
     pc_source = PointCloud(source)
     pc_target = PointCloud(target)
     @argcheck size(pc_source) == size(pc_target)
@@ -107,9 +112,19 @@ function _rigid_kabsch(
     transformation_from_moments(covariance, source_mean, target_mean, flip)
 end
 
-function evaluate_rmsd(source::PointCloud{N}, target::PointCloud{N}, transformation = identity_transformation(source, target)) where {N}
+function evaluate_rmsd(
+    source::PointCloud{N},
+    target::PointCloud{N},
+    transformation = identity_transformation(source, target),
+) where {N}
     @argcheck eachindex(source.points) == eachindex(target.points)
-    ssd = mapreduce(+, source.points, source.weights, target.points, target.weights) do src, src_w, trg, trg_w
+    ssd = mapreduce(
+        +,
+        source.points,
+        source.weights,
+        target.points,
+        target.weights,
+    ) do src, src_w, trg, trg_w
         src_w * trg_w * sqeuclidean(transformation(src), trg)
     end
     sqrt(ssd / length(source.points))

@@ -1,6 +1,6 @@
 function nn_features(pc::PointCloud; nfeatures = 20)
     tree = KDTree(pc.points)
-    _idcs, dists = knn(tree, pc.points, nfeatures + 1, #=sortres:=#true)
+    _idcs, dists = knn(tree, pc.points, nfeatures + 1, #=sortres:=# true)
     @view stack(dists)[2:end, :]
 end
 

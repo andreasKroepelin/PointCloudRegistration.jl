@@ -47,11 +47,7 @@ Ts = Dict([
     let
         @info "registering $key"
         source = pointclouds[key]
-        T = rigid_kc(
-            source,
-            prepd_target;
-            restarts = PCReg.RandomRestarts(20),
-        )
+        T = rigid_kc(source, prepd_target; restarts = PCReg.RandomRestarts(20))
         key => T
     end for key in source_keys
 ])

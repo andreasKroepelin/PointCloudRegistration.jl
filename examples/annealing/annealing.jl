@@ -43,7 +43,7 @@ using Statistics
 
 mutable struct RestartCollector{T}
     transformations::Vector{T}
-    mincost
+    mincost::Any
 end
 RestartCollector() = RestartCollector([], Inf)
 
@@ -124,7 +124,7 @@ searchspace_smm_count = [0, 10, 50, 100];
 function searchspace_scale(potential_scales)
     potential_scales = sort(potential_scales; rev = true)
     min_scale = potential_scales[end]
-    other_scales = potential_scales[begin:end - 1]
+    other_scales = potential_scales[begin:(end - 1)]
     return [[subset; min_scale] for subset in powerset(other_scales)]
 end
 
@@ -183,11 +183,23 @@ function analyze(source, target)
     tasks = Task[]
     for scale in searchspace_scale(potential_scales)
         task = Threads.@spawn begin
-            table = Table(smm_count = [], scale = [], iterations = [], T = [], cost = [], restartTs = [])
+            table = Table(
+                smm_count = [],
+                scale = [],
+                iterations = [],
+                T = [],
+                cost = [],
+                restartTs = [],
+            )
             prepd_target = prepare_target_kc(target; scale)
             for smm_count in searchspace_smm_count
                 for iterations in searchspace_iterations
-                    result = eval_params(; source, prepd_target, iterations, smm_count)
+                    result = eval_params(;
+                        source,
+                        prepd_target,
+                        iterations,
+                        smm_count,
+                    )
                     push!(table, (; smm_count, scale, iterations, result...))
                 end
             end
@@ -208,7 +220,8 @@ function analyze(source, target)
         success_count / length(row.restartTs)
     end
     neginf2inf(x) = isinf(x) && x < zero(x) ? typemax(x) : x
-    data.necessary_restarts = neginf2inf.(log(.01) ./ log.(1 .- data.success_rate))
+    data.necessary_restarts =
+        neginf2inf.(log(0.01) ./ log.(1 .- data.success_rate))
     return data, bestT
 end
 
@@ -252,5 +265,3 @@ promising = filter(data) do row
 end;
 
 include("plot.jl")
-
-

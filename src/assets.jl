@@ -21,7 +21,10 @@ end
 function load_cats()
     map((1, 2)) do id
         path = pkgdir(PointCloudRegistration, "assets", "cat-tail")
-        points = reinterpret(SVector{2, Float64}, read(joinpath(path, "cat$id-points.bin")))
+        points = reinterpret(
+            SVector{2, Float64},
+            read(joinpath(path, "cat$id-points.bin")),
+        )
         weights = reinterpret(Int64, read(joinpath(path, "cat$id-weights.bin")))
         PointCloud(points, weights)
     end

@@ -23,7 +23,11 @@ transformation1 = nonrigid_registration(source, target1, CoherentPointDrift(); s
 transformation2 = nonrigid_registration(source, target2, CoherentPointDrift(); source_preparation = prep)
 ```
 """
-function prepare_source_coherentpointdrift(source; corr_length, expected_displacement)
+function prepare_source_coherentpointdrift(
+    source;
+    corr_length,
+    expected_displacement,
+)
     source_pc = PointCloud(source)
     _prepare_source_cpd(source_pc, expected_displacement, corr_length)
 end
@@ -35,8 +39,8 @@ function _prepare_source_cpd(
 )
     corr_factor = -2 / corr_length^2
     gram = [
-        exp(corr_factor * sqeuclidean(src1, src2))
-        for src1 in source.points, src2 in source.points
+        exp(corr_factor * sqeuclidean(src1, src2)) for
+        src1 in source.points, src2 in source.points
     ]
     gram_cholesky = cholesky!(Symmetric(gram))
     invgram = LinearAlgebra.inv!(gram_cholesky)
@@ -50,7 +54,11 @@ struct CpdDisplacement{N, D <: AbstractMatrix, P <: VecOfSVec{N}, F <: Number}
     corr_factor::F
 end
 
-function CpdDisplacement(source::PointCloud, displacements, source_prepd::CpdPreparedSource)
+function CpdDisplacement(
+    source::PointCloud,
+    displacements,
+    source_prepd::CpdPreparedSource,
+)
     displacements_invgram = to_matrix(displacements) * source_prepd.invgram
     CpdDisplacement(
         displacements_invgram,
@@ -61,8 +69,8 @@ end
 
 function (cpd::CpdDisplacement{N})(pc::PointCloud{N}) where {N}
     connecting_gram = [
-        exp(cpd.corr_factor * sqeuclidean(p1, p2))
-        for p1 in cpd.source_points, p2 in pc.points
+        exp(cpd.corr_factor * sqeuclidean(p1, p2)) for
+        p1 in cpd.source_points, p2 in pc.points
     ]
     new_points = copy(pc.points)
     # The following call to `mul!` is equivalent to
@@ -117,7 +125,11 @@ displacements can be applied to other point clouds than the source as well.
   convergence is detected.
   Default: `1000`
 """
-@kwdef struct CoherentPointDrift{C <: Union{Number, Nothing}, E <: Union{Number, Nothing}, O <: Real}
+@kwdef struct CoherentPointDrift{
+    C <: Union{Number, Nothing},
+    E <: Union{Number, Nothing},
+    O <: Real,
+}
     corr_length::C = nothing
     expected_displacement::E = nothing
     outlier_proportion::O = false
@@ -164,10 +176,16 @@ function nonrigid_registration(
         source_preparation = prepare_source_coherentpointdrift(
             source_pc;
             alg.corr_length,
-            alg.expected_displacement
+            alg.expected_displacement,
         )
     end
-    _nonrigid_cpd(source_pc, target_pc, source_preparation, alg.outlier_proportion, alg.iterations)
+    _nonrigid_cpd(
+        source_pc,
+        target_pc,
+        source_preparation,
+        alg.outlier_proportion,
+        alg.iterations,
+    )
 end
 
 function _nonrigid_cpd(
@@ -194,7 +212,7 @@ function _nonrigid_cpd(
     convergence_checker = PointsConvergenceChecker(
         displacements,
         10,
-        promote_type(TT, TS) |> eps |> sqrt
+        promote_type(TT, TS) |> eps |> sqrt,
     )
     for iter in 1:iterations
         for j in 1:J

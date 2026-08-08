@@ -27,8 +27,19 @@ end
 
 new_source_points_hist = []
 sigma_hist = []
-prepd_Y = prepare_source_distancepreserving(Y; max_edge_length = 10.)
-dpr = nonrigid_registration(Y, X, DistancePreserving(; max_edge_length = 10, iterations = 200_000, report_iteration, sensitivity = 1.8, rel_deviation = 5e-2); source_preparation = prepd_Y)
+prepd_Y = prepare_source_distancepreserving(Y; max_edge_length = 10.0)
+dpr = nonrigid_registration(
+    Y,
+    X,
+    DistancePreserving(;
+        max_edge_length = 10,
+        iterations = 200_000,
+        report_iteration,
+        sensitivity = 1.8,
+        rel_deviation = 5e-2,
+    );
+    source_preparation = prepd_Y,
+)
 dY = dpr(Y)
 
 let
@@ -36,13 +47,15 @@ let
     ax = Axis3(fig[1, 1]; aspect = :data)
     # ax = Axis(fig[1, 1]; autolimitaspect = 1)
     plot!(ax, dY; color = :lightgray)
-    nodes = [(dY.points[j1], dY.points[j2]) for (j1, j2) in prepd_Y.neighbor_graph.edges]
+    nodes = [
+        (dY.points[j1], dY.points[j2]) for
+        (j1, j2) in prepd_Y.neighbor_graph.edges
+    ]
     distances = map(splat(euclidean), nodes)
-    abs_log_ratios = distances ./ prepd_Y.neighbor_graph.distances .|> log .|> abs
-    colormap = range(
-        Makie.to_color((:aqua, 0.01)),
-        Makie.to_color((:tomato, 1.0)),
-    )
+    abs_log_ratios =
+        distances ./ prepd_Y.neighbor_graph.distances .|> log .|> abs
+    colormap =
+        range(Makie.to_color((:aqua, 0.01)), Makie.to_color((:tomato, 1.0)))
     # lsplt = linesegments!(ax, nodes; color = exp.(abs_log_ratios) .- 1, colormap, linewidth = abs_log_ratios .* 20)
     # Colorbar(fig[1, 2], lsplt)
     lsplt = linesegments!(ax, nodes; color = :gray)
@@ -59,17 +72,28 @@ let
     iY = @lift PointCloud(new_source_points_hist[$(sl.value)], Y.weights)
     io = @lift [Point2($(sl.value), sigma_hist[$(sl.value)])]
     # plot!(ax1, Y; sizefactor = 2)
-    plot!(ax1, X; sizefactor = 2, color = (:gray, .3))
-    plot!(ax1, iY; sizefactor = 2, color = (:teal, .3))
-    nodes = @lift [(($iY).points[j1], ($iY).points[j2]) for (j1, j2) in prepd_Y.neighbor_graph.edges]
-    abs_log_ratios = @lift map(splat(euclidean), $nodes) ./ prepd_Y.neighbor_graph.distances .|> log .|> abs
+    plot!(ax1, X; sizefactor = 2, color = (:gray, 0.3))
+    plot!(ax1, iY; sizefactor = 2, color = (:teal, 0.3))
+    nodes = @lift [
+        (($iY).points[j1], ($iY).points[j2]) for
+        (j1, j2) in prepd_Y.neighbor_graph.edges
+    ]
+    abs_log_ratios = @lift map(splat(euclidean), $nodes) ./
+          prepd_Y.neighbor_graph.distances .|>
+          log .|>
+          abs
     color = @lift exp.($abs_log_ratios) .- 1
     linewidth = @lift $abs_log_ratios .* 10
-    colormap = range(
-        Makie.to_color((:aqua, 0.01)),
-        Makie.to_color((:tomato, 1.0)),
+    colormap =
+        range(Makie.to_color((:aqua, 0.01)), Makie.to_color((:tomato, 1.0)))
+    lsplt = linesegments!(
+        ax1,
+        nodes;
+        color,
+        colormap,
+        colorrange = (0, 0.5),
+        linewidth,
     )
-    lsplt = linesegments!(ax1, nodes; color, colormap, colorrange = (0, .5), linewidth)
     Colorbar(fig[3, 1], lsplt; vertical = false)
     scatter!(ax2, io; markersize = 10)
     fig
@@ -86,16 +110,18 @@ trials = [
                 iterations = 200_000,
                 sensitivity,
                 rel_deviation = 10.0^log10rel_deviation,
-            )
+            ),
         )
         (; sensitivity, log10rel_deviation, displacement)
-    end
-    for sensitivity in 1.0:0.2:2.0, log10rel_deviation in -5:1:-2
+    end for sensitivity in 1.0:0.2:2.0, log10rel_deviation in -5:1:-2
 ]
 
 let
     fig = Figure()
-    axs = [Axis(fig[Tuple(ci)...]; yreversed = true, aspect = DataAspect()) for ci in CartesianIndices(trials)]
+    axs = [
+        Axis(fig[Tuple(ci)...]; yreversed = true, aspect = DataAspect()) for
+        ci in CartesianIndices(trials)
+    ]
     hidedecorations!.(axs)
     for (ax, trial) in zip(axs, trials)
         arrows2d!(ax, trial.displacement)
@@ -105,16 +131,21 @@ let
         Label(fig[i, 0], string(sensitivity); tellheight = false)
     end
     for (i, col) in enumerate(eachcol(trials))
-        log10rel_deviation = [trial.log10rel_deviation for trial in col] |> unique |> only
+        log10rel_deviation =
+            [trial.log10rel_deviation for trial in col] |> unique |> only
         Label(fig[0, i], "10^$log10rel_deviation"; tellwidth = false)
     end
     fig
 end
 
-
-
 registrations = (
-    kc_springs = nonrigid_kc_springs(Y, X; stiffness = 3e-2, scale = 10., max_spring_length = 30.),
+    kc_springs = nonrigid_kc_springs(
+        Y,
+        X;
+        stiffness = 3e-2,
+        scale = 10.0,
+        max_spring_length = 30.0,
+    ),
     # divfree = nonrigid_divfree(Y, X; scale = 3.0, degree = 3),
     # sinkhorn = nonrigid_sinkhorn(Y, X),
     # cpd = nonrigid_cpd(Y, X; corr_length = 20., expected_displacement = 20.),
@@ -149,7 +180,6 @@ let
     fig
 end
 =#
-
 
 heatmap(correspondences(registrations.bcpd))
 

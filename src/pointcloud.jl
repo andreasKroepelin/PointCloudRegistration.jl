@@ -156,12 +156,7 @@ function PointCloud(points::VecOfSVec, weights::AbstractVector)
         last(weights_cumsum)
     end
     sum_of_weights > 0 || @warn "weights cannot all be zero" sum_of_weights
-    PointCloud(
-        points,
-        weights,
-        weights_cumsum,
-        sum_of_weights,
-    )
+    PointCloud(points, weights, weights_cumsum, sum_of_weights)
 end
 
 PointCloud(points::VecOfSVec) = PointCloud(points, Trues(length(points)))
@@ -322,19 +317,11 @@ function sample_point(rng, pc::PointCloud)
     (; idx, point = pc.points[idx])
 end
 
-(m::AffineMap)(pc::PointCloud) = PointCloud(
-    m.(pc.points),
-    pc.weights,
-    pc.weights_cumsum,
-    pc.sum_of_weights,
-)
+(m::AffineMap)(pc::PointCloud) =
+    PointCloud(m.(pc.points), pc.weights, pc.weights_cumsum, pc.sum_of_weights)
 
-(m::LinearMap)(pc::PointCloud) = PointCloud(
-    m.(pc.points),
-    pc.weights,
-    pc.weights_cumsum,
-    pc.sum_of_weights,
-)
+(m::LinearMap)(pc::PointCloud) =
+    PointCloud(m.(pc.points), pc.weights, pc.weights_cumsum, pc.sum_of_weights)
 
 function Base.vcat(pc1::PointCloud{N}, pc2::PointCloud{N}) where {N}
     PointCloud(
@@ -345,7 +332,11 @@ function Base.vcat(pc1::PointCloud{N}, pc2::PointCloud{N}) where {N}
     )
 end
 
-function Base.isapprox(pc1::PointCloud{N}, pc2::PointCloud{N}; kwargs...) where {N}
+function Base.isapprox(
+    pc1::PointCloud{N},
+    pc2::PointCloud{N};
+    kwargs...,
+) where {N}
     return all(fieldnames(PointCloud)) do fn
         f1 = getfield(pc1, fn)
         f2 = getfield(pc2, fn)

@@ -31,7 +31,10 @@ struct Displacement{N, O <: VecOfSVec{N}, R <: VecOfSVec{N}}
     origin::O
     result::R
 
-    function Displacement(origin::O, result::R) where {N, O <: VecOfSVec{N}, R <: VecOfSVec{N}}
+    function Displacement(
+        origin::O,
+        result::R,
+    ) where {N, O <: VecOfSVec{N}, R <: VecOfSVec{N}}
         @argcheck length(origin) == length(result)
         return new{N, O, R}(origin, result)
     end

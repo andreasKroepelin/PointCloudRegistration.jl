@@ -34,17 +34,12 @@ function prepare_source_distancepreserving(source; max_edge_length)
     _prepare_source_distancepreserving(source_pc, max_edge_length)
 end
 
-function _prepare_source_distancepreserving(
-    source::PointCloud,
-    max_edge_length
-)
+function _prepare_source_distancepreserving(source::PointCloud, max_edge_length)
     tree = KDTree(source.points)
 
     edges = inrange_pairs(tree, max_edge_length)
-    distances = [
-        euclidean(source.points[j1], source.points[j2])
-        for (j1, j2) in edges
-    ]
+    distances =
+        [euclidean(source.points[j1], source.points[j2]) for (j1, j2) in edges]
 
     init_sqsigma = let
         _idcs, dists = allnn(tree)
@@ -118,7 +113,13 @@ we quantify the deviation of ``\\hat{d}_{j k}`` from ``d_{j k}`` as
   * `sqsigma`: Current value of ``\\sigma^2``.
   Default: `(; kwargs...) -> nothing`
 """
-@kwdef struct DistancePreserving{E <: Union{Number, Nothing}, S <: Real, D <: Real, N <: Number, RI}
+@kwdef struct DistancePreserving{
+    E <: Union{Number, Nothing},
+    S <: Real,
+    D <: Real,
+    N <: Number,
+    RI,
+}
     max_edge_length::E = nothing
     sensitivity::S
     rel_deviation::D
@@ -161,7 +162,8 @@ function nonrigid_registration(
     target_pc = PointCloud(target)
     if isnothing(source_preparation)
         @argcheck !isnothing(alg.max_edge_length) "without `source_preparation`, `max_edge_length` must be specified"
-        source_preparation = prepare_source_distancepreserving(source_pc; alg.max_edge_length)
+        source_preparation =
+            prepare_source_distancepreserving(source_pc; alg.max_edge_length)
     end
     _nonrigid_distancepreserving(
         source_pc,
@@ -200,7 +202,7 @@ function _nonrigid_distancepreserving(
     convergence_checker = PointsConvergenceChecker(
         new_source_points,
         1000,
-        minimum(neighbor_graph.distances) / 20
+        minimum(neighbor_graph.distances) / 20,
     )
     points_gradient = extract_points(gradient)
     adam = Adam.State(state)
@@ -225,7 +227,8 @@ function _nonrigid_distancepreserving(
 
         report_iteration(; iter, new_source_points, sqsigma)
 
-        converged = update_and_check!(convergence_checker, new_source_points, iter)
+        converged =
+            update_and_check!(convergence_checker, new_source_points, iter)
         converged && break
 
         if false && iter % 5000 == 0
@@ -261,7 +264,8 @@ function _nonrigid_distancepreserving(
             regularizer,
         )
 
-        logsqsigma_gradient = -dot(vec(C), vec(R)) / 2sqsigma + N * target.sum_of_weights
+        logsqsigma_gradient =
+            -dot(vec(C), vec(R)) / 2sqsigma + N * target.sum_of_weights
         # logsqsigma_gradient /= 2sqsigma
 
         gradient[1] = logsqsigma_gradient
@@ -277,7 +281,8 @@ struct GeneralizedLogNormalRegularizer{B <: Number}
     coefficient::Float64
 
     function GeneralizedLogNormalRegularizer(beta, expected_rel_deviation)
-        lambda = log1p(expected_rel_deviation) * sqrt(gamma(1/beta) / gamma(3/beta))
+        lambda =
+            log1p(expected_rel_deviation) * sqrt(gamma(1/beta) / gamma(3/beta))
         coefficient = beta / lambda^beta
         new{typeof(beta)}(beta, coefficient)
     end

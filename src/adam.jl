@@ -17,7 +17,7 @@ struct State{L, Q}
 end
 
 function step!(adam::State, g::AbstractArray, x::AbstractArray, k::Int)
-    (;v, s, vhat, shat) = adam
+    (; v, s, vhat, shat) = adam
     T = eltype(x)
     alpha = T(0.01)
     gammav = T(0.9)

@@ -72,7 +72,13 @@ equal index are supposed to correspond to each other.
   - `transformation`: Optimal transformation found in this restart.
   Default: `(; kwargs...) -> nothing`
 """
-@kwdef struct GemanMcClureMM{S <: ScaleType, R <: AbstractRestarts, B <: AbstractBatch, RI, RR}
+@kwdef struct GemanMcClureMM{
+    S <: ScaleType,
+    R <: AbstractRestarts,
+    B <: AbstractBatch,
+    RI,
+    RR,
+}
     scale::S = LogAnnealingToNearestNeighborDistance()
     restarts::R = RandomRestarts(5)
     iterations::Int = 50
@@ -121,7 +127,12 @@ julia> transformation.translation
  1.3159778492727314e-5
 ```
 """
-function rigid_registration(source, target, alg::GemanMcClureMM, flip::FlipMarker = NoFlip())
+function rigid_registration(
+    source,
+    target,
+    alg::GemanMcClureMM,
+    flip::FlipMarker = NoFlip(),
+)
     @argcheck alg.iterations >= 1
 
     source_pc = PointCloud(source)
@@ -267,7 +278,12 @@ Perform rigid registration via [`MeanAbsoluteDeviationMM`](@ref).
 See [here](@ref rigid_registration(::Any, ::Any, ::Any, ::Any)) for general info
 about this function.
 """
-function rigid_registration(source, target, alg::MeanAbsoluteDeviationMM, flip::FlipMarker = NoFlip())
+function rigid_registration(
+    source,
+    target,
+    alg::MeanAbsoluteDeviationMM,
+    flip::FlipMarker = NoFlip(),
+)
     @argcheck alg.iterations >= 1
 
     pc_source = PointCloud(source)
@@ -289,7 +305,8 @@ function _rigid_mad(
     transformation = simple_transformation(source, target, flip)
     prev_transformation = identity_transformation(transformation)
     for iter in 1:iterations
-        sum_w = float(zero(eltype(source.weights)) * zero(eltype(target.weights)))
+        sum_w =
+            float(zero(eltype(source.weights)) * zero(eltype(target.weights)))
         source_mean = sum_w * zero(SrcT)
         target_mean = sum_w * zero(TrgT)
         covariance = sum_w * zero(TrgT) * zero(SrcT)'

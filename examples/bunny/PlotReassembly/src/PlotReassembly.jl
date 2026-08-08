@@ -352,7 +352,6 @@ function plot_result(result, fig, i)
     mesh!(ax3, vertices1, [1 2 3; 3 4 1]; color = (lower_color, 0.7))
     mesh!(ax3, vertices2, [1 2 3; 3 4 1]; color = (upper_color, 0.7))
     =#
-
 end
 
 #=

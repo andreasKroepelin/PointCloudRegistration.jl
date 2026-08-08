@@ -104,7 +104,8 @@ let
             ax,
             selection.angle_mean,
             selection.norm_mean;
-            #=color = selection.numwrong, colormap = :blues=#label = method,
+            #=color = selection.numwrong, colormap = :blues=#
+            label = method,
         )
     end
     axislegend(ax)
@@ -116,8 +117,7 @@ let
     ax = Axis(
         fig[1, 1];
         yscale = identity,
-        #=yticks = 0:15:180 =##= yticks = [0.1u"deg", 1.0u"deg", 10.0u"deg", 100.0u"deg"]=#
-
+        #=yticks = 0:15:180 =# #= yticks = [0.1u"deg", 1.0u"deg", 10.0u"deg", 100.0u"deg"]=# 
         # TODO:
         # 1. clean up deps
         # 2. use 1ake

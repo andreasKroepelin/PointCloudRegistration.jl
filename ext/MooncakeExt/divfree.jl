@@ -10,16 +10,22 @@ using Statistics
 
 using PointCloudRegistration.Adam
 
-
 struct Velocity{N, C, Cs <: AbstractVector{C}}
     coefficients::Cs
 
-    Velocity{N}(coefficients) where {N} = new{N, eltype(coefficients), typeof(coefficients)}(coefficients)
+    Velocity{N}(coefficients) where {N} =
+        new{N, eltype(coefficients), typeof(coefficients)}(coefficients)
 end
 
-@generated function velocity_for_frequency(f::SVector{N}, x::SVector{N, T}, c::SVector{M}) where {N, M, T}
+@generated function velocity_for_frequency(
+    f::SVector{N},
+    x::SVector{N, T},
+    c::SVector{M},
+) where {N, M, T}
     if M != binomial(N, 2)
-        error("`c` should have length (N choose 2) where N is length of `x` and `f`.")
+        error(
+            "`c` should have length (N choose 2) where N is length of `x` and `f`.",
+        )
     end
     setup = quote
         fpi = f .* T(pi)
@@ -33,7 +39,7 @@ end
             $(Symbol(:s, i)) = *(
                 fpi[$i],
                 sincos_fpix[$i].cos,
-                $([:(sincos_fpix[$j].sin) for j in 1:N if j != i]...)
+                $([:(sincos_fpix[$j].sin) for j in 1:N if j != i]...),
             )
         end
     end
@@ -97,7 +103,7 @@ function compute_invlambdas(::Type{T}, ::Val{N}, degree::Int) where {T, N}
     return repeat(single; inner = binomial(N, 2))
 end
 
-struct Energy{N, T, PS<:PointCloud{N, T}, PT<:PointCloud{N, T}}
+struct Energy{N, T, PS <: PointCloud{N, T}, PT <: PointCloud{N, T}}
     sigma::T
     invlambdas::Vector{T}
     source::PS
@@ -105,7 +111,12 @@ struct Energy{N, T, PS<:PointCloud{N, T}, PT<:PointCloud{N, T}}
     correspondences::Matrix{T}
 end
 
-function Energy(source::PointCloud{N, T}, target::PointCloud{N, T}, sigma, degree) where {N, T}
+function Energy(
+    source::PointCloud{N, T},
+    target::PointCloud{N, T},
+    sigma,
+    degree,
+) where {N, T}
     invlambdas = compute_invlambdas(T, Val(N), degree)
     correspondences = zeros(T, length(target.points), length(source.points))
 
@@ -144,12 +155,7 @@ struct VelocityOptimizer{E, C, A, G}
         cache = prepare_gradient_cache(energy, coefficients)
         adam = Adam.State(coefficients)
         grad = similar(coefficients)
-        new{
-            typeof(energy),
-            typeof(cache),
-            typeof(adam),
-            typeof(grad),
-        }(
+        new{typeof(energy), typeof(cache), typeof(adam), typeof(grad)}(
             energy,
             cache,
             adam,
@@ -201,7 +207,9 @@ It can be applied to arbitrary point clouds (of the same dimension as source and
 target).
 """
 function PointCloudRegistration.nonrigid_registration(
-    source, target, algorithm::DivergenceFree,
+    source,
+    target,
+    algorithm::DivergenceFree,
 )
     source_pc = PointCloud(source)
     target_pc = PointCloud(target)
@@ -210,7 +218,13 @@ function PointCloudRegistration.nonrigid_registration(
     else
         scale = algorithm.scale
     end
-    _nonrigid_divfree(source_pc, target_pc, scale, algorithm.degree, algorithm.iterations)
+    _nonrigid_divfree(
+        source_pc,
+        target_pc,
+        scale,
+        algorithm.degree,
+        algorithm.iterations,
+    )
 end
 
 function _nonrigid_divfree(
@@ -226,7 +240,8 @@ function _nonrigid_divfree(
     sigma = eltype(source_box)(LinearMap(ubs.linear)(scale))
     outlier_term = sqrt(2pi * sigma^2) ^ N
     energy = Energy(source_box, target_box, sigma, degree)
-    corr_row_sums = similar(energy.correspondences, size(energy.correspondences, 1), 1)
+    corr_row_sums =
+        similar(energy.correspondences, size(energy.correspondences, 1), 1)
     coefficients = zeros(eltype(source_box), N * degree^N)
     velocity_optimizer = VelocityOptimizer(energy, coefficients)
 

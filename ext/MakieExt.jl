@@ -3,7 +3,8 @@ using PointCloudRegistration
 using PointCloudRegistration: avg_nn_dist
 # this makes the Makie recipe add methods to the functions defined in the main
 # package, so we can access them
-import PointCloudRegistration: pointcloudplotflat,
+import PointCloudRegistration:
+    pointcloudplotflat,
     pointcloudplotmesh,
     scaffoldplot,
     pointcloudplotflat!,
@@ -14,16 +15,14 @@ using Makie.Markdown
 
 function _ext_makie_docref(olddoc::Markdown.MD)
     olddoc_code = Markdown.plain(olddoc)
-    newdoc_code = replace(
-        olddoc_code,
-        r"(\[`Makie\..+`\])\(@ref\)" => s"\1(@extref)"
-    )
+    newdoc_code =
+        replace(olddoc_code, r"(\[`Makie\..+`\])\(@ref\)" => s"\1(@extref)")
     return Markdown.parse(newdoc_code)
 end
 
 function _plotsizes(
     pc::PointCloud,
-    sizefactor = avg_nn_dist(pc) / maximum(pc.weights)
+    sizefactor = avg_nn_dist(pc) / maximum(pc.weights),
 )
     sizefactor .* pc.weights
 end
@@ -100,12 +99,7 @@ function Makie.plot!(plot::PointCloudPlotMesh)
         end
         (pc.points, maybe_collect(ps))
     end
-    meshscatter!(
-        plot,
-        plot.attributes,
-        plot.positions;
-        markersize = plot.sizes,
-    )
+    meshscatter!(plot, plot.attributes, plot.positions; markersize = plot.sizes)
 end
 
 Makie.plottype(::PointCloud{2}) = PointCloudPlotFlat
@@ -114,11 +108,11 @@ Makie.preferred_axis_type(::PointCloudPlotMesh) = Makie.LScene
 
 Makie.convert_arguments(
     al::Makie.ArrowLike,
-    displacement::PointCloudRegistration.Displacement
+    displacement::PointCloudRegistration.Displacement,
 ) = Makie.convert_arguments(
     al,
     displacement.origin,
-    displacement.result .- displacement.origin
+    displacement.result .- displacement.origin,
 )
 
 """
@@ -148,13 +142,12 @@ function Makie.plot!(plot::ScaffoldPlot)
     map!(plot.attributes, [:prep, :pointcloud], :segments) do prep, pc
         [(pc.points[i], pc.points[j]) for (i, j) in prep.neighbor_graph.edges]
     end
-    linesegments!(
-        plot,
-        plot.attributes,
-        plot.segments;
-    )
+    linesegments!(plot, plot.attributes, plot.segments;)
 end
 
-Makie.plottype(::PointCloudRegistration.PreparedSourceDistPres, ::PointCloud2Or3) = ScaffoldPlot
+Makie.plottype(
+    ::PointCloudRegistration.PreparedSourceDistPres,
+    ::PointCloud2Or3,
+) = ScaffoldPlot
 
 end

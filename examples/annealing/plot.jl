@@ -6,14 +6,24 @@ function plot_data(data)
         100 => colorant"#7FDBFF",
     )
     fig = Figure()
-    ax_sc = Axis(fig[0, 1]; ylabel = "annealing scales", yticks = unique(reduce(vcat, data.scale)), ytickformat = "{:.2f}")
-    ax_it = Axis(fig[1, 1]; ylabel = "iterations", yticks = unique(data.iterations))
-    ax_su = Axis(fig[2, 1]; ylabel = "number of restarts\nfor 1 % failure rate", xlabel = "strategies")
+    ax_sc = Axis(
+        fig[0, 1];
+        ylabel = "annealing scales",
+        yticks = unique(reduce(vcat, data.scale)),
+        ytickformat = "{:.2f}",
+    )
+    ax_it =
+        Axis(fig[1, 1]; ylabel = "iterations", yticks = unique(data.iterations))
+    ax_su = Axis(
+        fig[2, 1];
+        ylabel = "number of restarts\nfor 1 % failure rate",
+        xlabel = "strategies",
+    )
     Legend(
         fig[2, 2],
         [
-            PolyElement(; color = smm_colors[n], strokewidth = 0)
-            for n in [0, 10, 50, 100]
+            PolyElement(; color = smm_colors[n], strokewidth = 0) for
+            n in [0, 10, 50, 100]
         ],
         ["without SMM", "with SMM (10)", "with SMM (50)", "with SMM (100)"];
         halign = :left,
@@ -67,4 +77,3 @@ function plot_data(data)
     # DataInspector(fig)
     fig
 end
-

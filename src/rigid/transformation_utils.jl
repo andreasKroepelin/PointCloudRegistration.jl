@@ -8,8 +8,10 @@ function orthogonal_type(
     orthogonal_type(Val(N), T1, flip)
 end
 
-orthogonal_type(::Val{N}, ::Type{T}, ::NoFlip) where {N, T} = RotMatrix{N, T, N * N}
-orthogonal_type(::Val{N}, ::Type{T}, ::WithFlip) where {N, T} = OrthogonalMatrix{N, T, N * N}
+orthogonal_type(::Val{N}, ::Type{T}, ::NoFlip) where {N, T} =
+    RotMatrix{N, T, N * N}
+orthogonal_type(::Val{N}, ::Type{T}, ::WithFlip) where {N, T} =
+    OrthogonalMatrix{N, T, N * N}
 
 function flip_matrix(::Val{N}, ::Type{T}) where {N, T}
     o = @SVector ones(T, N - 1)
@@ -35,7 +37,7 @@ function rand_orthogonal(
     rng,
     source::PointCloud{N},
     target::PointCloud{N},
-    flip::FlipMarker
+    flip::FlipMarker,
 ) where {N}
     rand_orthogonal(rng, orthogonal_type(source, target, flip))
 end
@@ -67,7 +69,10 @@ function rand_transformation(
     j = rand(rng, eachindex(target.points))
     translation = target.points[j] - orthogonal * source.points[i]
 
-    AffineMap(orthogonal, translation)::transformation_type(source, target, flip)
+    AffineMap(
+        orthogonal,
+        translation,
+    )::transformation_type(source, target, flip)
 end
 
 function rand_transformation(
@@ -78,7 +83,8 @@ function rand_transformation(
     rand_transformation(Random.default_rng(), source, target, flip)
 end
 
-rand_transformation(pc::PointCloud, flip::FlipMarker = NoFlip()) = rand_transformation(Random.default_rng(), pc, pc, flip)
+rand_transformation(pc::PointCloud, flip::FlipMarker = NoFlip()) =
+    rand_transformation(Random.default_rng(), pc, pc, flip)
 
 function simple_transformation(
     source::PointCloud{N},
@@ -89,7 +95,10 @@ function simple_transformation(
     target_mean, _ = mean_cov(target)
     source_mean, _ = mean_cov(source)
     translation = target_mean - orthogonal * source_mean
-    AffineMap(orthogonal, translation)::transformation_type(source, target, flip)
+    AffineMap(
+        orthogonal,
+        translation,
+    )::transformation_type(source, target, flip)
 end
 
 function identity_transformation(::Type{<:AffineMap{R, L}}) where {R, L}
@@ -101,7 +110,11 @@ function identity_transformation(
     target::PointCloud{N},
     flip::FlipMarker = NoFlip(),
 ) where {N}
-    AffineMap(one(orthogonal_type(source, target, flip)), zero(eltype(target.points)) - zero(eltype(source.points)))
+    AffineMap(
+        one(orthogonal_type(source, target, flip)),
+        zero(eltype(target.points)) - zero(eltype(source.points)),
+    )
 end
 
-const RigidTransformation{N} = AffineMap{Rot, Transl} where {Rot <: Rotation{N}, Transl <: StaticVector{N}}
+const RigidTransformation{N} =
+    AffineMap{Rot, Transl} where {Rot <: Rotation{N}, Transl <: StaticVector{N}}

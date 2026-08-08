@@ -29,7 +29,9 @@ nonrigid_registration(source, target, EarthMover(optimizer = Tulip.Optimizer()))
 ```
 """
 function PointCloudRegistration.nonrigid_registration(
-    source, target, algorithm::EarthMover
+    source,
+    target,
+    algorithm::EarthMover,
 )
     source_pc = PointCloud(source)
     target_pc = PointCloud(target)

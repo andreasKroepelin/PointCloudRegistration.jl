@@ -169,8 +169,8 @@ Ts = map(randomized_sources) do source
     rigid_registration(
         source,
         target_thinned,
-        KernelCorrelationMM(restarts = RandomRestarts(1000));
-        target_preparation
+        KernelCorrelationMM(; restarts = RandomRestarts(1000));
+        target_preparation,
     )
 end
 
@@ -215,7 +215,7 @@ end
 T_16S_better = rigid_registration(
     randomized_sources.rRNA16S,
     target_without_23S,
-    KernelCorrelationMM(restarts = RandomRestarts(500)),
+    KernelCorrelationMM(; restarts = RandomRestarts(500)),
 )
 Ts = (; Ts.rRNA23S, rRNA16S = T_16S_better)
 

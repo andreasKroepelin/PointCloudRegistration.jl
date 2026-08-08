@@ -27,7 +27,6 @@ using Extents
 using JLD2
 using Random #hide
 
-
 Random.seed!(3); #hide
 
 # ## Loading the images
@@ -83,8 +82,8 @@ end
 # zeros.
 
 function transform_img(img::DimMatrix, T)
-    xlo, xhi  = DimensionalData.bounds(img, X)
-    ylo, yhi  = DimensionalData.bounds(img, Y)
+    xlo, xhi = DimensionalData.bounds(img, X)
+    ylo, yhi = DimensionalData.bounds(img, Y)
     corners = [SA[xlo, ylo], SA[xhi, ylo], SA[xlo, yhi], SA[xhi, yhi]]
     newlo, newhi = PointCloudRegistration.bbox(T.(corners))
     invT = inv(T)
@@ -96,8 +95,7 @@ function transform_img(img::DimMatrix, T)
             else
                 zero(eltype(img))
             end
-        end
-        for Tx in X(newlo[1]:newhi[1]), Ty in Y(newlo[2]:newhi[2])
+        end for Tx in X(newlo[1]:newhi[1]), Ty in Y(newlo[2]:newhi[2])
     ]
 end
 
@@ -111,7 +109,7 @@ end;
 
 # It looks like this:
 
-image(imgs[2]; axis = (;aspect = DataAspect()))
+image(imgs[2]; axis = (; aspect = DataAspect()))
 
 # ## Conversion to point clouds
 # To apply this package, we need to work with point clouds.
@@ -127,7 +125,11 @@ pointclouds_full = map(density2pointcloud, imgs);
 
 let
     fig = Figure()
-    ax = Axis(fig[1, 1]; aspect = DataAspect(), limits = ((630, 680), (790, 850)))
+    ax = Axis(
+        fig[1, 1];
+        aspect = DataAspect(),
+        limits = ((630, 680), (790, 850)),
+    )
     image!(ax, imgs[1])
     plot!(ax, pointclouds_full[1]; color = :lime)
     fig
@@ -135,18 +137,22 @@ end
 
 # As we can see, there are very many points that don't contribute to a valuable
 # description of the image.
-# Hence, let us drop all points with a weight below the 99.5 % quantile per
+# Hence, let us drop all points with a weight below the 92 % quantile per
 # point cloud.
 
 pointclouds_foreground = map(pointclouds_full) do pc
-    drop_quantile(pc, .92)
+    drop_quantile(pc, 0.92)
 end;
 
 # The same region from before now looks like this:
 
 let
     fig = Figure()
-    ax = Axis(fig[1, 1]; aspect = DataAspect(), limits = ((630, 680), (790, 850)))
+    ax = Axis(
+        fig[1, 1];
+        aspect = DataAspect(),
+        limits = ((630, 680), (790, 850)),
+    )
     image!(ax, imgs[1])
     plot!(ax, pointclouds_foreground[1]; color = :lime)
     fig
@@ -157,14 +163,18 @@ end
 # We can thin them to a nearest neighbor distance of roughly 10 (pixels).
 
 pointclouds_thinned = map(pointclouds_foreground) do pc
-    thin_to_distance(pc, 15.)
+    thin_to_distance(pc, 15.0)
 end;
 
 # This looks much less cluttered now:
 
 let
     fig = Figure()
-    ax = Axis(fig[1, 1]; aspect = DataAspect(), limits = ((630, 680), (790, 850)))
+    ax = Axis(
+        fig[1, 1];
+        aspect = DataAspect(),
+        limits = ((630, 680), (790, 850)),
+    )
     image!(ax, imgs[1])
     plot!(ax, pointclouds_thinned[1]; color = :lime)
     fig
@@ -189,14 +199,15 @@ end
 
 target = pointclouds_thinned[1]
 target_preparation = prepare_target_kernelcorrelation(target);
-Ts = map(pointclouds_thinned) do src
-    Threads.@spawn rigid_registration(
-        src,
-        target,
-        KernelCorrelationMM(restarts = RandomRestarts(500));
-        target_preparation
-    )
-end .|> fetch
+Ts =
+    map(pointclouds_thinned) do src
+        Threads.@spawn rigid_registration(
+            src,
+            target,
+            KernelCorrelationMM(restarts = RandomRestarts(500));
+            target_preparation,
+        )
+    end .|> fetch
 
 # We can check if the registration worked by comparing `Ts` with `trueinvTs`
 # from above.
@@ -240,16 +251,16 @@ end
 function diffview(img1, img2)
     newbounds = Extents.bounds(Extents.union(extent(img1), extent(img2)))
     greens, blues = map([img1, img2]) do img
-        xlo, xhi  = DimensionalData.bounds(img, X)
-        ylo, yhi  = DimensionalData.bounds(img, Y)
+        xlo, xhi = DimensionalData.bounds(img, X)
+        ylo, yhi = DimensionalData.bounds(img, Y)
         maxintensity = maximum(img)
         [
             if xlo <= x <= xhi && ylo <= y <= yhi
                 img[X = Near(x), Y = Near(y)] / maxintensity
             else
                 zero(eltype(img))
-            end
-            for x in X(range(newbounds.X...)), y in Y(range(newbounds.Y...))
+            end for
+            x in X(range(newbounds.X...)), y in Y(range(newbounds.Y...))
         ]
     end
     Makie.RGB.(0, greens, blues)

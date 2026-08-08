@@ -392,7 +392,13 @@ in the kernel densities.
   - `transformation`: Optimal transformation found in this restart.
   Default: `(; kwargs...) -> nothing`
 """
-@kwdef struct KernelCorrelationMM{S <: ScaleType, R <: AbstractRestarts, B <: AbstractBatch, RI, RR}
+@kwdef struct KernelCorrelationMM{
+    S <: ScaleType,
+    R <: AbstractRestarts,
+    B <: AbstractBatch,
+    RI,
+    RR,
+}
     scale::S = LogAnnealingToNearestNeighborDistance()
     axisalign::Bool = false
     restarts::R = RandomRestarts(50)
@@ -460,7 +466,7 @@ function rigid_registration(
     target,
     alg::KernelCorrelationMM,
     flip::FlipMarker = NoFlip();
-    target_preparation::Union{Nothing, PreparedTargetKernelCorrelation} = nothing
+    target_preparation::Union{Nothing, PreparedTargetKernelCorrelation} = nothing,
 )
     @argcheck alg.iterations >= 1
 
@@ -469,7 +475,11 @@ function rigid_registration(
     @argcheck dimension(pc_source) == dimension(pc_target)
 
     if isnothing(target_preparation)
-        target_preparation = prepare_target_kernelcorrelation(pc_target; alg.scale, alg.axisalign)
+        target_preparation = prepare_target_kernelcorrelation(
+            pc_target;
+            alg.scale,
+            alg.axisalign,
+        )
     end
 
     _rigid_kc(

@@ -3,7 +3,7 @@ function aligned_atoms(
     el2,
     residue_selectors::Function...;
     scoremodel::AbstractScoreModel = AffineGapScoreModel(
-        BLOSUM62,
+        BLOSUM62;
         gap_open = -10,
         gap_extend = -1,
     ),

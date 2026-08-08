@@ -61,8 +61,7 @@ end
     pc, _ = PCReg.Assets.load_1ake_A_4ake_A()
     transformation = PCReg.rand_transformation(pc)
 
-    manual_mapping =
-        PointCloud(transformation.(pc.points), pc.weights)
+    manual_mapping = PointCloud(transformation.(pc.points), pc.weights)
     clever_mapping = transformation(pc)
     @test isapprox(manual_mapping, clever_mapping)
 
@@ -104,7 +103,11 @@ end
 end
 
 @testset "transformation_type" begin
-    for T in (Float32, Float64), N in 2:4, (flip, M) in ((WithFlip(), PCReg.OrthogonalMatrix), (NoFlip(), RotMatrix))
+    for T in (Float32, Float64),
+        N in 2:4,
+        (flip, M) in
+        ((WithFlip(), PCReg.OrthogonalMatrix), (NoFlip(), RotMatrix))
+
         mat = zeros(T, N, 10)
         pc = PointCloud(mat)
         @test PCReg.transformation_type(pc, pc, flip) ==
@@ -117,7 +120,12 @@ end
         source_mean = randn(SVector{N, Float64})
         target_mean = randn(SVector{N, Float64})
         cov = randn(SMatrix{N, N, Float64}) |> (A -> A' * A)
-        T = PCReg.transformation_from_moments(cov, source_mean, target_mean, NoFlip())
+        T = PCReg.transformation_from_moments(
+            cov,
+            source_mean,
+            target_mean,
+            NoFlip(),
+        )
 
         @test det(T.linear) > 0.5 # should not only be slightly positive
         @test isapprox(T.linear' * T.linear, one(T.linear))
@@ -128,8 +136,13 @@ end
 @testset "known correspondences" begin
     pc, _ = PCReg.Assets.load_1ake_A_4ake_A()
     rng = Random.Xoshiro(136)
-    for alg in (Kabsch(), GemanMcClureMM(scale = 1.0), MeanAbsoluteDeviationMM())
-        @test_throws ArgumentError rigid_registration(zeros(2, 5), zeros(2, 6), alg)
+    for alg in
+        (Kabsch(), GemanMcClureMM(scale = 1.0), MeanAbsoluteDeviationMM())
+        @test_throws ArgumentError rigid_registration(
+            zeros(2, 5),
+            zeros(2, 6),
+            alg,
+        )
         for flip in (NoFlip(), WithFlip()), _ in 1:10
             T_true = PCReg.rand_transformation(rng, pc, pc, flip)
             T = rigid_registration(pc, T_true(pc), alg, flip)
@@ -260,13 +273,18 @@ end
         T = rigid_registration(
             inv(T_true)(pc),
             pc,
-            KernelCorrelationMM(restarts = RandomRestarts(20, rng),);
+            KernelCorrelationMM(restarts = RandomRestarts(20, rng));
             target_preparation = prep,
         )
         @test isapprox(T_true, T, rtol = 5e-2)
     end
 
-    alloc_wrapper(pc, prep) = @allocations rigid_registration(pc, pc, KernelCorrelationMM(); target_preparation = prep)
+    alloc_wrapper(pc, prep) = @allocations rigid_registration(
+        pc,
+        pc,
+        KernelCorrelationMM();
+        target_preparation = prep,
+    )
     alloc_wrapper(pc, prep)
     @test alloc_wrapper(pc, prep) == 0
 end

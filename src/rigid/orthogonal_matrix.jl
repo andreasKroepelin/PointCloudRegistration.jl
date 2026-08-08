@@ -6,26 +6,34 @@ That is `inv(o) == o'` for `o isa OrthogonalMatrix`.
 """
 struct OrthogonalMatrix{N, T, L} <: StaticMatrix{N, N, T}
     mat::SMatrix{N, N, T, L}
-    OrthogonalMatrix{N, T, L}(x::AbstractArray) where {N, T, L} = new{N, T, L}(convert(SMatrix{N, N, T, L}, x))
+    OrthogonalMatrix{N, T, L}(x::AbstractArray) where {N, T, L} =
+        new{N, T, L}(convert(SMatrix{N, N, T, L}, x))
     # fixes #49 ambiguity introduced in StaticArrays 0.6.5
-    OrthogonalMatrix{N, T, L}(x::StaticArray) where {N, T, L} = new{N, T, L}(convert(SMatrix{N, N, T, L}, x))
-    OrthogonalMatrix{N}(tpl::NTuple{L, T}) where {N, T, L} = new{N, T, L}(SMatrix{N, N, T, L}(tpl))
+    OrthogonalMatrix{N, T, L}(x::StaticArray) where {N, T, L} =
+        new{N, T, L}(convert(SMatrix{N, N, T, L}, x))
+    OrthogonalMatrix{N}(tpl::NTuple{L, T}) where {N, T, L} =
+        new{N, T, L}(SMatrix{N, N, T, L}(tpl))
 end
 
-OrthogonalMatrix(x::SMatrix{N, N, T, L}) where {N, T, L} = OrthogonalMatrix{N, T, L}(x)
+OrthogonalMatrix(x::SMatrix{N, N, T, L}) where {N, T, L} =
+    OrthogonalMatrix{N, T, L}(x)
 
-Base.@propagate_inbounds Base.getindex(om::OrthogonalMatrix, i::Int) = getindex(om.mat, i)
+Base.@propagate_inbounds Base.getindex(om::OrthogonalMatrix, i::Int) =
+    getindex(om.mat, i)
 @inline Base.Tuple(om::OrthogonalMatrix) = Tuple(om.mat)
 
-Base.one(::Type{<: OrthogonalMatrix{N, T, L}}) where {N, T, L} = OrthogonalMatrix(one(SMatrix{N, N, T, L}))
-Base.zero(::Type{<: OrthogonalMatrix}) = error("There is no zero orthogonal matrix.")
+Base.one(::Type{<: OrthogonalMatrix{N, T, L}}) where {N, T, L} =
+    OrthogonalMatrix(one(SMatrix{N, N, T, L}))
+Base.zero(::Type{<: OrthogonalMatrix}) =
+    error("There is no zero orthogonal matrix.")
 Base.one(::OM) where {OM <: OrthogonalMatrix} = one(OM)
 Base.zero(::OM) where {OM <: OrthogonalMatrix} = zero(OM)
 Base.inv(om::OrthogonalMatrix) = OrthogonalMatrix(om.mat')
 Base.adjoint(om::OrthogonalMatrix) = OrthogonalMatrix(om.mat')
 Base.transpose(om::OrthogonalMatrix) = OrthogonalMatrix(transpose(om.mat))
 
-Base.:*(o1::OrthogonalMatrix, o2::OrthogonalMatrix) = OrthogonalMatrix(o1.mat * o2.mat)
+Base.:*(o1::OrthogonalMatrix, o2::OrthogonalMatrix) =
+    OrthogonalMatrix(o1.mat * o2.mat)
 Base.:*(o::OrthogonalMatrix, r::RotMatrix) = OrthogonalMatrix(o.mat * r.mat)
 Base.:*(r::RotMatrix, o::OrthogonalMatrix) = OrthogonalMatrix(r.mat * o.mat)
 

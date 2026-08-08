@@ -33,22 +33,19 @@ pointclouds, pdb_ids = let
         4YCL,4YCM,4YCN,5A3Q,5A3R,5A3S,5NCQ,5XA7,5XA8,5XA9,5XAA,5XAB,6HEF,6YAA,\
         6YSO,4BEW,8OWA,8OWL\
         """,
-        ","
+        ",",
     )
     all_pdbs = [retrievepdb(id; dir = "data")["A"] for id in all_ids]
-    exact_seq_mask = [
-        countatoms(pdb, calphaselector) == 994
-        for pdb in all_pdbs
-    ]
+    exact_seq_mask =
+        [countatoms(pdb, calphaselector) == 994 for pdb in all_pdbs]
     exact_seq_ids = all_ids[exact_seq_mask]
     exact_seq_pdbs = all_pdbs[exact_seq_mask]
     exact_seq_pcs = [
-        PointCloud(coordarray(pdb, calphaselector))
-        for pdb in exact_seq_pdbs
+        PointCloud(coordarray(pdb, calphaselector)) for pdb in exact_seq_pdbs
     ]
     rmsds = [compute_rmsd(Y, X) for Y in exact_seq_pcs, X in exact_seq_pcs]
     clustering = hclust(Symmetric(rmsds))
-    assignments = cutree(clustering; h = 4.)
+    assignments = cutree(clustering; h = 4.0)
     pcs = PointCloud{3, Float64}[]
     ids = String[]
     for a in unique(assignments)
@@ -60,7 +57,6 @@ pointclouds, pdb_ids = let
 end
 
 secondary_structure = dssp_run("data/1SU4.cif") .|> ss_code
-
 
 function greedy_shortest_path(dists)
     path = [1]
@@ -75,16 +71,12 @@ function greedy_shortest_path(dists)
 end
 
 pairs = [
-    (pointclouds[i], pointclouds[j])
-    for i in eachindex(pointclouds)
-    for j in eachindex(pointclouds)
-    if i > j
+    (pointclouds[i], pointclouds[j]) for i in eachindex(pointclouds) for
+    j in eachindex(pointclouds) if i > j
 ]
 id_pairs = [
-    (pdb_ids[i], pdb_ids[j])
-    for i in eachindex(pdb_ids)
-    for j in eachindex(pdb_ids)
-    if i > j
+    (pdb_ids[i], pdb_ids[j]) for i in eachindex(pdb_ids) for
+    j in eachindex(pdb_ids) if i > j
 ]
 
 Ts_per_method = (
@@ -106,30 +98,48 @@ orders = map(norms) do ns
 end
 
 let
-    fig = Figure(size = (600, length(pairs) * 20 + 10))
+    fig = Figure(; size = (600, length(pairs) * 20 + 10))
     Label(fig[1, 0], "RMSD"; tellheight = false, rotation = pi/2, font = :bold)
     Label(fig[2, 0], "GMC"; tellheight = false, rotation = pi/2, font = :bold)
-    yticks = (eachindex(id_pairs), [rich("$src \u2013 $trg", fontsize = 8) for (src, trg) in id_pairs])
+    yticks = (
+        eachindex(id_pairs),
+        [rich("$src \u2013 $trg"; fontsize = 8) for (src, trg) in id_pairs],
+    )
     axs = (rmsd = Axis(fig[1, 1]; yticks), gmc = Axis(fig[2, 1]; yticks))
     hidexdecorations!(axs.rmsd)
     linkaxes!(axs.rmsd, axs.gmc)
     nmax = maximum(maximum, norms)
     colormap = :lisbon
-    Colorbar(fig[1:2, 2]; colormap, colorrange = (0, nmax), label = "distance of corresponding atoms [Å]")
+    Colorbar(
+        fig[1:2, 2];
+        colormap,
+        colorrange = (0, nmax),
+        label = "distance of corresponding atoms [Å]",
+    )
     for method in [:rmsd, :gmc]
-        heatmap!(axs[method], norms[method][:, orders.rmsd]; colorrange = (0, nmax), colormap, rasterize = 10)
+        heatmap!(
+            axs[method],
+            norms[method][:, orders.rmsd];
+            colorrange = (0, nmax),
+            colormap,
+            rasterize = 10,
+        )
     end
     # GLMakie.activate!(); display(fig)
-    CairoMakie.activate!(pdf_version = "1.5");
+    CairoMakie.activate!(; pdf_version = "1.5")
     save("../../paper/bioinformatics/src/img/pdb-heatmaps.pdf", fig)
 end
-
 
 function show_all(pcs)
     fig = Figure()
     ax = Axis3(fig[1, 1]; aspect = :data)
     sl = Slider(fig[2, 1]; range = eachindex(pcs))
-    meshscatter!(ax, @lift(pcs[$(sl.value)].points); markersize = 3, color = eachindex(pcs[1].points))
+    meshscatter!(
+        ax,
+        @lift(pcs[$(sl.value)].points);
+        markersize = 3,
+        color = eachindex(pcs[1].points),
+    )
     GLMakie.activate!()
     display(fig)
 end
@@ -148,7 +158,7 @@ end
 #     ns[:, dissimilar_mask]
 # end
 
-qs = [.25, .5, .75] |> reverse
+qs = [0.25, 0.5, 0.75] |> reverse
 normqs = map(norms_filtered) do ns
     stack(eachrow(ns)) do row
         [quantile(row, q) for q in qs]
@@ -156,8 +166,8 @@ normqs = map(norms_filtered) do ns
 end
 normqs_avrgd = map(normqs) do nqs
     w = 30
-    mapreduce(vcat, 1:lastindex(nqs, 1) - w) do offset
-        mean(@view(nqs[offset:min(offset + w, end), :]), dims = 1)
+    mapreduce(vcat, 1:(lastindex(nqs, 1) - w)) do offset
+        mean(@view(nqs[offset:min(offset + w, end), :]); dims = 1)
     end
 end
 
@@ -175,7 +185,8 @@ let
             band!(ax, 1:length(nqs), zeros(length(nqs)), nqs)
         end
     end
-    GLMakie.activate!(); display(fig)
+    GLMakie.activate!()
+    display(fig)
 end
 
 let
@@ -184,23 +195,47 @@ let
     fig = Figure()
     ax = Axis(fig[1, 1])
     for method in methods
-        series!(ax, norms[method]'; color = fill(colors[method], 59)#=, linewidth = 0, markersize = 3=#)
+        series!(
+            ax,
+            norms[method]';
+            color = fill(colors[method], 59) #=, linewidth = 0, markersize = 3=#
+        )
         # for nqs in eachcol(norms[method])
         #     lines!(ax, nqs; color = colors[method], alpha = .2)
         #     # band!(ax, 1:length(nqs), zeros(length(nqs)), nqs)
         # end
     end
     # axislegend(ax)
-    Legend(fig[1, 1], [LineElement(color = colors[method], linewidth = 3) for method in methods], uppercase.(string.(methods)); tellwidth = false, tellheight = false, valign = :top, halign = :right, margin = ntuple(Returns(10), 4))
-    GLMakie.activate!(); display(fig)
+    Legend(
+        fig[1, 1],
+        [
+            LineElement(; color = colors[method], linewidth = 3) for
+            method in methods
+        ],
+        uppercase.(string.(methods));
+        tellwidth = false,
+        tellheight = false,
+        valign = :top,
+        halign = :right,
+        margin = ntuple(Returns(10), 4),
+    )
+    GLMakie.activate!()
+    display(fig)
 end
 
 let
     methods = [:rmsd, :gmc]
     colorrange_hi = maximum(maximum, norms[methods])
     cmap = :managua
-    fig = Figure(size = (400, 400))
-    axs = [Axis3(fig[1, i]; aspect = :data, title = uppercase(string(methods[i])), [Symbol(d, :ticklabelsvisible) => false for d in [:x, :y, :z]]...) for i in (1, 2)]
+    fig = Figure(; size = (400, 400))
+    axs = [
+        Axis3(
+            fig[1, i];
+            aspect = :data,
+            title = uppercase(string(methods[i])),
+            [Symbol(d, :ticklabelsvisible) => false for d in [:x, :y, :z]]...,
+        ) for i in (1, 2)
+    ]
     # Colorbar(fig[1, 3]; limits = (0, colorrange_hi), colormap = cmap, label = "distance of corresponding atoms [Å]")
     # meshscatter!(ax, Ts.gmc(Y).points; markersize = 3)
     # meshscatter!(ax, X.points; markersize = 3)
@@ -219,12 +254,20 @@ let
         T = Ts[method]
         # linesegments!(ax, ss; linewidth = 1)
         # meshscatter!(ax, X.points; markersize = 3, color = norms[method], colorrange = (0, colorrange_hi), colormap = cmap)
-        meshscatter!(ax, X.points; markersize = max.(.2, 3 .* norms[method] ./ colorrange_hi))
+        meshscatter!(
+            ax,
+            X.points;
+            markersize = max.(0.2, 3 .* norms[method] ./ colorrange_hi),
+        )
     end
     # arrows3d!(ax, Ts.gmc(Y).points, X.points .- Ts.gmc(Y).points; markerscale = .1, lengthscale = 1)
     # GLMakie.activate!(); display(fig)
     GLMakie.activate!()
-    save("../../paper/bioinformatics/src/img/pdb-connections.png", fig; px_per_unit = 3)
+    save(
+        "../../paper/bioinformatics/src/img/pdb-connections.png",
+        fig;
+        px_per_unit = 3,
+    )
 end
 
 norms = map(T -> norm.(X.points .- T(Y).points), Ts)
@@ -233,9 +276,9 @@ edges = range(0, maxnorm; length = 60)
 norm_hists = map(ns -> fit(Histogram, ns, edges), norms)
 
 let
-    fig = Figure(size = (400, 350))
+    fig = Figure(; size = (400, 350))
     methods = [:gmc, :mad, :kc, :rmsd]
-    offset = -.05
+    offset = -0.05
     ax = Axis(
         fig[1, 1];
         title = "$id_Y \u2194 $id_X",
@@ -245,11 +288,20 @@ let
         xlabel = "distance of corresponding atoms [Å]",
     )
     for (i, method) in enumerate(methods)
-        density!(ax, norms[method]; label = uppercase(string(method)), alpha = 0.8, strokearound = true, strokewidth=2, offset = offset * i, bandwidth = .5)
+        density!(
+            ax,
+            norms[method];
+            label = uppercase(string(method)),
+            alpha = 0.8,
+            strokearound = true,
+            strokewidth = 2,
+            offset = offset * i,
+            bandwidth = 0.5,
+        )
     end
-    axislegend(ax,valign=:bottom)
+    axislegend(ax; valign = :bottom)
     # GLMakie.activate!(); display(fig)
-    CairoMakie.activate!(pdf_version = "1.5")
+    CairoMakie.activate!(; pdf_version = "1.5")
     save("../../paper/bioinformatics/src/img/pdb-distances.pdf", fig)
 end
 

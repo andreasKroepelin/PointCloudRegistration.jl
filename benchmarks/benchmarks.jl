@@ -42,7 +42,7 @@ let
     # fig = Figure(size = (400, 250))
     fig = Figure()
     kys = collect(keys(bms))
-    ax = Axis(fig[1, 1], xticks = (eachindex(kys), [labels[k] for k in kys]))
+    ax = Axis(fig[1, 1]; xticks = (eachindex(kys), [labels[k] for k in kys]))
     ylims!(ax, (0, nothing))
     # all_times = mapreduce(key -> bms[key].times, vcat, kys)
     # all_categories = mapreduce(((i, key),) -> fill(i, length(bms[key].times)), vcat, enumerate(kys))
@@ -52,7 +52,7 @@ let
         (; times) = bms[key]
         scatter!(ax, [i], [mean(times) / 1e3])
         if key != :pcreg
-            slowest = quantile(times, .99)
+            slowest = quantile(times, 0.99)
             times = filter(t -> t < slowest, times)
         end
         append!(all_times, times)
@@ -70,7 +70,8 @@ let
         width = 1.0,
         # color = indexin(all_categories, unique(all_categories))
     )
-    GLMakie.activate!(); display(fig)
+    GLMakie.activate!()
+    display(fig)
     # CairoMakie.activate!(pdf_version = "1.5");
     # save("../paper/bioinformatics/src/img/kabsch-benchmark.pdf", fig)
     # save(expanduser("~/kabsch-benchmark.pdf"), fig)
@@ -80,8 +81,8 @@ pc_dim = 3
 pc_size = 1000
 num_pcs = 10_000
 timings = let
-    sources = [rand(pc_dim, pc_size) for _ in 1:num_pcs];
-    target = rand(pc_dim, pc_size);
+    sources = [rand(pc_dim, pc_size) for _ in 1:num_pcs]
+    target = rand(pc_dim, pc_size)
     pcreg = @timed for source in sources
         PCReg.rigid_registration(source, target, PCReg.Kabsch())
     end
@@ -97,7 +98,7 @@ timings = let
     (; pcreg, bios, k, ct)
 end
 
-nord_theme = Theme(
+nord_theme = Theme(;
     fontsize = 20,
     fonts = (
         regular = "Atkinson Hyperlegible Next",
@@ -112,10 +113,24 @@ nord_theme = Theme(
 )
 
 with_theme(nord_theme) do
-    fig = Figure(; size = (700, 500), fontsize = 20, fonts = (; regular = "Atkinson Hyperlegible Next", bold = "Atkinson Hyperlegible Next Bold"))
+    fig = Figure(;
+        size = (700, 500),
+        fontsize = 20,
+        fonts = (;
+            regular = "Atkinson Hyperlegible Next",
+            bold = "Atkinson Hyperlegible Next Bold",
+        ),
+    )
     kys = collect(keys(timings))
     sort!(kys; by = key -> timings[key].time)
-    ax = Axis(fig[1, 1], yticks = (eachindex(kys), [labels[k] for k in kys]), xtickformat = "{:.1f} s", backgroundcolor = "#3b4252", xgridcolor = "#4c566a", title = "Kabsch registration of $num_pcs point clouds in $pc_dim dimensions \n with $pc_size points each")
+    ax = Axis(
+        fig[1, 1];
+        yticks = (eachindex(kys), [labels[k] for k in kys]),
+        xtickformat = "{:.1f} s",
+        backgroundcolor = "#3b4252",
+        xgridcolor = "#4c566a",
+        title = "Kabsch registration of $num_pcs point clouds in $pc_dim dimensions \n with $pc_size points each",
+    )
     hideydecorations!(ax)
     hidespines!(ax)
     all_times = Float64[]
@@ -135,23 +150,40 @@ with_theme(nord_theme) do
         direction = :x,
         stack = all_groups,
         color = all_groups,
-        colormap = ["#d08770", "#5e81ac"]
+        colormap = ["#d08770", "#5e81ac"],
     )
-    bracket!(ax, 0, last(all_categories) + 1, timings[last(kys)].time, last(all_categories) + 1; text = "total time", linewidth = 3)
-    bracket!(ax, 0, last(all_categories) + .4, timings[last(kys)].gctime, last(all_categories) + .4; text = "GC time", linewidth = 3)
+    bracket!(
+        ax,
+        0,
+        last(all_categories) + 1,
+        timings[last(kys)].time,
+        last(all_categories) + 1;
+        text = "total time",
+        linewidth = 3,
+    )
+    bracket!(
+        ax,
+        0,
+        last(all_categories) + 0.4,
+        timings[last(kys)].gctime,
+        last(all_categories) + 0.4;
+        text = "GC time",
+        linewidth = 3,
+    )
     for (i, key) in enumerate(kys)
         # text!(ax, Point(maximum(k -> timings[k].time, kys), i); text = labels[key], align = (:right, :center))
-        text!(ax, Point(0, i); text = labels[key], align = (:left, :center), offset = (10, 0))
+        text!(
+            ax,
+            Point(0, i);
+            text = labels[key],
+            align = (:left, :center),
+            offset = (10, 0),
+        )
     end
     # GLMakie.activate!(); display(fig)
-    CairoMakie.activate!(pdf_version = "1.5");
+    CairoMakie.activate!(; pdf_version = "1.5")
     # save("../paper/bioinformatics/src/img/kabsch-benchmark.pdf", fig)
     save("kabsch-benchmark.svg", fig)
 end
 
-
-
-
-
-
-@btime PCReg.rigid_gmc($Y, $X; scale = .1)
+@btime PCReg.rigid_gmc($Y, $X; scale = 0.1)

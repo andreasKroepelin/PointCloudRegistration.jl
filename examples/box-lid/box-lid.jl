@@ -10,7 +10,9 @@ end
 
 boxes = let
     keys = (:chaos, :closed, :half, :open, :single, :standing)
-    pcs = [npy2pc("/home/andreas/Downloads/box_andreas/$key.npy") for key in keys]
+    pcs = [
+        npy2pc("/home/andreas/Downloads/box_andreas/$key.npy") for key in keys
+    ]
     (; (keys .=> pcs)...)
 end
 
