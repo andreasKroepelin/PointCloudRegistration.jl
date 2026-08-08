@@ -1,3 +1,2 @@
 build/
-public/
-.pseudo_remote/
+src/generated/

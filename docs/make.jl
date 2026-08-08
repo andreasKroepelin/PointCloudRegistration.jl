@@ -31,19 +31,23 @@ links = InterLinks(
 EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
 OUTPUT_DIR = joinpath(@__DIR__, "src", "generated")
 examples = [
-    # "ribosome-puzzle/ribosome-puzzle.jl",
-    # "biotisr/biotisr.jl",
+    "ribosome-puzzle/ribosome-puzzle.jl",
+    "biotisr/biotisr.jl",
     # "wglmakie-test/wglmakie-test.jl",
 ]
 jlcmd = Base.julia_cmd()
 for example in examples
     example_path = joinpath(EXAMPLES_DIR, example)
     load_path = "$(dirname(example_path)):$(@__DIR__)"
-    code = """
-    using Literate
-    Literate.markdown("$example_path", "$OUTPUT_DIR"; execute = true)
-    """
-    run(addenv(`$(jlcmd) -e $(code)`, Dict("JULIA_LOAD_PATH" => load_path)))
+    cd(dirname(example_path)) do
+        code = """
+        using Literate
+        Literate.markdown("$example_path"; execute = true)
+        """
+        run(addenv(`$(jlcmd) -e $(code)`, Dict("JULIA_LOAD_PATH" => load_path)))
+        mdfile = chopsuffix(basename(example), ".jl") * ".md"
+        mv(mdfile, joinpath(OUTPUT_DIR, mdfile); force = true)
+    end
 end
 
 makedocs(;
@@ -58,15 +62,16 @@ makedocs(;
         "from-density.md",
         "plotting.md",
         "Examples" => [
-            # "generated/ribosome-puzzle.md",
-            # "generated/biotisr.md",
+            "generated/ribosome-puzzle.md",
+            "generated/biotisr.md",
             # "generated/wglmakie-test.md",
         ],
     ],
     plugins = [links],
     repo = Remotes.Forgejo("codeberg.org", "a5s", "PointCloudRegistration.jl"),
     format = Documenter.HTMLWriter.HTML(;
-        canonical = "a5s.eu/PointCloudRegistration.jl/",
+        # canonical = "a5s.eu/PointCloudRegistration.jl/",
+        edit_link = nothing,
         assets = [asset("assets/logo.png"; islocal = true, class = :ico)],
         size_threshold_ignore = [
             "generated/ribosome-puzzle.md",

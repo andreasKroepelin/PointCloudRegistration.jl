@@ -25,18 +25,18 @@ using CoordinateTransformations
 using DimensionalData
 using Extents
 using JLD2
+using Random #hide
 
+
+Random.seed!(3); #hide
 
 # ## Loading the images
-# Assuming that the file `BioTISR_Mitochondria.zip` is downloaded and extracted
-# in the working directory, we can access the images as `.mrc` files.
-# However, the files seem to have issues, which is why MRCFile.jl cannot read
-# them.
-# Instead, we use the Python package mrcfile via PythonCall.jl:
-
-# After permuting the dimensions (Python and Julia have reverse array dimension
-# orders) and slicing along the last dimension, we obtain our images.
-# We also wrap them with `DimArray`s from DimensionalData.jl to track
+# Refer to the
+# [data loading script](https://codeberg.org/a5s/PointCloudRegistration.jl/src/branch/main/examples/biotisr/load-data)
+# for details of the data acquisition.
+# Here, we assume that that has been run and we can simply load the data set
+# as one big tensor.
+# We also wrap the images with `DimArray`s from DimensionalData.jl to track
 # transformations later.
 
 @load "biotisr-mitochondria-sim-gt-006.jld2" img_tensor
@@ -188,9 +188,14 @@ end
 # kernel correlation.
 
 target = pointclouds_thinned[1]
-prepd_target = prepare_target_kc(target);
+target_preparation = prepare_target_kernelcorrelation(target);
 Ts = map(pointclouds_thinned) do src
-    Threads.@spawn rigid_kc(src, prepd_target; restarts = RandomRestarts(100))
+    Threads.@spawn rigid_registration(
+        src,
+        target,
+        KernelCorrelationMM(restarts = RandomRestarts(500));
+        target_preparation
+    )
 end .|> fetch
 
 # We can check if the registration worked by comparing `Ts` with `trueinvTs`
@@ -217,14 +222,14 @@ let
     ax = Axis(fig[1, 1]; aspect = DataAspect())
     hidedecorations!(ax)
     sl = Slider(fig[1, 2]; range = eachindex(imgs), horizontal = false) #src
-    idx = sl.value
-    # idx = Observable(1)
+    idx = sl.value #src
+    idx = Observable(1)
     image!(ax, @lift(reg_imgs[$idx]))
     plot!(ax, @lift(reg_pointclouds[$idx]); color = :lime)
     resize_to_layout!(fig)
-    # Record(fig, eachindex(imgs); framerate = 10) do i
-    #     idx[] = i
-    # end
+    Record(fig, eachindex(imgs); framerate = 10) do i
+        idx[] = i
+    end
     fig #src
 end
 
@@ -272,32 +277,6 @@ let
     rowgap!(fig.layout, 5)
     colgap!(fig.layout, 5)
     resize_to_layout!(fig)
-    # save("../../paper/bioinformatics/src/img/biotisr.png", fig) #src
-    fig
-end
-
-source = reg_pointclouds[3]
-registration = register_bcpd(source, reg_pointclouds[1]; corr_length = 20.0, expected_displacement = 30.0, outlier_proportion = 0.01)
-# evals = register_bcpd(source, reg_pointclouds[1]; corr_length = 50.0, expected_displacement = 50.0, outlier_proportion = 0.01)
-
-heatmap(correspondences(registration))
-
-let
-    fig = Figure()
-    ax = Axis(fig[1, 1]; aspect = DataAspect())
-    img_toggle = Toggle(fig[2, 1]; tellwidth = false, tellheight = true)
-    img_plt = image!(ax, reg_imgs[1])
-    on(img_toggle.active) do is_active
-        if is_active
-            Makie.update!(img_plt; arg1 = reg_imgs[3])
-        else
-            Makie.update!(img_plt; arg1 = reg_imgs[1])
-        end
-    end
-    # plot!(ax, source)
-    # plot!(ax, reg_pointclouds[1])
-    # plot!(ax, apply_displacements(source, displacements(registration)))
-    smw = maximum(source.weights)
-    arrows2d!(ax, source.points, displacements(registration); color = [(:lime, w / smw) for w in source.weights])
+    ## save("../../paper/bioinformatics/src/img/biotisr.png", fig) #src
     fig
 end

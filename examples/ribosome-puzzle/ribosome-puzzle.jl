@@ -22,15 +22,11 @@ using MRCFile
 using EmdbHelper # a local helper package to download data from the EMDB
 using NearestNeighbors
 using DimensionalData
-## using Unitful: Å
-using WGLMakie
-import Bonito
-using Random
+using GLMakie
+using Random #hide
 using Statistics
 import LinearAlgebra: norm_sqr
 
-Bonito.Page(; exportable = true, offline = true) #hide
-#-
 Random.seed!(3) #hide
 
 # ## The target
@@ -43,11 +39,28 @@ Random.seed!(3) #hide
 
 target_mrc = EmdbHelper.load_map("49998");
 target_dimarr = EmdbHelper.mrc2dimarr(target_mrc);
-## target_dimarr = set(
-##     target_dimarr,
-##     [d => dims(target_dimarr, d) .* Å for d in (X, Y, Z)]...
-## );
 show(IOContext(stdout, :limit => true), MIME"text/plain"(), target_dimarr) #hide
+
+# A small helper function allows us to create rotating plots:
+
+center = mean.(bounds(target_dimarr))
+function record_rotating(fig, ax)
+    Makie.origin!.(ax.scene.plots, center...)
+    Record(fig, range(0, 2pi; length = 50); framerate = 24) do angle
+        Makie.rotate!.(ax.scene.plots, angle)
+    end
+end
+
+# And so this is how the target volume looks:
+
+let
+    fig = Figure()
+    ax = Axis3(fig[1, 1]; aspect = :data)
+    hidedecorations!(ax)
+    hidespines!(ax)
+    volume!(ax, target_dimarr)
+    record_rotating(fig, ax)
+end
 
 # Next, we convert the density map into a point cloud.
 # This happens in two steps:
@@ -71,7 +84,7 @@ target = drop_threshold(target_full, author_threshold)
 # size:
 
 resolution = 5.0f0 # Å
-target_thinned = thin_to_grid(target, resolution)
+target_thinned = thin_to_distance(target, resolution)
 
 # We can check that it worked by measuring the average nearest neighbor distance
 # in the result.
@@ -84,7 +97,14 @@ length(target_thinned.points) / length(target_full.points)
 
 # And this is how the target looks:
 
-plot(target_thinned)
+let
+    fig = Figure()
+    ax = Axis3(fig[1, 1]; aspect = :data)
+    hidedecorations!(ax)
+    hidespines!(ax)
+    plot!(ax, target_thinned)
+    record_rotating(fig, ax)
+end
 
 # ## The sources
 # Next, we need the 23S and 16S ribosomal RNAs as our sources.
@@ -118,11 +138,15 @@ sources.rRNA16S
 # are already perfectly aligned since the former is computed from the latter:
 
 let
-    plt = plot(target_thinned; color = :lightgray, label = "full ribosome")
-    plot!(plt.axis, sources.rRNA23S; label = "23S")
-    plot!(plt.axis, sources.rRNA16S; label = "16S")
-    axislegend(plt.axis)
-    plt
+    fig = Figure()
+    ax = Axis3(fig[1, 1]; aspect = :data)
+    hidedecorations!(ax)
+    hidespines!(ax)
+    plot!(ax, target_thinned; color = :lightgray, label = "full ribosome")
+    plot!(ax, sources.rRNA23S; label = "23S")
+    plot!(ax, sources.rRNA16S; label = "16S")
+    axislegend(ax)
+    record_rotating(fig, ax)
 end
 
 # Instead, we draw a random rigid transformation for every source:
@@ -139,10 +163,15 @@ randomized_sources = map((src, invT) -> invT(src), sources, trueinvTs);
 # Since we obviously have no correspondence information, we use the kernel
 # correlation method.
 
-prepd_target = prepare_target_kc(target_thinned);
+target_preparation = prepare_target_kernelcorrelation(target_thinned);
 
 Ts = map(randomized_sources) do source
-    rigid_kc(source, prepd_target; restarts = RandomRestarts(500))
+    rigid_registration(
+        source,
+        target_thinned,
+        KernelCorrelationMM(restarts = RandomRestarts(1000));
+        target_preparation
+    )
 end
 
 # We should now see that the `Ts` are the inverses of `trueinvTs` and their
@@ -183,10 +212,10 @@ end
 
 # Perform the registration:
 
-T_16S_better = rigid_kc(
+T_16S_better = rigid_registration(
     randomized_sources.rRNA16S,
-    target_without_23S;
-    restarts = RandomRestarts(500)
+    target_without_23S,
+    KernelCorrelationMM(restarts = RandomRestarts(500)),
 )
 Ts = (; Ts.rRNA23S, rRNA16S = T_16S_better)
 
@@ -203,10 +232,14 @@ residualTs.rRNA16S.translation
 # We can also assess the registration visually.
 
 function truth_and_fitted(key)
-    plt = plot(sources[key]; label = "truth")
-    plot!(plt.axis, Ts[key](randomized_sources[key]); label = "fitted")
-    axislegend(plt.axis)
-    plt
+    fig = Figure()
+    ax = Axis3(fig[1, 1]; aspect = :data)
+    hidedecorations!(ax)
+    hidespines!(ax)
+    plot!(ax, sources[key]; label = "truth")
+    plot!(ax, Ts[key](randomized_sources[key]); label = "fitted")
+    axislegend(ax)
+    record_rotating(fig, ax)
 end
 
 # For the 23S rRNA:

@@ -7,11 +7,10 @@ using Downloads
 function load_map(id)
     filename = "emd_$id.map.gz"
     if !isfile(filename)
-        Downloads.download(
-            "https://ftp.ebi.ac.uk/pub/databases/emdb/structures/" *
-                "EMD-$id/map/emd_$id.map.gz",
-            filename
-        )
+        url = "https://ftp.ebi.ac.uk/pub/databases/emdb/structures/" *
+            "EMD-$id/map/emd_$id.map.gz"
+        @info "downloading from EMDB..." url filename
+        Downloads.download(url, filename)
     end
     read(filename, MRCData)
 end

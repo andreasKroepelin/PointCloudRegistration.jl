@@ -2,8 +2,6 @@
 projects = ["load-data"]
 
 [deps]
-CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
-CondaPkg = "992eb4ea-22a4-4c89-a5bb-47a3300528ab"
 CoordinateTransformations = "150eb455-5306-5404-9cee-2592286d6298"
 DimensionalData = "0703355e-b756-11e9-17c0-8b28908087d0"
 Extents = "411431e0-e8b7-467b-b5e0-f676ba4f2910"
@@ -11,9 +9,8 @@ GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
-NPZ = "15e1cf62-19b3-5cfa-8e77-841668bca605"
 PointCloudRegistration = "afb9b67c-ae14-49fb-afbe-36d52467eca1"
-PythonCall = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 Rotations = "6038ab10-8711-5258-84ad-4b1120ba62dc"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
