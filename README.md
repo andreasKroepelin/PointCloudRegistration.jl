@@ -1,5 +1,11 @@
 # <img src="logo/logo.png" width="100"></img> PointCloudRegistration.jl
 
+**If you are viewing this repository on GitHub, note that this is just a
+mirror of the
+[Codeberg repository](https://codeberg.org/a5s/PointCloudRegistration.jl).
+The mirror exists for integration into the Julia package registry pipeline.
+Collaboration is preferred to happen on Codeberg.**
+
 **This package is work in progress and not published to the General Registry
 of Julia packages yet.**
 
