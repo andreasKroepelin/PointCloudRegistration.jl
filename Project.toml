@@ -37,6 +37,7 @@ MakieExt = "Makie"
 MooncakeExt = "Mooncake"
 
 [compat]
+julia = ">=1.12"
 Accessors = "0.1.42"
 ArgCheck = "2.5.0"
 CoordinateTransformations = "0.6.4"
