@@ -8,8 +8,8 @@ registration algorithm.
 """
 struct FullBatch <: AbstractBatch end
 
-point_cloud_iterator(::FullBatch, pc::PointCloud) =
-    PointCloudIterator(0, nothing, pc, false)
+weighted_iterator(::FullBatch, items, weights) =
+    WeightedIterator(items, weights, nothing, 0, nothing, false)
 
 """
     StochasticBatch(count, [rng = Random.default_rng()])
@@ -37,34 +37,49 @@ end
 
 StochasticBatch(count::Int) = StochasticBatch(count, Random.default_rng())
 
-function point_cloud_iterator(sb::StochasticBatch, pc::PointCloud)
-    count = min(sb.count, length(pc.points))
-    PointCloudIterator(count, sb.rng, pc, true)
+function weighted_iterator(sb::StochasticBatch, items, weights)
+    count = min(sb.count, length(weights))
+    WeightedIterator(items, weights, cumsum(weights), sb.count, sb.rng, true)
 end
 
-struct PointCloudIterator{PC <: PointCloud, Rng}
+struct WeightedIterator{I, W, WC, Rng}
+    items::I
+    weights::W
+    weights_cumsum::WC
     count::Int
     rng::Rng
-    pc::PC
     stochastic::Bool
 end
 
-function Base.iterate(pci::PointCloudIterator, i = 1)
-    if pci.stochastic
-        if i > pci.count
-            return nothing
-        end
-        weight = one(eltype(pci.pc.weights))
-        ((; sample_point(pci.rng, pci.pc)..., weight), i + 1)
+function _sample_categorical(rng, weights, weights_cumsum)
+    r = rand(rng, float(eltype(weights_cumsum)))
+    idx = searchsortedfirst(weights_cumsum, r * last(weights_cumsum))
+    idx = clamp(idx, eachindex(weights))
+    return idx
+end
+
+function _sample_categorical(rng, weights::FillArrays.AbstractFill, _weights_cumsum)
+    idx = rand(rng, eachindex(weights))
+    return idx
+end
+
+
+function Base.iterate(wi::WeightedIterator, i = 1)
+    if wi.stochastic
+        i > wi.count && return nothing
+        idx = _sample_categorical(wi.rng, wi.weights, wi.weights_cumsum)
+        weight = one(eltype(wi.weights))
+        item = wi.items[idx]
+        return ((; item, weight), i + 1)
     else
-        if i > lastindex(pci.pc.points)
-            return nothing
-        end
-        ((idx = i, point = pci.pc.points[i], weight = pci.pc.weights[i]), i + 1)
+        i > length(wi.items) && return nothing
+        item = wi.items[eachindex(wi.items)[i]]
+        weight = wi.weights[eachindex(wi.weights)[i]]
+        return ((; item, weight), i + 1)
     end
 end
 
 # For type stability during iterations in the registration algorithms, it is
 # crucial that this function returns something of the same type as its input.
-non_stochastic(pci::PCI) where {PCI <: PointCloudIterator} =
-    PointCloudIterator(pci.count, pci.rng, pci.pc, false)::PCI
+non_stochastic(wi::WI) where {WI <: WeightedIterator} =
+    WeightedIterator(wi.items, wi.weights, wi.weights_cumsum, wi.count, wi.rng, false)::WI

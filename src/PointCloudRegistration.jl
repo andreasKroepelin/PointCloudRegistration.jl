@@ -41,6 +41,7 @@ export PointCloud,
     FixedRestarts,
     FullBatch,
     StochasticBatch,
+    MatchingLabels,
     thin_to_distance,
     thin_to_number,
     thin_to_grid,
@@ -61,6 +62,7 @@ public VecOfSVec,
 include("pointcloud.jl")
 include("common.jl")
 include("rigid/rigid.jl")
+include("rigid/correspondences.jl")
 include("rigid/annealing.jl")
 include("rigid/stochastic_majorization_minimization.jl")
 include("rigid/orthogonal_matrix.jl")

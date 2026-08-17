@@ -131,13 +131,17 @@ function rigid_registration(
     source,
     target,
     alg::GemanMcClureMM,
-    flip::FlipMarker = NoFlip(),
+    flip::FlipMarker = NoFlip();
+    correspondences = :ordered,
 )
     @argcheck alg.iterations >= 1
 
     source_pc = PointCloud(source)
     target_pc = PointCloud(target)
-    @argcheck size(source_pc) == size(target_pc)
+
+    if correspondences == :ordered
+        correspondences = OrderedCorrespondences(source_pc, target_pc)
+    end
 
     sqscales = annealing_plan(target_pc, alg.scale)
     _rigid_gmc(
@@ -145,6 +149,7 @@ function rigid_registration(
         target_pc,
         flip,
         sqscales,
+        correspondences,
         alg.restarts,
         alg.iterations,
         alg.batching,
@@ -158,6 +163,7 @@ function _rigid_gmc(
     target::PointCloud{N},
     flip,
     sqscales,
+    correspondences,
     restarts,
     iterations,
     batching,
@@ -172,7 +178,7 @@ function _rigid_gmc(
     best = worst(CostT, transformation_type(source, target, flip))
     gm_cost = zero(CostT)
     restarts_iter = restarts_iterator(source, target, restarts, flip)
-    source_iter = point_cloud_iterator(batching, source)
+    weighted_iter = weighted_iterator(batching, nzidcs(correspondences), nzvals(correspondences))
     for (restart, transformation) in enumerate(restarts_iter)
         for sqscale in sqscales
             # double `sqscale` such that the loss function has the same
@@ -182,7 +188,7 @@ function _rigid_gmc(
             prev_transformation = identity_transformation(transformation)
             for iter in 1:iterations
                 if 10iter > 9iterations
-                    source_iter = non_stochastic(source_iter)
+                    weighted_iter = non_stochastic(weighted_iter)
                 end
                 sum_w = zero(WeightT)
                 source_mean = sum_w * zero(SrcT)
@@ -190,11 +196,12 @@ function _rigid_gmc(
                 covariance = sum_w * zero(TrgT) * zero(SrcT)'
                 gm_cost = zero(CostT)
 
-                for source_element in source_iter
-                    src = source_element.point
-                    trg = target.points[source_element.idx]
-                    w_src = source_element.weight
-                    w_trg = target.weights[source_element.idx]
+                for weighted_element in weighted_iter
+                    (src_idx, trg_idx) = weighted_element.item
+                    src = source.points[src_idx]
+                    trg = target.points[trg_idx]
+                    w_src = source.weights[src_idx]
+                    w_trg = target.weights[trg_idx]
                     sqdist = sqeuclidean(transformation(src), trg)
                     w_src_w_trg = w_src * w_trg
                     w = w_src_w_trg * mm_weight(gm, sqdist)

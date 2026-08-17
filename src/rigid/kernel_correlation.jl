@@ -519,7 +519,7 @@ function _rigid_kc(
     best = worst(CostT, transformation_type(source, target, flip))
     kc = zero(CostT)
     restarts_iter = restarts_iterator(source, target, restarts, flip)
-    source_iter = point_cloud_iterator(batching, source)
+    source_iter = weighted_iterator(batching, source.points, source.weights)
     for (restart, transformation) in enumerate(restarts_iter)
         for annealing_level in annealing_levels
             (; grid, convd_target, convd_weights_target) = annealing_level
@@ -535,7 +535,7 @@ function _rigid_kc(
                 covariance = target_mean * source_mean'
                 kc = zero(CostT)
                 for source_element in source_iter
-                    src = source_element.point
+                    src = source_element.item
                     transformed_src = transformation(src)
                     grid_idx = idx_on_grid(transformed_src, grid)
                     grid_idx in valid_idcs || continue
