@@ -4,6 +4,7 @@
 projects = [
   "animations",
   "annealing",
+  "atom-matching",
   "bunny",
   "cpd",
   "emdb",
