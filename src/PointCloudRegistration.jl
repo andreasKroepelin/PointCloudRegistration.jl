@@ -17,6 +17,7 @@ using PrecompileTools: @compile_workload
 using ArgCheck
 
 export PointCloud,
+    # = = = rigid registration = = =
     WithFlip,
     NoFlip,
     rigid_registration,
@@ -26,6 +27,7 @@ export PointCloud,
     Kabsch,
     IterativeClosestPoint,
     MeanAbsoluteDeviationMM,
+    # = = = non-rigid registration = = =
     nonrigid_registration,
     CoherentPointDrift,
     prepare_source_coherentpointdrift,
@@ -34,21 +36,31 @@ export PointCloud,
     EarthMover,
     DivergenceFree,
     guess_correspondences,
+    # = = = annealing = = =
     LogAnnealingTo,
     LogAnnealingToNearestNeighborDistance,
     TargetScales,
+    # = = = restarts = = =
     RandomRestarts,
     FixedRestarts,
+    # = = = batching = = =
     FullBatch,
     StochasticBatch,
-    MatchingLabels,
+    # = = = correspondences = = =
+    Ordered,
+    Correspondences,
+    matching_labels,
+    Unknown,
+    # = = = thinning
     thin_to_distance,
     thin_to_number,
     thin_to_grid,
     drop_threshold,
     drop_proportion,
     drop_quantile,
+    # = = = density = = =
     density2pointcloud,
+    # = = = plotting = = =
     pointcloudplotflat,
     pointcloudplotmesh,
     scaffoldplot,

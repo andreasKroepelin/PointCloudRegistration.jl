@@ -5,8 +5,24 @@ transformation, i.e. a rotation and a translation, that transforms one point
 cloud, the _source_, to optimally match the other point cloud, the _target_.
 
 ```@docs
-rigid_registration(source, target; ordered)
+rigid_registration(source, target; correspondences)
 rigid_registration(source, target, algorithm, flip)
+```
+
+## Correspondences
+
+Rigid registration can work better if _correspondences_ between source and
+target are known.
+That is, we have reason to believe that certain points in the source should
+match certain points in the target.
+Some of the algorithms can make use of that information, provided via the
+`correspondences` keyword argument to `rigid_registration`.
+
+```@docs
+Ordered
+Unknown
+Correspondences
+matching_labels
 ```
 
 ## Rigid registration algorithms

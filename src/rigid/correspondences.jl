@@ -1,18 +1,40 @@
-struct OrderedCorrespondences{SI, TI}
-    src_idcs::SI
-    trg_idcs::TI
-end
+"""
+    Ordered()
 
-function OrderedCorrespondences(source::PointCloud, target::PointCloud)
-    @argcheck size(source) == size(target) "ordered correspondences require point clouds of the same size"
-    OrderedCorrespondences(eachindex(source.points), eachindex(target.points))
-end
+Expresses correspondences between points of equal index.
+That is, we assume the point clouds have the same size and are _ordered_
+identically such that the `i`-th point in the source corresponds to the `i`-th
+point in the target.
+"""
+struct Ordered end
 
-struct MatchingLabels
+"""
+    Correspondences(idcs::AbstractVector{NTuple{2, Int}}, [weights])
+
+Defines correspondences between certain points in the source and the target.
+Every element `(j, i)` of `idcs` means that the `j`-th point in the source
+corresponds to the `i`-th point to the target.
+Optionally, you can provide weights for every correspondence.
+"""
+struct Correspondences{W}
     idcs::Vector{NTuple{2, Int}}
+    weights::W
+
+    function Correspondences(idcs, weights)
+        @argcheck length(idcs) == length(weights)
+        new{typeof(weights)}(idcs, weights)
+    end
 end
 
-function MatchingLabels(source_labels, target_labels)
+Correspondences(idcs::AbstractVector{NTuple{2, Int}}) =
+    Correspondences(idcs, FillArrays.Trues(length(idcs)))
+
+"""
+    matching_labels(source_labels, target_labels)
+
+Creates [`Correspondences`](@ref) between those 
+"""
+function matching_labels(source_labels, target_labels; by = identity)
     idcs = NTuple{2, Int}[]
     for (j, sl) in enumerate(source_labels)
         for (i, tl) in enumerate(target_labels)
@@ -21,17 +43,33 @@ function MatchingLabels(source_labels, target_labels)
             end
         end
     end
-    return MatchingLabels(idcs)
+    return Correspondences(idcs)
 end
 
-nzidcs(oc::OrderedCorrespondences) =
-    Base.Broadcast.Broadcasted(tuple, (oc.src_idcs, oc.trg_idcs))
-nzvals(oc::OrderedCorrespondences) = FillArrays.Trues(length(oc.src_idcs))
+struct Unknown end
 
-nzidcs(mat::AbstractMatrix) =
-    Base.Broadcast.Broadcasted(Tuple, (vec(CartesianIndices(mat)),))
-nzvals(mat::AbstractMatrix) = vec(mat)
+function nzidcsvals(::Ordered, source, target)
+    @argcheck size(source) == size(target) "ordered correspondences require point clouds of the same size"
+    src_idcs = eachindex(source.points)
+    trg_idcs = eachindex(target.points)
+    idcs = Base.Broadcast.Broadcasted(tuple, (src_idcs, trg_idcs))
+    vals = FillArrays.Trues(length(idcs))
+    return (idcs, vals)
+end
 
-nzidcs(ml::MatchingLabels) = ml.idcs
-nzvals(ml::MatchingLabels) = FillArrays.Trues(length(ml.idcs))
+nzidcsvals(mat::AbstractMatrix, _source, _target) =
+    (Base.Broadcast.Broadcasted(Tuple, (CartesianIndices(mat),)), mat)
+
+nzidcsvals(c::Correspondences, _source, _target) = (c.idcs, c.weights)
+
+function nzidcsvals(::Unknown, source, target)
+    src_idcs = eachindex(source.points)
+    trg_idcs = eachindex(target.points)
+    idcs = Base.Broadcast.Broadcasted(
+        Tuple,
+        (CartesianIndices((src_idcs, trg_idcs)),)
+    )
+    vals = FillArray.Trues(length(idcs))
+    return (idcs, vals)
+end
 

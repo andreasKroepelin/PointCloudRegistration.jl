@@ -132,16 +132,12 @@ function rigid_registration(
     target,
     alg::GemanMcClureMM,
     flip::FlipMarker = NoFlip();
-    correspondences = :ordered,
+    correspondences = Ordered(),
 )
     @argcheck alg.iterations >= 1
 
     source_pc = PointCloud(source)
     target_pc = PointCloud(target)
-
-    if correspondences == :ordered
-        correspondences = OrderedCorrespondences(source_pc, target_pc)
-    end
 
     sqscales = annealing_plan(target_pc, alg.scale)
     _rigid_gmc(
@@ -178,7 +174,7 @@ function _rigid_gmc(
     best = worst(CostT, transformation_type(source, target, flip))
     gm_cost = zero(CostT)
     restarts_iter = restarts_iterator(source, target, restarts, flip)
-    weighted_iter = weighted_iterator(batching, nzidcs(correspondences), nzvals(correspondences))
+    weighted_iter = weighted_iterator(batching, nzidcsvals(correspondences, source, target)...)
     for (restart, transformation) in enumerate(restarts_iter)
         for sqscale in sqscales
             # double `sqscale` such that the loss function has the same
@@ -289,7 +285,8 @@ function rigid_registration(
     source,
     target,
     alg::MeanAbsoluteDeviationMM,
-    flip::FlipMarker = NoFlip(),
+    flip::FlipMarker = NoFlip();
+    correspondences = Ordered(),
 )
     @argcheck alg.iterations >= 1
 
@@ -297,13 +294,14 @@ function rigid_registration(
     pc_target = PointCloud(target)
     @argcheck size(pc_source) == size(pc_target)
 
-    _rigid_mad(pc_source, pc_target, flip, alg.iterations, alg.report_iteration)
+    _rigid_mad(pc_source, pc_target, flip, correspondences, alg.iterations, alg.report_iteration)
 end
 
 function _rigid_mad(
     source::PointCloud{N},
     target::PointCloud{N},
     flip,
+    correspondences,
     iterations,
     report_iteration,
 ) where {N}
@@ -318,14 +316,15 @@ function _rigid_mad(
         target_mean = sum_w * zero(TrgT)
         covariance = sum_w * zero(TrgT) * zero(SrcT)'
 
-        for j in eachindex(source.points, target.points)
+        idcs, correspondence_weights = nzidcsvals(correspondences, source, target)
+        for ((j, i), cw) in zip(idcs, correspondence_weights)
             src = source.points[j]
-            trg = target.points[j]
+            trg = target.points[i]
             w_src = source.weights[j]
-            w_trg = target.weights[j]
+            w_trg = target.weights[i]
             sqdist = sqeuclidean(transformation(src), trg)
             w_src_w_trg = w_src * w_trg
-            w = w_src_w_trg / (sqdist + one(sqdist) / 100)
+            w = cw * w_src_w_trg / (sqdist + oneunit(sqdist) / 100)
             source_mean += w * src
             target_mean += w * trg
             covariance += w * trg * src'

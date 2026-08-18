@@ -6,19 +6,17 @@ Rigid registration that minimizes the squared distances of corresponding points.
 For two weighted point clouds
 ``x_1, \\dots, x_I \\in \\mathbb{R}^D`` with weights ``p_1, \\dots, p_I`` and
 ``y_1, \\dots, y_I \\in \\mathbb{R}^D`` with weights ``q_1, \\dots, q_I``
-their *Root Mean Square Displacement* (RMSD) is defined as
+their *Squared Displacement* is defined as
 ```math
-\\sqrt{
-    \\frac{1}{\\sum_{i = 1}^I p_i q_i}
-    \\sum_{i = 1}^I p_i q_i \\Vert y_i - x_i \\Vert^2
-} .
+\\sum_{i, j \text{corresponding}} p_i q_j \\Vert y_j - x_i \\Vert^2
+ .
 ```
-To find the rotation and translation minimising the RMSD between two point
-clouds, there exists a closed form solution in form of the Kabsch algorithm.
+To find the rotation and translation minimising the squard displacement between
+two point clouds, there exists a closed form solution in form of the Kabsch
+algorithm.
 Therefore, this method is very fast and performs only a single pass over the
 point clouds.
-However, it requires both point clouds having the same size and points with
-equal index corresponding to each other.
+However, it requires [correspondences](@ref) between source and target.
 It is also very susceptible to outliers.
 
 **Unless you are very sure what you are doing, prefer [`GemanMcClureMM`](@ref)
@@ -27,7 +25,7 @@ over `Kabsch` for rigid registration with known correspondences.**
 struct Kabsch end
 
 """
-    rigid_registration(source, target, algorithm::Kabsch, [flip = NoFlip()])
+    rigid_registration(source, target, algorithm::Kabsch, [flip = NoFlip()]; correspondences = Ordered())
 
 Perform rigid registration via [`Kabsch`](@ref).
 See [here](@ref rigid_registration(::Any, ::Any, ::Any, ::Any)) for general info
@@ -72,11 +70,11 @@ function rigid_registration(
     source,
     target,
     ::Kabsch,
-    flip::FlipMarker = NoFlip(),
+    flip::FlipMarker = NoFlip();
+    correspondences = Ordered(),
 )
     pc_source = PointCloud(source)
     pc_target = PointCloud(target)
-    @argcheck size(pc_source) == size(pc_target)
 
     _rigid_kabsch(pc_source, pc_target, flip)
 end
@@ -85,20 +83,21 @@ function _rigid_kabsch(
     source::PointCloud{N, TS},
     target::PointCloud{N, TT},
     flip::FlipMarker,
+    correspondences,
 ) where {N, TS, TT}
-    @argcheck length(source.points) == length(target.points)
     SrcT = eltype(source.points)
     TrgT = eltype(target.points)
     sum_w = 2 * zero(eltype(source.weights)) * zero(eltype(target.weights))
     covariance = zero_cov(source, target)
     source_mean = sum_w * zero(SrcT)
     target_mean = sum_w * zero(TrgT)
-    for i in eachindex(source.points)
-        src = source.points[i]
+    idcs, correspondence_weights = nzidcsvals(correspondences, source, target)
+    for ((j, i), cw) in zip(idcs, correspondence_weights)
+        src = source.points[j]
         trg = target.points[i]
-        w_src = source.weights[i]
+        w_src = source.weights[j]
         w_trg = target.weights[i]
-        w = w_src * w_trg
+        w = cw * w_src * w_trg
         source_mean += w * src
         target_mean += w * trg
         covariance += w * trg * src'
