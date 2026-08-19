@@ -62,7 +62,6 @@ As for the public interface, you can consider `PointCloud` to be defined as
 struct PointCloud{N, T} <: AbstractMatrix{T}
     points::AbstractVector{SVector{N, T}}
     weights::AbstractVector{<: Real}
-    # ... private fields ...
 end
 ```
 with the `SVector` type from StaticArrays.jl.
@@ -127,37 +126,27 @@ and weights
 If no weights are specified, implicit unit weights are used.
 (They are not explicitly stored and have minimal runtime cost for computations.)
 """
-struct PointCloud{
-    N,
-    T,
-    P <: VecOfSVec{N, T},
-    WT,
-    W <: AbstractVector,
-    WC <: AbstractVector,
-}
+struct PointCloud{N, T, P <: VecOfSVec{N, T}, W <: AbstractVector}
     points::P
     weights::W
-    weights_cumsum::WC
-    sum_of_weights::WT
-end
 
-"""
-    PointCloud(::VecOfSVec, ::AbstractVector)
+    function PointCloud(
+        points::P,
+        weights::W
+    ) where {N, T, P <: VecOfSVec{N, T}, W <: AbstractVector}
 
-Wrap a list of points and explicit weights as a `PointCloud`.
-"""
-function PointCloud(points::VecOfSVec, weights::AbstractVector)
-    @argcheck length(points) == length(weights) "number of points must match number of weights"
-    any(<(0), weights) && @warn "weights must be non-negative" minimum(weights)
-    weights_cumsum = cumsum(weights)
-    sum_of_weights = if isempty(weights)
-        zero(eltype(weights))
-    else
-        last(weights_cumsum)
+        @argcheck length(points) == length(weights) "number of points must match number of weights"
+        any(<(0), weights) && @warn "weights must be non-negative" minimum(weights)
+        any(>(0), weights) || @warn "weights cannot all be zero"
+        new{N, T, P, W}(points, weights)
     end
-    sum_of_weights > 0 || @warn "weights cannot all be zero" sum_of_weights
-    PointCloud(points, weights, weights_cumsum, sum_of_weights)
 end
+
+# """
+#     PointCloud(::VecOfSVec, ::AbstractVector)
+
+# Wrap a list of points and explicit weights as a `PointCloud`.
+# """
 
 PointCloud(points::VecOfSVec) = PointCloud(points, Trues(length(points)))
 
@@ -194,11 +183,6 @@ Converting a [`PointCloud`](@ref) to a [`PointCloud`](@ref) just returns the
 argument, i.e. `PointCloud(...)` is *idempotent*.
 """
 PointCloud(pc::PointCloud) = pc
-
-Base.size(pc::PointCloud{N}) where {N} = (N, length(pc.points))
-StaticArrays.Size(pc::PointCloud{N}) where {N} = Size(N, StaticArrays.Dynamic())
-Base.@propagate_inbounds Base.getindex(pc::PointCloud, i, j) =
-    getindex(getindex(pc.points, j), i)
 
 """
     getindex(pointcloud, idcs::AbstractVector{<:Integer})
@@ -310,25 +294,14 @@ function bbox_hypervolume(pc::PointCloud)
     prod(hi - lo)
 end
 
-function sample_point(rng, pc::PointCloud)
-    r = rand(rng, float(eltype(pc.weights_cumsum)))
-    idx = searchsortedfirst(pc.weights_cumsum, r * pc.sum_of_weights)
-    idx = clamp(idx, eachindex(pc.points))
-    (; idx, point = pc.points[idx])
-end
+(m::AffineMap)(pc::PointCloud) = PointCloud(m.(pc.points), pc.weights)
 
-(m::AffineMap)(pc::PointCloud) =
-    PointCloud(m.(pc.points), pc.weights, pc.weights_cumsum, pc.sum_of_weights)
-
-(m::LinearMap)(pc::PointCloud) =
-    PointCloud(m.(pc.points), pc.weights, pc.weights_cumsum, pc.sum_of_weights)
+(m::LinearMap)(pc::PointCloud) = PointCloud(m.(pc.points), pc.weights)
 
 function Base.vcat(pc1::PointCloud{N}, pc2::PointCloud{N}) where {N}
     PointCloud(
         vcat(pc1.points, pc2.points),
         vcat(pc1.weights, pc2.weights),
-        vcat(pc1.weights_cumsum, pc2.weights_cumsum .+ pc1.sum_of_weights),
-        pc1.sum_of_weights + pc2.sum_of_weights,
     )
 end
 
