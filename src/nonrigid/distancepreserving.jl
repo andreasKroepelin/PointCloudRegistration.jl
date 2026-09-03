@@ -219,11 +219,11 @@ function _nonrigid_distancepreserving(
     s = sum(C; dims = 2)
     R = pairwise(sqeuclidean, target.points, source.points)
 
-    sqsigma = init_sqsigma
-    state[1] = log(sqsigma)
+    state[1] = log(init_sqsigma) / 2
 
     for iter in 1:iterations
-        sqsigma = exp(state[1])
+        invsqsigma = exp(-2 * state[1])
+        exp_factor = -invsqsigma / 2
 
         report_iteration(; iter, new_source_points, sqsigma)
 
@@ -239,23 +239,27 @@ function _nonrigid_distancepreserving(
             end
         end
 
-        exp_factor = -inv(2sqsigma)
-        pairwise!(R, sqeuclidean, target.points, new_source_points)
-        @. C = source.weights' * exp(exp_factor * R)
-        sum!(s, C)
-        @. C *= target.weights / s
-
         fillzeros!(gradient)
+        logsigma_gradient = zero(sqsigma)
 
-        for j in eachindex(source.points)
-            nsrc = new_source_points[j]
-            for i in eachindex(target.points)
-                trg = target.points[i]
-                trg_w = target.weights[i]
-                points_gradient[j] += trg_w * C[i, j] * (nsrc - trg)
+        for i in eachindex(target.points)
+            trg_w = target.weights[i]
+            iszero(trg_w) && continue
+
+            sum_of_coeffs = zero()
+            logsigma_gradient_per_trg = zero(logsigma_gradient)
+            for j in eachindex(source.points)
+                nsrc = new_source_points[j]
+                delta = nsrc - trg
+                sqdist = norm_sqr(delta)
+                coeff = exp(exp_factor * sqdist)
+                sum_of_coeffs += coeff
+                points_gradient_per_trg[j] = coeff * delta
+                logsigma_gradient_per_trg += coeff * sqdist
             end
+            points_gradient .+= (invsqsigma * trg_w / sum_of_coeffs) .* points_gradient_per_trg
+            logsigma_gradient += N * trg_w - invsqsigma * logsigma_gradient_per_trg / sum_of_coeffs
         end
-        points_gradient ./= sqsigma
 
         regularize_neighbor_distances!(
             points_gradient,
@@ -264,11 +268,7 @@ function _nonrigid_distancepreserving(
             regularizer,
         )
 
-        logsqsigma_gradient =
-            -dot(vec(C), vec(R)) / 2sqsigma + N * target.sum_of_weights
-        # logsqsigma_gradient /= 2sqsigma
-
-        gradient[1] = logsqsigma_gradient
+        gradient[1] = logsigma_gradient
 
         Adam.step!(adam, gradient, state, iter)
     end
