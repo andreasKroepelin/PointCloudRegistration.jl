@@ -1,24 +1,21 @@
 function avg_nn_dist(pc::PointCloud)
-    tree = KDTree(pc.points)
+    tree = KDTree(points(pc))
     _idcs, dists = allnn(tree)
     mean(dists)
 end
 
 function min_nn_dist(pc::PointCloud)
-    tree = KDTree(pc.points)
+    tree = KDTree(points(pc))
     _idcs, dists = allnn(tree)
     minimum(dists)
 end
 
 function avg_nn_dist_fast(pc::PointCloud)
-    i1 = rand(eachindex(pc.points))
-    i2 = rand(eachindex(pc.points))
-    i3 = rand(eachindex(pc.points))
-    test_points = map(i -> pc.points[i], (i1, i2, i3))
+    test_points = rand(points(pc), 3)
     some_dist = sqeuclidean(test_points[1], test_points[2])
     mins = map(Returns(typemax(some_dist)), test_points)
     discount_zero(x) = ifelse(iszero(x), typemax(x), x)
-    for p in pc.points
+    for p in points(pc)
         mins = min.(mins, discount_zero.(sqeuclidean.(test_points, (p,))))
     end
     mean(sqrt, mins)

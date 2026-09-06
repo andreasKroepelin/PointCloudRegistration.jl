@@ -150,7 +150,7 @@ show_all(registered_pointclouds_per_method.gmc)
 
 norms = map(registered_pointclouds_per_method) do reg_pcs
     stack(reg_pcs) do reg_pc
-        norm.(target.points .- reg_pc.points)
+        norm.(target.points .- reg_points(pc))
     end
 end
 # dissimilar_mask = vec(sqrt.(mean(norms.rmsd .^ 2; dims = 1)) .> 10)

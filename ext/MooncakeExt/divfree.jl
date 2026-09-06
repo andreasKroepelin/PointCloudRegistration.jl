@@ -118,7 +118,7 @@ function Energy(
     degree,
 ) where {N, T}
     invlambdas = compute_invlambdas(T, Val(N), degree)
-    correspondences = zeros(T, length(target.points), length(source.points))
+    correspondences = zeros(T, length(target), length(source))
 
     Energy(sigma, invlambdas, source, target, correspondences)
 end
@@ -128,10 +128,10 @@ function (energy::Energy{N, T})(coefficients::AbstractVector) where {N, T}
     velocity = Velocity{N}(coefficients)
 
     likelihood = zero(T)
-    for j in eachindex(source.points)
-        dsrc = displace(source.points[j], velocity)
-        for i in eachindex(target.points)
-            trg = target.points[i]
+    for (j, s) in enumerate(source)
+        dsrc = displace(s.coords, velocity)
+        for (i, t) in enumerate(target)
+            trg, _ = t
             likelihood += correspondences[i, j] * huber(euclidean(dsrc, trg))
             # likelihood += correspondences[i, j] * sqeuclidean(dsrc, trg)
         end
@@ -189,7 +189,7 @@ function unit_box_squisher(pointclouds::PointCloud{N, T}...) where {N, T}
 end
 
 function (dfd::PointCloudRegistration.DivFreeDisplacement)(pc::PointCloud)
-    return map(pc.points) do src
+    return map(points(pc)) do src
         dfd.invubs(displace(dfd.ubs(src), dfd.velocity))
     end
 end
@@ -246,13 +246,9 @@ function _nonrigid_divfree(
     velocity_optimizer = VelocityOptimizer(energy, coefficients)
 
     for iteration in 1:iterations
-        for j in eachindex(source_box.points)
-            src = source_box.points[j]
+        for (j, (src, src_w)) in enumerate(source_box)
             dsrc = displace(src, Velocity{N}(coefficients))
-            src_w = source_box.weights[j]
-            for i in eachindex(target_box.points)
-                trg = target_box.points[i]
-                trg_w = target_box.weights[i]
+            for (i, (trg, trg_w)) in enumerate(target_box)
                 c = exp(-inv(2sigma^2) * sqeuclidean(dsrc, trg))
                 energy.correspondences[i, j] = src_w * trg_w * c
             end

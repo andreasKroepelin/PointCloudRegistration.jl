@@ -35,7 +35,7 @@ function (@main)(args)
 
     @info "starting reassembly"
     n = SA[1.0f0, 0.0f0, 0.0f0]
-    projected = [dot(n, p) for p in pc.points]
+    projected = [dot(n, p) for p in points(pc)]
     lo, hi = extrema(projected)
     threshold_range = range(0, 1; length = numthresholds)
     scales = logrange(
@@ -58,8 +58,8 @@ function (@main)(args)
         h5["overlaps"] = collect(overlaps)
         h5["threshold_range"] = collect(threshold_range)
         h5["projected"] = projected
-        h5["points"] = stack(pc.points)
-        h5["weights"] = pc.weights
+        h5["points"] = stack(points(pc))
+        h5["weights"] = weights(pc)
         h5["scales"] = collect(scales)
         attributes(h5)["normal"] = n
         attributes(h5)["restarts"] = numrestarts
@@ -107,7 +107,7 @@ function (analyzer::Analyzer)(lrt)
         nrm = norm(T.translation)
         successes[j] = angle <= 2 && nrm <= 0.005f0
         overlaps[j] =
-            count(splat(==), zip(first_mask, second_mask)) / length(pc.points)
+            count(splat(==), zip(first_mask, second_mask)) / length(points(pc))
     end
     return (; successes, overlaps)
 end

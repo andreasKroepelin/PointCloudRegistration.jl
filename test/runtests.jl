@@ -48,33 +48,33 @@ end
     lo, hi = PCReg.bbox(pc)
 
     # proper lower/upper bound?
-    @test all(>=(lo), pc.points)
-    @test all(<=(hi), pc.points)
+    @test all(>=(lo), points(pc))
+    @test all(<=(hi), points(pc))
 
     # tight bound?
     N = PCReg.dimension(pc)
-    @test all(k -> any(p -> p[k] == lo[k], pc.points), 1:N)
-    @test all(k -> any(p -> p[k] == hi[k], pc.points), 1:N)
+    @test all(k -> any(p -> p[k] == lo[k], points(pc)), 1:N)
+    @test all(k -> any(p -> p[k] == hi[k], points(pc)), 1:N)
 end
 
 @testset "mapping PointCloud" begin
     pc, _ = PCReg.Assets.load_1ake_A_4ake_A()
     transformation = PCReg.rand_transformation(pc)
 
-    manual_mapping = PointCloud(transformation.(pc.points), pc.weights)
+    manual_mapping = PointCloud(transformation.(points(pc)), weights(pc))
     clever_mapping = transformation(pc)
     @test isapprox(manual_mapping, clever_mapping)
 
     linear = LinearMap(transformation.linear)
 
-    manual_mapping = PointCloud(linear.(pc.points), pc.weights)
+    manual_mapping = PointCloud(linear.(points(pc)), weights(pc))
     clever_mapping = linear(pc)
     @test isapprox(manual_mapping, clever_mapping)
 end
 
 @testset "weighted PointCloud" begin
     pc, _ = PCReg.Assets.load_1ake_A_4ake_A()
-    points = pc.points
+    points = points(pc)
     weights = rand(0:10, length(points))
     weighted_pc = PointCloud(points, weights)
 
@@ -243,20 +243,20 @@ end
     T = eltype(pc)
     sigma = T(20)
     grid = PCReg.kde_grid(PCReg.bbox(pc)...; sigma)
-    kde! = PCReg.KdeComputation(pc.points, grid, T)
+    kde! = PCReg.KdeComputation(points(pc), grid, T)
     buffer = zeros(T, size(grid))
-    kde!(buffer, pc.weights)
+    kde!(buffer, weights(pc))
 
     # this is the smallest number we consider > zero for KDE purposes
     almost_zero = last(PCReg.compute_gaussians(T))
-    atol = length(pc.points) * almost_zero
+    atol = length(points(pc)) * almost_zero
     @info "KDE" size(grid) maximum(buffer) atol
 
     grid_centers = Iterators.product(PCReg.domains(grid)...)
     for (ci, center) in zip(CartesianIndices(buffer), grid_centers)
         rand() < 0.1 || continue # only test 10 % to save time
         s = 0.0
-        for (x, w) in zip(pc.points, pc.weights)
+        for (x, w) in zip(points(pc), weights(pc))
             s += w * exp(sqeuclidean(SVector(center), x) / (-2 * sigma^2))
         end
         @test buffer[ci] >= 0

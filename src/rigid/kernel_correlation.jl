@@ -213,24 +213,24 @@ function kde_grid(lo, hi; sigma)
 end
 
 function AnnealingLevel(
-    target::PointCloud{N},
+    target::PointCloud{N, T},
     target_bbox::NTuple{2},
     weighted_target_points,
     sqscale,
-) where {N}
+) where {N, T}
     grid = kde_grid(target_bbox...; sigma = sqrt(sqscale))
     convd_target = reinterpret(
         reshape,
-        SVector{N, eltype(target)},
-        zeros(eltype(target), N, size(grid)...),
+        SVector{N, T},
+        zeros(T, N, size(grid)...),
     )
-    convd_weights_target = zeros(typeof(one(eltype(target))), size(grid)...)
+    convd_weights_target = zeros(typeof(one(T)), size(grid)...)
     kde_convd_weights_target! =
-        KdeComputation(target.points, grid, eltype(convd_weights_target))
+        KdeComputation(points(target), grid, eltype(convd_weights_target))
     kde_convd_target! =
-        KdeComputation(target.points, grid, eltype(parent(convd_target)))
+        KdeComputation(points(target), grid, eltype(parent(convd_target)))
 
-    kde_convd_weights_target!(convd_weights_target, target.weights)
+    kde_convd_weights_target!(convd_weights_target, weights(target))
     kde_convd_target!.(
         eachslice(parent(convd_target); dims = 1),
         eachrow(
@@ -246,7 +246,7 @@ end
 
 function compute_annealing_levels(target, sqscales)
     target_bbox = bbox(target)
-    weighted_target_points = target.points .* target.weights
+    weighted_target_points = points(target) .* weights(target)
 
     [
         AnnealingLevel(target, target_bbox, weighted_target_points, sqscale) for
@@ -261,9 +261,7 @@ function eval_kernel_correlation(
 )
     valid_idcs = CartesianIndices(size(al.grid))
     kc = zero(eltype(source.weights)) * zero(eltype(al.convd_weights_target))
-    for j in eachindex(source.points, source.weights)
-        src = source.points[j]
-        w_src = source.weights[j]
+    for (src, w_src) in source
         transformed_src = transformation(src)
         grid_idx = idx_on_grid(transformed_src, al.grid)
         grid_idx in valid_idcs || continue
@@ -274,7 +272,8 @@ function eval_kernel_correlation(
 end
 
 function axisalign_target(target)
-    axisaligner = nearest_rotation(target.coveigvecs')
+    _, c = mean_cov(target)
+    axisaligner = nearest_rotation(eigvecs(c)')
     axisaligner, LinearMap(axisaligner)(target)
 end
 
@@ -496,8 +495,8 @@ function rigid_registration(
 end
 
 function _rigid_kc(
-    source::PointCloud{N},
-    target::PointCloud{N},
+    source::PointCloud{N, TS},
+    target::PointCloud{N, TT},
     prepared_target::PreparedTargetKernelCorrelation{N},
     flip,
     restarts,
@@ -505,13 +504,13 @@ function _rigid_kc(
     batching,
     report_iteration,
     report_restart,
-) where {N}
+) where {N, TS, TT}
     (; annealing_levels, axis_aligning_rotation) = prepared_target
 
-    SrcT = eltype(source.points)
-    TrgT = eltype(target.points)
-    SrcWT = eltype(source.weights)
-    TrgWT = eltype(target.weights)
+    SrcT = SVector{N, TS}
+    TrgT = SVector{N, TT}
+    SrcWT = SumOfWeightsType(source)
+    TrgWT = SumOfWeightsType(target)
     CostT = typeof(
         zero(SrcWT) *
         zero(eltype(first(annealing_levels).convd_weights_target)),
@@ -520,30 +519,28 @@ function _rigid_kc(
     kc = zero(CostT)
     cost = zero(CostT)
     restarts_iter = restarts_iterator(source, target, restarts, flip)
-    source_idcs = batched(batching, eachindex(source.points))
+    source_iter = batched(batching, source)
     for (restart, transformation) in enumerate(restarts_iter)
         for annealing_level in annealing_levels
             (; grid, convd_target, convd_weights_target) = annealing_level
             valid_idcs = CartesianIndices(size(grid))
             prev_transformation = identity_transformation(transformation)
 
-            source_idcs = maybe_stochastic(source_idcs)
-            for iter in 1:iterations
-                if 10iter > 9iterations
-                    source_idcs = non_stochastic(source_idcs)
+            source_iter = maybe_stochastic(source_iter)
+            for iteration in 1:iterations
+                if 10iteration > 9iterations
+                    source_iter = non_stochastic(source_iter)
                 end
-                target_mean = zero(eltype(target.points))
-                source_mean = zero(eltype(source.points))
+                target_mean = zero(SrcT)
+                source_mean = zero(TrgT)
                 covariance = target_mean * source_mean'
                 kc = zero(CostT)
-                source_wsum = float(zero(SrcWT))
-                for source_idx in batch(source_idcs, iter)
-                    src = source.points[source_idx]
+                source_wsum = zero(SrcWT)
+                for (src, w_src) in batch(source_iter, iteration)
                     transformed_src = transformation(src)
                     grid_idx = idx_on_grid(transformed_src, grid)
                     grid_idx in valid_idcs || continue
 
-                    w_src = source.weights[source_idx]
                     convd_trg = convd_target[grid_idx]
                     convd_w_trg = convd_weights_target[grid_idx]
                     target_mean += w_src * convd_trg

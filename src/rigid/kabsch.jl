@@ -85,19 +85,16 @@ function _rigid_kabsch(
     flip::FlipMarker,
     correspondences,
 ) where {N, TS, TT}
-    SrcT = eltype(source.points)
-    TrgT = eltype(target.points)
-    sum_w = 2 * zero(eltype(source.weights)) * zero(eltype(target.weights))
+    SrcT = SVector{N, TS}
+    TrgT = SVector{N, TT}
+    sum_w = zero(SumOfWeightsType(source)) * zero(SumOfWeightsType(target))
     covariance = zero_cov(source, target)
     source_mean = sum_w * zero(SrcT)
     target_mean = sum_w * zero(TrgT)
-    idcs, correspondence_weights = nzidcsvals(correspondences, source, target)
-    for ((j, i), cw) in zip(idcs, correspondence_weights)
-        src = source.points[j]
-        trg = target.points[i]
-        w_src = source.weights[j]
-        w_trg = target.weights[i]
-        w = cw * w_src * w_trg
+    for (j, i) in corresponding_indices(correspondences, source, target)
+        (src, w_src) = source[j]
+        (trg, w_trg) = target[i]
+        w = w_src * w_trg
         source_mean += w * src
         target_mean += w * trg
         covariance += w * trg * src'
@@ -117,14 +114,8 @@ function evaluate_rmsd(
     transformation = identity_transformation(source, target),
 ) where {N}
     @argcheck eachindex(source.points) == eachindex(target.points)
-    ssd = mapreduce(
-        +,
-        source.points,
-        source.weights,
-        target.points,
-        target.weights,
-    ) do src, src_w, trg, trg_w
+    ssd = mapreduce(+, source, target) do (src, src_w), (trg, trg_w)
         src_w * trg_w * sqeuclidean(transformation(src), trg)
     end
-    sqrt(ssd / length(source.points))
+    sqrt(ssd / length(source))
 end

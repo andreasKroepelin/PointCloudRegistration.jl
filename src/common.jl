@@ -12,8 +12,8 @@ function wsum(f, points::VecOfSVec, weights)
     s
 end
 
-function zero_cov(source::PointCloud{N}, target::PointCloud{N}) where {N}
-    a = zero(eltype(target.points))
-    b = zero(eltype(source.points))
+function zero_cov(source::PointCloud{N, TS}, target::PointCloud{N, TT}) where {N, TS, TT}
+    a = zero(SVector{N, TS})
+    b = zero(SVector{N, TT})
     zero(a * b')
 end

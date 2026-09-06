@@ -15,8 +15,8 @@ cost(gm::GemanMcClureCost, x::AbstractVector, y::AbstractVector) =
     cost(gm, sqeuclidean(x, y))
 cost(gm::GemanMcClureCost, sqdist::Number) = sqdist / (gm.sqscale + sqdist)
 
-cost_type(gm::GemanMcClureCost, Y::PointCloud, X::PointCloud) =
-    typeof(cost(gm, first(Y.points), first(X.points)))
+cost_type(gm::GemanMcClureCost, Y::PointCloud{N, TY}, X::PointCloud{N, TX}) where {N, TY, TX} =
+    typeof(cost(gm, zero(SVector{N, TY}), zero(SVector{N, TX}))
 
 """
     GemanMcClureMM([; scale, restarts, iterations, batching, report_iteration, report_restart])
@@ -155,8 +155,8 @@ function rigid_registration(
 end
 
 function _rigid_gmc(
-    source::PointCloud{N},
-    target::PointCloud{N},
+    source::PointCloud{N, TS},
+    target::PointCloud{N, TT},
     flip,
     sqscales,
     correspondences,
@@ -165,10 +165,10 @@ function _rigid_gmc(
     batching,
     report_iteration,
     report_restart,
-) where {N}
+) where {N, TS, TT}
     gm = GemanMcClureCost(oneunit(eltype(sqscales)))
-    SrcT = eltype(source.points)
-    TrgT = eltype(target.points)
+    SrcT = SVector{N, TS}
+    TrgT = SVector{N, TT}
     CostT = cost_type(gm, source, target)
     WeightT = mm_weight_type(gm, source, target)
     best = worst(CostT, transformation_type(source, target, flip))
@@ -197,10 +197,8 @@ function _rigid_gmc(
                 gm_cost = zero(CostT)
 
                 for (src_idx, trg_idx) in batch(corresponding_idcs, iter)
-                    src = source.points[src_idx]
-                    trg = target.points[trg_idx]
-                    w_src = source.weights[src_idx]
-                    w_trg = target.weights[trg_idx]
+                    (src, w_src) = source[src_idx]
+                    (trg, w_trg) = target[trg_idx]
                     sqdist = sqeuclidean(transformation(src), trg)
                     w_src_w_trg = w_src * w_trg
                     w = w_src_w_trg * mm_weight(gm, sqdist)
@@ -314,17 +312,14 @@ function _rigid_mad(
     transformation = simple_transformation(source, target, flip)
     prev_transformation = identity_transformation(transformation)
     for iter in 1:iterations
-        sum_w =
-            float(zero(eltype(source.weights)) * zero(eltype(target.weights)))
+        sum_w = zero(SumOfWeightsType(source)) * zero(SumOfWeightsType(target))
         source_mean = sum_w * zero(SrcT)
         target_mean = sum_w * zero(TrgT)
         covariance = sum_w * zero(TrgT) * zero(SrcT)'
 
         for (j, i) in corresponding_indices(correspondences, source, target)
-            src = source.points[j]
-            trg = target.points[i]
-            w_src = source.weights[j]
-            w_trg = target.weights[i]
+            (src, w_src) = source[j]
+            (trg, w_trg) = target[i]
             sqdist = sqeuclidean(transformation(src), trg)
             w_src_w_trg = w_src * w_trg
             w = w_src_w_trg / (sqdist + oneunit(sqdist) / 100)

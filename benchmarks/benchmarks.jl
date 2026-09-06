@@ -13,7 +13,7 @@ import BioStructures as BioS
 import Kabsch as K
 
 # Xpc, Ypc = PCReg.Assets.load_1ake_A_4ake_A()
-# X, Y, = stack.((Xpc.points, Ypc.points))
+# X, Y, = stack.((Xpoints(pc), Ypoints(pc)))
 # X = [X X X X]
 # Y = [Y Y Y Y]
 X = randn(3, 1000)

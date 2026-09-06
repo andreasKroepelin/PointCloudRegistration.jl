@@ -2,6 +2,7 @@ module PointCloudRegistration
 
 using StaticArrays
 using FillArrays
+using StructArrays
 using Accessors
 using CoordinateTransformations
 using Rotations

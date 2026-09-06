@@ -104,9 +104,9 @@ function showthem(pcs)
     for (i, k) in enumerate(keys(pcs))
         pc = pcs[k]
         ax = Axis3(fig[1, i]; title = string(k), aspect = :data)
-        maxw = maximum(pc.weights)
-        nw = pc.weights ./ maxw
-        scatter!(ax, pc.points; color = tuple.(:blue, nw))
+        maxw = maximum(weights(pc))
+        nw = weights(pc) ./ maxw
+        scatter!(ax, points(pc); color = tuple.(:blue, nw))
     end
     fig
 end

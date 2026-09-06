@@ -43,8 +43,8 @@ end
 dimension(::Displacement{N}) where {N} = N
 
 function (displacement::Displacement{N})(pc::PointCloud{N}) where {N}
-    @argcheck displacement.origin == pc.points "Displacement can only be applied to the source it was computed for."
-    return PointCloud(displacement.result, pc.weights)
+    @argcheck displacement.origin == points(pc) "Displacement can only be applied to the source it was computed for."
+    return PointCloud(displacement.result, weights(pc))
 end
 
 function Base.show(

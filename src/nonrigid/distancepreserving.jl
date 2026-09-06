@@ -35,11 +35,11 @@ function prepare_source_distancepreserving(source; max_edge_length)
 end
 
 function _prepare_source_distancepreserving(source::PointCloud, max_edge_length)
-    tree = KDTree(source.points)
+    tree = KDTree(points(source))
 
     edges = inrange_pairs(tree, max_edge_length)
     distances =
-        [euclidean(source.points[j1], source.points[j2]) for (j1, j2) in edges]
+        [euclidean(source[j1].coords, source[j2].coords) for (j1, j2) in edges]
 
     init_sqsigma = let
         _idcs, dists = allnn(tree)
@@ -187,8 +187,8 @@ function _nonrigid_distancepreserving(
 ) where {N, RI}
     (; neighbor_graph, init_sqsigma) = prepd_source
 
-    I = length(target.points)
-    J = length(source.points)
+    I = length(target)
+    J = length(source)
 
     function extract_points(arr)
         section = @view arr[2:end]
@@ -207,17 +207,13 @@ function _nonrigid_distancepreserving(
     points_gradient = extract_points(gradient)
     adam = Adam.State(state)
 
-    new_source_points .= source.points
+    new_source_points .= points(source)
     if !iszero(init_noise)
         V = eltype(new_source_points)
         for j in eachindex(new_source_points)
             new_source_points[j] += init_noise * randn(V)
         end
     end
-
-    C = float.(target.weights .* source.weights')
-    s = sum(C; dims = 2)
-    R = pairwise(sqeuclidean, target.points, source.points)
 
     state[1] = log(init_sqsigma) / 2
 
@@ -242,13 +238,12 @@ function _nonrigid_distancepreserving(
         fillzeros!(gradient)
         logsigma_gradient = zero(sqsigma)
 
-        for i in eachindex(target.points)
-            trg_w = target.weights[i]
+        for (trg, trg_w) in target
             iszero(trg_w) && continue
 
             sum_of_coeffs = zero()
             logsigma_gradient_per_trg = zero(logsigma_gradient)
-            for j in eachindex(source.points)
+            for j in eachindex(new_source_points)
                 nsrc = new_source_points[j]
                 delta = nsrc - trg
                 sqdist = norm_sqr(delta)

@@ -58,7 +58,7 @@ let
     ax = Axis(fig[1, 1]; autolimitaspect = 1)
     ax_h = Axis(fig[1, 2])
     sl = Slider(fig[2, 1]; range = eachindex(pointclouds_raw))
-    factor = 2 / maximum(pc -> maximum(pc.weights), pointclouds_raw)
+    factor = 2 / maximum(pc -> maximum(weights(pc)), pointclouds_raw)
     scatter!(
         ax,
         @lift(pointclouds_raw[$(sl.value)].points);
@@ -84,7 +84,7 @@ let
     ax = Axis(fig[1, 1]; autolimitaspect = 1)
     ax_h = Axis(fig[1, 2])
     sl = Slider(fig[2, 1]; range = eachindex(pointclouds))
-    factor = 2resolution / maximum(pc -> maximum(pc.weights), pointclouds)
+    factor = 2resolution / maximum(pc -> maximum(weights(pc)), pointclouds)
     scatter!(
         ax,
         @lift(pointclouds[$(sl.value)].points);
@@ -119,7 +119,7 @@ let
     fig = Figure()
     ax = Axis(fig[1, 1]; autolimitaspect = 1)
     sl = Slider(fig[2, 1]; range = eachindex(sources))
-    factor = 2resolution / maximum(pc -> maximum(pc.weights), pointclouds)
+    factor = 2resolution / maximum(pc -> maximum(weights(pc)), pointclouds)
     # scatter!(ax, target.points; markersize = factor .* target.weights)
     src_plt = scatter!(
         ax,
@@ -156,7 +156,7 @@ let
     ax = Axis(fig[1, 1]; autolimitaspect = 1)
     ax_h = Axis(fig[1, 2]; autolimitaspect = 1)
     sl = Slider(fig[2, 1]; range = eachindex(sources))
-    factor = 2resolution / maximum(pc -> maximum(pc.weights), pointclouds)
+    factor = 2resolution / maximum(pc -> maximum(weights(pc)), pointclouds)
     # scatter!(ax, target.points; markersize = factor .* target.weights)
     for j in eachindex(target.points)
         pts = [Point(cpd.target_representatives[j]) for cpd in cpds]
@@ -234,18 +234,18 @@ let
     hidedecorations!(ax_t)
     linkxaxes!(ax, ax_t)
     linkyaxes!(ax, ax_t)
-    factor = 5 / maximum(pc -> maximum(pc.weights), pointclouds)
+    factor = 5 / maximum(pc -> maximum(weights(pc)), pointclouds)
     for (pc, T) in zip(pointclouds, Ts)
         scatter!(
             ax,
-            pc.points;
-            markersize = factor .* pc.weights,
+            points(pc);
+            markersize = factor .* weights(pc),
             markerspace = :data,
         )
         scatter!(
             ax_t,
             T(pc).points;
-            markersize = factor .* pc.weights,
+            markersize = factor .* weights(pc),
             markerspace = :data,
         )
     end
@@ -274,8 +274,8 @@ let
     linkxaxes!(ax, ax_t)
     linkyaxes!(ax, ax_t)
     for (img, T) in zip(bg_contrast_images, Ts)
-        # scatter!(ax, pc.points; markersize = factor .* pc.weights, markerspace = :data)
-        # scatter!(ax_t, T(pc).points; markersize = factor .* pc.weights, markerspace = :data)
+        # scatter!(ax, points(pc); markersize = factor .* weights(pc), markerspace = :data)
+        # scatter!(ax_t, T(pc).points; markersize = factor .* weights(pc), markerspace = :data)
         heatmap!(ax, gray.(img); alpha = 0.3)
     end
     GLMakie.activate!()
