@@ -174,7 +174,10 @@ function _rigid_gmc(
     best = worst(CostT, transformation_type(source, target, flip))
     gm_cost = zero(CostT)
     restarts_iter = restarts_iterator(source, target, restarts, flip)
-    weighted_iter = weighted_iterator(batching, nzidcsvals(correspondences, source, target)...)
+    correspondence_idcs = batched(
+        batching,
+        corresponding_indices(correspondences, source, target),
+    )
     for (restart, transformation) in enumerate(restarts_iter)
         for sqscale in sqscales
             # double `sqscale` such that the loss function has the same
@@ -182,9 +185,10 @@ function _rigid_gmc(
             # loss with `sqscale`
             gm = GemanMcClureCost(2sqscale)
             prev_transformation = identity_transformation(transformation)
+            corresponding_idcs = maybe_stochastic(corresponding_idcs)
             for iter in 1:iterations
                 if 10iter > 9iterations
-                    weighted_iter = non_stochastic(weighted_iter)
+                    corresponding_idcs = non_stochastic(corresponding_idcs)
                 end
                 sum_w = zero(WeightT)
                 source_mean = sum_w * zero(SrcT)
@@ -192,8 +196,7 @@ function _rigid_gmc(
                 covariance = sum_w * zero(TrgT) * zero(SrcT)'
                 gm_cost = zero(CostT)
 
-                for weighted_element in weighted_iter
-                    (src_idx, trg_idx) = weighted_element.item
+                for (src_idx, trg_idx) in batch(corresponding_idcs, iter)
                     src = source.points[src_idx]
                     trg = target.points[trg_idx]
                     w_src = source.weights[src_idx]
@@ -208,6 +211,7 @@ function _rigid_gmc(
                     sum_w += w
                 end
 
+                gm_cost /= sum_w
                 source_mean /= sum_w
                 target_mean /= sum_w
                 covariance /= sum_w
@@ -316,15 +320,14 @@ function _rigid_mad(
         target_mean = sum_w * zero(TrgT)
         covariance = sum_w * zero(TrgT) * zero(SrcT)'
 
-        idcs, correspondence_weights = nzidcsvals(correspondences, source, target)
-        for ((j, i), cw) in zip(idcs, correspondence_weights)
+        for (j, i) in corresponding_indices(correspondences, source, target)
             src = source.points[j]
             trg = target.points[i]
             w_src = source.weights[j]
             w_trg = target.weights[i]
             sqdist = sqeuclidean(transformation(src), trg)
             w_src_w_trg = w_src * w_trg
-            w = cw * w_src_w_trg / (sqdist + oneunit(sqdist) / 100)
+            w = w_src_w_trg / (sqdist + oneunit(sqdist) / 100)
             source_mean += w * src
             target_mean += w * trg
             covariance += w * trg * src'

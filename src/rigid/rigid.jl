@@ -30,7 +30,7 @@ function transformation_from_moments(
 end
 
 """
-    rigid_registration(source, target, [flip = NoFlip()]; correspondences = NoCorrespondences())
+    rigid_registration(source, target, [flip = NoFlip()]; correspondences = Unknown())
 
 Find a [`CoordinateTransformations.AffineMap`](@extref) that rotates and
 translates (and possibly reflects if `flip isa WithFlip`) the point cloud
@@ -41,7 +41,7 @@ Both `source` and `target` can be given in a form described in Section
 They must have matching dimensions (both 2D or both 3D and so forth).
 
 By default, it is assumed that no correspondences between points in `source` and
-`target` are known (`correspondences = NoCorrespondences()`).
+`target` are known (`correspondences = Unknown()`).
 If you do have such correspondences available, it is strongly recommended to
 utilize them.
 For example, if `source` and `target` are organized such that points with equal
@@ -70,7 +70,7 @@ function rigid_registration(
     target_pc = PointCloud(target)
     @argcheck dimension(source_pc) == dimension(target_pc)
 
-    if correspondences isa NoCorrespondences
+    if correspondences isa Unknown
         return rigid_registration(source_pc, target_pc, KernelCorrelationMM(), flip)
     else
         return rigid_registration(source_pc, target_pc, GemanMcClureMM(), flip; correspondences)

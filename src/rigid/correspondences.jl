@@ -18,16 +18,16 @@ Optionally, you can provide weights for every correspondence.
 """
 struct Correspondences{W}
     idcs::Vector{NTuple{2, Int}}
-    weights::W
+    # weights::W
 
-    function Correspondences(idcs, weights)
-        @argcheck length(idcs) == length(weights)
-        new{typeof(weights)}(idcs, weights)
-    end
+    # function Correspondences(idcs, weights)
+    #     @argcheck length(idcs) == length(weights)
+    #     new{typeof(weights)}(idcs, weights)
+    # end
 end
 
-Correspondences(idcs::AbstractVector{NTuple{2, Int}}) =
-    Correspondences(idcs, FillArrays.Trues(length(idcs)))
+# Correspondences(idcs::AbstractVector{NTuple{2, Int}}) =
+#     Correspondences(idcs, FillArrays.Trues(length(idcs)))
 
 """
     matching_labels(source_labels, target_labels)
@@ -48,28 +48,24 @@ end
 
 struct Unknown end
 
-function nzidcsvals(::Ordered, source, target)
+function corresponding_indices(::Ordered, source, target)
     @argcheck size(source) == size(target) "ordered correspondences require point clouds of the same size"
     src_idcs = eachindex(source.points)
     trg_idcs = eachindex(target.points)
-    idcs = Base.Broadcast.Broadcasted(tuple, (src_idcs, trg_idcs))
-    vals = FillArrays.Trues(length(idcs))
-    return (idcs, vals)
+    return Base.Broadcast.Broadcasted(tuple, (src_idcs, trg_idcs))
 end
 
-nzidcsvals(mat::AbstractMatrix, _source, _target) =
-    (Base.Broadcast.Broadcasted(Tuple, (CartesianIndices(mat),)), mat)
+# nzidcsvals(mat::AbstractMatrix, _source, _target) =
+#     (Base.Broadcast.Broadcasted(Tuple, (CartesianIndices(mat),)), mat)
 
-nzidcsvals(c::Correspondences, _source, _target) = (c.idcs, c.weights)
+corresponding_indices(c::Correspondences, _source, _target) = c.idcs
 
-function nzidcsvals(::Unknown, source, target)
+function corresponding_indices(::Unknown, source, target)
     src_idcs = eachindex(source.points)
     trg_idcs = eachindex(target.points)
-    idcs = Base.Broadcast.Broadcasted(
+    return Base.Broadcast.Broadcasted(
         Tuple,
         (CartesianIndices((src_idcs, trg_idcs)),)
     )
-    vals = FillArray.Trues(length(idcs))
-    return (idcs, vals)
 end
 

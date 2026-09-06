@@ -83,3 +83,48 @@ end
 # crucial that this function returns something of the same type as its input.
 non_stochastic(wi::WI) where {WI <: WeightedIterator} =
     WeightedIterator(wi.items, wi.weights, wi.weights_cumsum, wi.count, wi.rng, false)::WI
+
+struct Batched{Rng, I <: AbstractVector}
+    items::I
+    rng::Rng
+    batchsize::Int
+    stochastic::Bool
+end
+
+is_stochastic(b::Batched) =
+    b.rng !== nothing && b.stochastic && 2 * b.batchsize <= length(b.items)
+
+non_stochastic(b::Batched) = @set b.stochastic = false
+
+maybe_stochastic(b::Batched{Nothing}) = b
+maybe_stochastic(b::Batched) = @set b.stochastic = true
+
+function batched(sb::StochasticBatch, items)
+    batchsize = min(sb.count, length(items))
+    # we collect such that we later have a `Vector` for shuffling
+    return Batched(collect(items), sb.rng, batchsize, true)
+end
+
+batched(::FullBatch, items) = Batched(items, nothing, length(items), false)
+
+function batch(b::Batched, iteration::Int)
+    if is_stochastic(b)
+        number_of_batches = length(b.items) ÷ b.batchsize
+        pos = mod1(iteration, number_of_batches)
+        start = (pos - 1) * b.batchsize + 1
+        stop = if pos == number_of_batches
+            lastindex(b.items)
+        else
+            start + b.batchsize - 1
+        end
+        if pos == 1
+            shuffle!(b.rng, b.items)
+        end
+    else
+        start = firstindex(b.items)
+        stop = lastindex(b.items)
+    end
+    return @view b.items[start:stop]
+end
+
+

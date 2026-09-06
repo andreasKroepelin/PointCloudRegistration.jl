@@ -518,35 +518,39 @@ function _rigid_kc(
     )
     best = worst(CostT, transformation_type(source, target, flip))
     kc = zero(CostT)
+    cost = zero(CostT)
     restarts_iter = restarts_iterator(source, target, restarts, flip)
-    source_iter = weighted_iterator(batching, source.points, source.weights)
+    source_idcs = batched(batching, eachindex(source.points))
     for (restart, transformation) in enumerate(restarts_iter)
         for annealing_level in annealing_levels
             (; grid, convd_target, convd_weights_target) = annealing_level
             valid_idcs = CartesianIndices(size(grid))
             prev_transformation = identity_transformation(transformation)
 
+            source_idcs = maybe_stochastic(source_idcs)
             for iter in 1:iterations
                 if 10iter > 9iterations
-                    source_iter = non_stochastic(source_iter)
+                    source_idcs = non_stochastic(source_idcs)
                 end
                 target_mean = zero(eltype(target.points))
                 source_mean = zero(eltype(source.points))
                 covariance = target_mean * source_mean'
                 kc = zero(CostT)
-                for source_element in source_iter
-                    src = source_element.item
+                source_wsum = float(zero(SrcWT))
+                for source_idx in batch(source_idcs, iter)
+                    src = source.points[source_idx]
                     transformed_src = transformation(src)
                     grid_idx = idx_on_grid(transformed_src, grid)
                     grid_idx in valid_idcs || continue
 
-                    w_src = source_element.weight
+                    w_src = source.weights[source_idx]
                     convd_trg = convd_target[grid_idx]
                     convd_w_trg = convd_weights_target[grid_idx]
                     target_mean += w_src * convd_trg
                     source_mean += w_src * convd_w_trg * src
                     covariance += w_src * convd_trg * src'
                     kc += w_src * convd_w_trg
+                    source_wsum += w_src
                 end
 
                 if iszero(kc)
@@ -569,12 +573,9 @@ function _rigid_kc(
                     flip,
                 )
 
-                report_iteration(;
-                    iter,
-                    annealing_level,
-                    cost = -kc,
-                    transformation,
-                )
+                cost = -kc / source_wsum
+
+                report_iteration(; iter, annealing_level, cost, transformation)
 
                 if iter > 1 && isapprox(transformation, prev_transformation)
                     break
@@ -582,8 +583,8 @@ function _rigid_kc(
                 prev_transformation = transformation
             end
         end
-        best = better(best, TransformationWithCost(-kc, transformation))
-        report_restart(; restart, cost = -kc, transformation)
+        best = better(best, TransformationWithCost(cost, transformation))
+        report_restart(; restart, cost, transformation)
         @label did_my_best
     end
 
