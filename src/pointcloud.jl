@@ -58,13 +58,16 @@ Base.iterate(wp::WeightedPoint) = (wp.coords, Val(:weight))
 Base.iterate(wp::WeightedPoint, ::Val{:weight}) = (wp.weight, Val(:done))
 Base.iterate(wp::WeightedPoint, ::Val{:done}) = nothing
 
+Base.isapprox(wp1::WeightedPoint{N}, wp2::WeightedPoint{N}; kwargs...) where {N} =
+    isapprox(wp1.coords, wp2.coords; kwargs...) && isapprox(wp1.weight, wp2.weight; kwargs...)
+
 const PointCloud{N, T, W} = AbstractVector{WeightedPoint{N, T, W}}
 
 points(pc::PointCloud) = [p.coords for p in pc]
 weights(pc::PointCloud) = [p.weight for p in pc]
 
 const PointCloudAsStructArray{N, T, W} =
-    StructArray{
+    StructVector{
         WeightedPoint{N, T, W},
         @NamedTuple{
             coords::Cs,
@@ -313,7 +316,7 @@ max_of_weights(pc::PointCloudAsStructArray) = maximum(pc.weight)
 SumOfWeightsType(::PointCloud{N, T, W}) where {N, T, W} = typeof(zero(W) + zero(W))
 
 function mean_cov(pc::PointCloud{N, T, W}) where {N, T, W}
-    sum_w = float(zero(one(W)))
+    sum_w = zero(SumOfWeightsType(pc))
     mean = zero(SVector{N, T})
     cov = mean * mean'
 
@@ -321,13 +324,13 @@ function mean_cov(pc::PointCloud{N, T, W}) where {N, T, W}
         iszero(w) && continue
         sum_w += w
         diff = x - mean
-        mean += w / sum_w * diff
+        mean += w * diff / sum_w
         cov += w * diff * (x - mean)'
     end
 
     cov /= sum_w
 
-    mean, cov
+    mean::SVector{N, T}, cov::SMatrix{N, N}
 end
 
 function maxcoveigval(pc::PointCloud)

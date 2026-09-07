@@ -18,6 +18,8 @@ using PrecompileTools: @compile_workload
 using ArgCheck
 
 export PointCloud,
+    points,
+    weights,
     # = = = rigid registration = = =
     WithFlip,
     NoFlip,

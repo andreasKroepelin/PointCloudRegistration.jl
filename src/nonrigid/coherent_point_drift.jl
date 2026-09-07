@@ -197,7 +197,7 @@ function _nonrigid_cpd(
     iterations,
 ) where {N, TS, TT}
     (; invgram, sqsigma_displacements) = source_preparation
-    displacements = similar(points(source)))
+    displacements = similar(points(source))
     fillzeros!(displacements)
     I = length(target)
     J = length(source)

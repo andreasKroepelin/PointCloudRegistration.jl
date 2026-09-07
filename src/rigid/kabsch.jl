@@ -76,7 +76,7 @@ function rigid_registration(
     pc_source = PointCloud(source)
     pc_target = PointCloud(target)
 
-    _rigid_kabsch(pc_source, pc_target, flip)
+    _rigid_kabsch(pc_source, pc_target, flip, correspondences)
 end
 
 function _rigid_kabsch(

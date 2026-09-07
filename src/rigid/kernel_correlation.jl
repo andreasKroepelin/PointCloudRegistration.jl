@@ -572,9 +572,9 @@ function _rigid_kc(
 
                 cost = -kc / source_wsum
 
-                report_iteration(; iter, annealing_level, cost, transformation)
+                report_iteration(; iter = iteration, annealing_level, cost, transformation)
 
-                if iter > 1 && isapprox(transformation, prev_transformation)
+                if iteration > 1 && isapprox(transformation, prev_transformation)
                     break
                 end
                 prev_transformation = transformation

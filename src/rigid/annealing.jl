@@ -87,7 +87,7 @@ function annealing_plan(target, ann::LogAnnealingToNearestNeighborDistance)
 end
 
 function annealing_plan(target::PointCloud, ann::LogAnnealingTo)
-    T = eltype(target)
+    T = coordtype(target)
     lo = T(ann.scale)^2
     return [2^i * lo for i in reverse(0:(ann.steps - 1))]
 end

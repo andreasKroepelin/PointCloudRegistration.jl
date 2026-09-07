@@ -52,7 +52,7 @@ function corresponding_indices(::Ordered, source, target)
     @argcheck length(source) == length(target) "ordered correspondences require point clouds of the same length"
     src_idcs = eachindex(source)
     trg_idcs = eachindex(target)
-    return Base.Broadcast.Broadcasted(tuple, (src_idcs, trg_idcs))
+    return StructVector{NTuple{2, Int}}((src_idcs, trg_idcs))
 end
 
 # nzidcsvals(mat::AbstractMatrix, _source, _target) =
@@ -63,9 +63,6 @@ corresponding_indices(c::Correspondences, _source, _target) = c.idcs
 function corresponding_indices(::Unknown, source, target)
     src_idcs = eachindex(source)
     trg_idcs = eachindex(target)
-    return Base.Broadcast.Broadcasted(
-        Tuple,
-        (CartesianIndices((src_idcs, trg_idcs)),)
-    )
+    return Tuple.(CartesianIndices((src_idcs, trg_idcs)))
 end
 

@@ -8,7 +8,7 @@ mm_weight(gm::GemanMcClureCost, sqdist::Number) =
     gm.sqscale / (gm.sqscale + sqdist)^2
 
 function mm_weight_type(gm::GemanMcClureCost, Y::PointCloud, X::PointCloud)
-    typeof(mm_weight(gm, first(Y.points), first(X.points)))
+    typeof(mm_weight(gm, first(points(Y)), first(points(X))))
 end
 
 cost(gm::GemanMcClureCost, x::AbstractVector, y::AbstractVector) =
@@ -16,7 +16,7 @@ cost(gm::GemanMcClureCost, x::AbstractVector, y::AbstractVector) =
 cost(gm::GemanMcClureCost, sqdist::Number) = sqdist / (gm.sqscale + sqdist)
 
 cost_type(gm::GemanMcClureCost, Y::PointCloud{N, TY}, X::PointCloud{N, TX}) where {N, TY, TX} =
-    typeof(cost(gm, zero(SVector{N, TY}), zero(SVector{N, TX}))
+    typeof(cost(gm, zero(SVector{N, TY}), zero(SVector{N, TX})))
 
 """
     GemanMcClureMM([; scale, restarts, iterations, batching, report_iteration, report_restart])
@@ -185,10 +185,10 @@ function _rigid_gmc(
             # loss with `sqscale`
             gm = GemanMcClureCost(2sqscale)
             prev_transformation = identity_transformation(transformation)
-            corresponding_idcs = maybe_stochastic(corresponding_idcs)
+            correspondence_idcs = maybe_stochastic(correspondence_idcs)
             for iter in 1:iterations
                 if 10iter > 9iterations
-                    corresponding_idcs = non_stochastic(corresponding_idcs)
+                    correspondence_idcs = non_stochastic(correspondence_idcs)
                 end
                 sum_w = zero(WeightT)
                 source_mean = sum_w * zero(SrcT)
@@ -196,7 +196,7 @@ function _rigid_gmc(
                 covariance = sum_w * zero(TrgT) * zero(SrcT)'
                 gm_cost = zero(CostT)
 
-                for (src_idx, trg_idx) in batch(corresponding_idcs, iter)
+                for (src_idx, trg_idx) in batch(correspondence_idcs, iter)
                     (src, w_src) = source[src_idx]
                     (trg, w_trg) = target[trg_idx]
                     sqdist = sqeuclidean(transformation(src), trg)
@@ -300,15 +300,15 @@ function rigid_registration(
 end
 
 function _rigid_mad(
-    source::PointCloud{N},
-    target::PointCloud{N},
+    source::PointCloud{N, TS},
+    target::PointCloud{N, TT},
     flip,
     correspondences,
     iterations,
     report_iteration,
-) where {N}
-    SrcT = eltype(source.points)
-    TrgT = eltype(target.points)
+) where {N, TS, TT}
+    SrcT = SVector{N, TS}
+    TrgT = SVector{N, TT}
     transformation = simple_transformation(source, target, flip)
     prev_transformation = identity_transformation(transformation)
     for iter in 1:iterations

@@ -24,6 +24,12 @@ using Base.Iterators
     end
 end
 
+@testset "PointCloud" begin
+    pc = PointCloud([SA[1.0, 2.0], SA[3.0, 4.0], SA[5.0, 6.0]], [1, 2, 3])
+    @test pc isa PointCloud
+    @test pc isa PCReg.PointCloudAsStructArray
+end
+
 @testset "mean_cov" begin
     m = randn(SVector{3, Float64})
     sqrtcov = randn(SMatrix{3, 3, Float64})
@@ -63,25 +69,23 @@ end
 
     manual_mapping = PointCloud(transformation.(points(pc)), weights(pc))
     clever_mapping = transformation(pc)
-    @test isapprox(manual_mapping, clever_mapping)
+    @test all(isapprox.(manual_mapping, clever_mapping))
 
     linear = LinearMap(transformation.linear)
 
     manual_mapping = PointCloud(linear.(points(pc)), weights(pc))
     clever_mapping = linear(pc)
-    @test isapprox(manual_mapping, clever_mapping)
+    @test all(isapprox.(manual_mapping, clever_mapping))
 end
 
 @testset "weighted PointCloud" begin
     pc, _ = PCReg.Assets.load_1ake_A_4ake_A()
-    points = points(pc)
-    weights = rand(0:10, length(points))
-    weighted_pc = PointCloud(points, weights)
+    weighted_pc = PointCloud(points(pc), rand(0:10, length(pc)))
 
-    repeated_points = mapreduce(fill, vcat, points, weights)
+    repeated_points = mapreduce(fill, vcat, points(weighted_pc), weights(weighted_pc))
     repeated_pc = PointCloud(repeated_points)
-
-    @test isapprox(weighted_pc.sum_of_weights, repeated_pc.sum_of_weights)
+ 
+    @test isapprox(PCReg.sum_of_weights(weighted_pc), PCReg.sum_of_weights(repeated_pc))
 
     weighted_mean, weighted_cov = PCReg.mean_cov(weighted_pc)
     repeated_mean, repeated_cov = PCReg.mean_cov(repeated_pc)
@@ -240,7 +244,7 @@ end
 @testset "KDE" begin
     # test that our KDE computation is reasonably close to naive computation
     pc, _ = PCReg.Assets.load_1ake_A_4ake_A()
-    T = eltype(pc)
+    T = PCReg.coordtype(pc)
     sigma = T(20)
     grid = PCReg.kde_grid(PCReg.bbox(pc)...; sigma)
     kde! = PCReg.KdeComputation(points(pc), grid, T)
@@ -279,12 +283,15 @@ end
         @test isapprox(T_true, T, rtol = 5e-2)
     end
 
-    alloc_wrapper(pc, prep) = @allocations rigid_registration(
-        pc,
-        pc,
-        KernelCorrelationMM();
-        target_preparation = prep,
-    )
-    alloc_wrapper(pc, prep)
-    @test alloc_wrapper(pc, prep) == 0
+    # this does allocate now by default because we use a Vector for shuffling
+    # for the stochastic sums
+    #
+    # alloc_wrapper(pc, prep) = @allocations rigid_registration(
+    #     pc,
+    #     pc,
+    #     KernelCorrelationMM();
+    #     target_preparation = prep,
+    # )
+    # alloc_wrapper(pc, prep)
+    # @test alloc_wrapper(pc, prep) == 0
 end
