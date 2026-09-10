@@ -1,6 +1,6 @@
 module MakieExt
 using PointCloudRegistration
-using PointCloudRegistration: avg_nn_dist
+using PointCloudRegistration: avg_nn_dist, max_of_weights
 # this makes the Makie recipe add methods to the functions defined in the main
 # package, so we can access them
 import PointCloudRegistration:
@@ -140,7 +140,7 @@ end
 
 function Makie.plot!(plot::ScaffoldPlot)
     map!(plot.attributes, [:prep, :pointcloud], :segments) do prep, pc
-        [(pc[i].coords, pc[j].coords) for (i, j) in prep.neighbor_graph.edges]
+        [(pc[i].coords, pc[j].coords) for (i, j) in prep.neighbor_edges.from_to]
     end
     linesegments!(plot, plot.attributes, plot.segments;)
 end

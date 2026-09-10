@@ -127,4 +127,8 @@ function batch(b::Batched, iteration::Int)
     return @view b.items[start:stop]
 end
 
+function batch_length_ratio(b::Batched)
+    length(b.items) / b.batchsize
+end
+
 
