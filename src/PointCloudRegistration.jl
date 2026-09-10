@@ -11,6 +11,7 @@ using NearestNeighbors
 using SpecialFunctions
 using SparseArrays
 using LinearAlgebra
+using LinearAlgebra: norm_sqr
 using Random
 using Statistics
 using StatsBase
@@ -38,7 +39,6 @@ export PointCloud,
     prepare_source_distancepreserving,
     EarthMover,
     DivergenceFree,
-    guess_correspondences,
     # = = = annealing = = =
     LogAnnealingTo,
     LogAnnealingToNearestNeighborDistance,
@@ -54,6 +54,7 @@ export PointCloud,
     Correspondences,
     matching_labels,
     Unknown,
+    compatible_triangles,
     # = = = thinning
     thin_to_distance,
     thin_to_number,
@@ -93,7 +94,7 @@ include("rigid/iterative_closest_point.jl")
 include("nonrigid/nonrigid.jl")
 include("nonrigid/coherent_point_drift.jl")
 include("nonrigid/distancepreserving.jl")
-include("guess_correspondences.jl")
+# include("guess_correspondences.jl")
 include("thinning.jl")
 include("assets.jl")
 include("plotting.jl")

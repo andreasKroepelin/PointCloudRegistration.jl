@@ -16,7 +16,7 @@ Every element `(j, i)` of `idcs` means that the `j`-th point in the source
 corresponds to the `i`-th point to the target.
 Optionally, you can provide weights for every correspondence.
 """
-struct Correspondences{W}
+struct Correspondences
     idcs::Vector{NTuple{2, Int}}
     # weights::W
 
@@ -66,3 +66,41 @@ function corresponding_indices(::Unknown, source, target)
     return Tuple.(CartesianIndices((src_idcs, trg_idcs)))
 end
 
+function compatible_triangles(
+    correspondences,
+    source::PointCloud{N},
+    target::PointCloud{N};
+    deviation = 0.1,
+    coverage = 100,
+) where {N}
+    ci = corresponding_indices(correspondences, source, target)
+    threshold = log1p(deviation)
+    compatible_correspondences = eltype(ci)[]
+    ntrials = round(Int, coverage * length(ci))
+
+    for _ in 1:ntrials
+        a = rand(ci)
+        b = rand(ci)
+        c = rand(ci)
+        iscompatible = true
+        for (from, to) in ((a, b), (a, c), (b, c))
+            (j1, i1) = from
+            (j2, i2) = to
+            src_side = euclidean(source[j1].coords, source[j2].coords)
+            trg_side = euclidean(target[i1].coords, target[i2].coords)
+            if abs(log(src_side / trg_side)) > threshold
+                iscompatible = false
+                break
+            end
+        end
+        if iscompatible
+            push!(compatible_correspondences, a)
+            push!(compatible_correspondences, b)
+            push!(compatible_correspondences, c)
+        end
+    end
+
+    sort!(compatible_correspondences)
+    unique!(compatible_correspondences)
+    return Correspondences(compatible_correspondences)
+end
