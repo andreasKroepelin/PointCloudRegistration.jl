@@ -570,7 +570,7 @@ function _rigid_kc(
                     flip,
                 )
 
-                cost = -kc / source_wsum
+                cost = -kc # / source_wsum
 
                 report_iteration(; iter = iteration, annealing_level, cost, transformation)
 
