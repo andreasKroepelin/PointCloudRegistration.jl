@@ -1,0 +1,7 @@
+[deps]
+BiochemicalAlgorithms = "9d651bdf-8945-47d1-9188-34e269d8f7b5"
+GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+PointCloudRegistration = "afb9b67c-ae14-49fb-afbe-36d52467eca1"
+PubChemCrawler = "30e472fa-2b12-4c0b-9705-07d174b7a4e1"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"

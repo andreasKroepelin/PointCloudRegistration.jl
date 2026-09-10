@@ -13,6 +13,7 @@ projects = [
   "kernel_correlation",
   "nonrigid",
   "pdb",
+  "pubchem",
   "py",
   "robust",
   "smm",
