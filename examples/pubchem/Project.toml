@@ -1,7 +1,15 @@
 [deps]
-BiochemicalAlgorithms = "9d651bdf-8945-47d1-9188-34e269d8f7b5"
+ColorTypes = "3da002f7-5984-5a60-b8a6-cbb66c0b333f"
+CoordinateTransformations = "150eb455-5306-5404-9cee-2592286d6298"
+DimensionalData = "0703355e-b756-11e9-17c0-8b28908087d0"
 GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
+GeometryBasics = "5c1252a2-5f33-56bf-86c9-59e7332b4326"
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 PointCloudRegistration = "afb9b67c-ae14-49fb-afbe-36d52467eca1"
 PubChemCrawler = "30e472fa-2b12-4c0b-9705-07d174b7a4e1"
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+
+[sources]
+PointCloudRegistration = {path = "../.."}
