@@ -2,7 +2,7 @@
 
 julia_version = "1.13.0"
 manifest_format = "2.1"
-project_hash = "25c9dafbdfcc485e5f1fdddf143ab03f537fae17"
+project_hash = "e06aa55933cd4ad66a1bfe597ac822d74e612d51"
 
 [[deps.ADTypes]]
 deps = ["PrecompileTools"]
