@@ -25,7 +25,11 @@ correspondences_filtered =
     compatible_triangles(correspondences_atomtypes, compounds.source.pointcloud, compounds.target.pointcloud; deviation = 0.01)
 @info "number of correspondences" length(correspondences_atomtypes.idcs) length(correspondences_filtered.idcs)
 
-algorithms = [Kabsch(), GemanMcClureMM()];
+algorithms = [
+    Kabsch(),
+    GemanMcClureMM(),
+    GemanMcClureMM(scale = 0.1, restarts = RandomRestarts(100)),
+];
 corrs = [correspondences_atomtypes, correspondences_filtered];
 alg_labels = ["Kabsch", "Geman-McClure"];
 corrs_labels = ["matching elements", "compatible triangles"];
@@ -37,19 +41,19 @@ motions = [
         alg;
         correspondences = corr,
     )
-    for alg in algorithms, corr in corrs
+    for corr in corrs, alg in algorithms
 ]
 
 let
     fig = Figure()
-    Box(fig[0:2, 0:2]; color = :transparent, cornerradius = 20, strokecolor = :black)
+    Box(fig[0:2, 0:3]; color = :transparent, cornerradius = 20, strokecolor = :black, strokewidth = 2, alignmode = Outside(-10))
     axs = [
         Axis3(
             fig[Tuple(ci)...];
             aspect = :data,
             protrusions = 0,
             alignmode = Outside(-30),
-            viewmode = :stretch,
+            viewmode = :fit,
             elevation = deg2rad(120),
             azimuth = deg2rad(70),
             # elevation = deg2rad(150),
@@ -59,10 +63,13 @@ let
     ]
     hidedecorations!.(axs)
     hidespines!.(axs)
-    Label(fig[0, 1], "matching elements"; font = :bold, tellwidth = false)
-    Label(fig[0, 2], "compatible triangles"; font = :bold, tellwidth = false)
-    Label(fig[1, 0], "Kabsch"; font = :bold, tellheight = false, rotation = deg2rad(90))
-    Label(fig[2, 0], "Geman-McClure"; font = :bold, tellheight = false, rotation = deg2rad(90))
+    collabel(c, txt) = Label(fig[0, c], txt; font = :bold, fontsize = 18, tellwidth = false, valign = :top)
+    rowlabel(r, txt) = Label(fig[r, 0], txt; font = :bold, fontsize = 18, tellheight = false, rotation = deg2rad(90))
+    rowlabel(1, "matching\nelements")
+    rowlabel(2, "compatible\ntriangles")
+    collabel(1, "Kabsch")
+    collabel(2, "Geman-McClure")
+    collabel(3, "Geman-McClure\ncustomized")
     target_color_change = function(c)
         (; h, s, l) = HSL(c)
         # s /= 3

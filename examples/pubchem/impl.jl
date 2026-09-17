@@ -105,6 +105,8 @@ end
 
 # [NOTE] The following is based on code in MolecularGraph.jl.
 # (MIT License, Seiji Matsuoka and contributors)
+#
+# The aesthetic presentation is inspired by PyMol.
 
 function plot_molecule!(ax, mol::Molecule; color_change = identity, const_color = nothing)
     if const_color === nothing
@@ -113,13 +115,6 @@ function plot_molecule!(ax, mol::Molecule; color_change = identity, const_color 
         clr = fill(const_color, length(mol.elements))
     end
     dgr = degrees(mol)
-    # meshscatter!(
-    #     ax,
-    #     points(mol.pointcloud);
-    #     color = clr,
-    #     markersize = [bonddiameter for _ in clr],
-    #     # markersize = 0.8 .* atomradii(mol),
-    # )
     for bond in mol.bonds
         (; from, to, order) = bond
         pos1 = mol.pointcloud[from].coords
@@ -152,7 +147,7 @@ function plot_molecule!(ax, mol::Molecule; color_change = identity, const_color 
             end
         end
         sepdir = normalize(cross(normaldir, pos2 - pos1))
-        dists = (bonddiameter * 2.5) .* collect((-0.5 * (order - 1)):(0.5 * (order - 1)))
+        dists = (bonddiameter * 3) .* collect((-0.5 * (order - 1)):(0.5 * (order - 1)))
         for dist in dists
             dvec = dist * sepdir
             p1, p2 = pos1 + dvec, pos2 + dvec
@@ -178,46 +173,3 @@ function plot_molecule!(ax, mol::Molecule; color_change = identity, const_color 
         end
     end
 end
-
-# function drawbond!(
-#         f, mol::SimpleMolGraph, e, crds, col, syms, nbrs;
-#         bonddiameter=DEFAULT_BOND_DIAMETER, multiplebonds=false, kwargs...)
-#     order = multiplebonds ? bond_order(mol[e]) : 1
-#     atomidx1, atomidx2 = e.src, e.dst
-#     pos1, pos2 = crds[atomidx1], crds[atomidx2]
-#     normaldir = SA[0.0, 0.0, 1.0]
-#     if order > 1
-#         ng1, ng2 = nbrs[atomidx1], nbrs[atomidx2]
-#         # determine the plane for double bonds
-#         if ng1 == 3
-#             neighs = filter(x -> x != atomidx2, (neighbors(mol, atomidx1)))
-#             @assert length(neighs) == 2
-#             npos1, npos2 = crds[neighs[1]], crds[neighs[2]]
-#             normaldir = cross(npos1, npos2)
-#         elseif ng2 == 3
-#             neighs = filter(x -> x != atomidx1, (neighbors(mol, atomidx2)))
-#             @assert length(neighs) == 2
-#             npos1, npos2 = crds[neighs[1]], crds[neighs[2]]
-#             normaldir = cross(npos1, npos2)
-#         end
-#     end
-#     sepdir = normalize(cross(normaldir, pos2 .- pos1))
-#     dists = (bonddiameter * 2.5) .* collect(-0.5 * (order-1): 0.5 * (order-1))
-#     for dist in dists
-#         dvec = dist * sepdir
-#         p1, p2 = pos1 + dvec, pos2 + dvec
-#         if syms[atomidx1] == syms[atomidx2]
-#             cyl = Cylinder(p1, p2, bonddiameter)
-#             mesh!(f, cyl; color=col[atomidx1], kwargs...)
-#         else
-#             midpoint = 0.5 * (p1 + p2)
-#             pm = Point(midpoint...)
-#             cyl1 = Cylinder(p1, pm, bonddiameter)
-#             cyl2 = Cylinder(p2, pm, bonddiameter)
-#             mesh!(f, cyl1; color=col[atomidx1], kwargs...)
-#             mesh!(f, cyl2; color=col[atomidx2], kwargs...)
-#         end
-#     end
-#     return f
-# end
-
