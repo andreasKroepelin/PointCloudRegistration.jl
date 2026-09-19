@@ -109,13 +109,22 @@ function _rigid_kabsch(
 end
 
 function evaluate_rmsd(
-    source::PointCloud{N},
-    target::PointCloud{N},
-    transformation = identity_transformation(source, target),
-) where {N}
-    @argcheck eachindex(source.points) == eachindex(target.points)
-    ssd = mapreduce(+, source, target) do (src, src_w), (trg, trg_w)
-        src_w * trg_w * sqeuclidean(transformation(src), trg)
+    source::PointCloud{N, TS},
+    target::PointCloud{N, TT},
+    transformation = identity_transformation(source, target);
+    correspondences = Ordered(),
+) where {N, TS, TT}
+    sum_w = zero(SumOfWeightsType(source)) * zero(SumOfWeightsType(target))
+    zsrc = zero(SVector{N, TS})
+    ztrg = zero(SVector{N, TT})
+    ss = zero(sum_w * sqeuclidean(zsrc, ztrg))
+
+    for (j, i) in corresponding_indices(correspondences, source, target)
+        (src, w_src) = source[j]
+        (trg, w_trg) = target[i]
+        w = w_src * w_trg
+        ss += w * sqeuclidean(transformation(src), trg)
+        sum_w += w
     end
-    sqrt(ssd / length(source))
+    return sqrt(ss / sum_w)
 end
