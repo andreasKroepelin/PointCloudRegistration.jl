@@ -53,6 +53,16 @@ struct WeightedPoint{N, T, W}
     weight::W
 end
 
+WeightedPoint{N}(coords::AbstractVector{T}, weight) where {N, T} =
+    WeightedPoint(SVector{N, T}(coords), weight)
+
+WeightedPoint(coords::AbstractVector, weight) =
+    WeightedPoint{length(coords)}(coords, weight)
+
+WeightedPoint{N}(coords) where {N} = WeightedPoint{N}(coords, true)
+
+WeightedPoint(coords::AbstractVector) = WeightedPoint{length(coords)}(coords)
+
 # such that one can write `(x, w) = weighted_point`
 Base.iterate(wp::WeightedPoint) = (wp.coords, Val(:weight))
 Base.iterate(wp::WeightedPoint, ::Val{:weight}) = (wp.weight, Val(:done))
@@ -61,27 +71,55 @@ Base.iterate(wp::WeightedPoint, ::Val{:done}) = nothing
 Base.isapprox(wp1::WeightedPoint{N}, wp2::WeightedPoint{N}; kwargs...) where {N} =
     isapprox(wp1.coords, wp2.coords; kwargs...) && isapprox(wp1.weight, wp2.weight; kwargs...)
 
-const PointCloud{N, T, W} = AbstractVector{WeightedPoint{N, T, W}}
+struct PointCloud{N, T, W, Ps <: VecOfSVec{N, T}, Ws <: AbstractVector{W}} <: AbstractVector{WeightedPoint{N, T, W}}
+    points::Ps
+    weights::Ws
 
-points(pc::PointCloud) = [p.coords for p in pc]
-weights(pc::PointCloud) = [p.weight for p in pc]
+    function PointCloud(
+        points::Ps,
+        weights::Ws,
+    ) where {N, T, W, Ps <: VecOfSVec{N, T}, Ws <: AbstractVector{W}}
+        @argcheck length(points) == length(weights) "number of points must match number of weights"
+        any(<(0), weights) && @warn "weights must be non-negative" minimum(weights)
+        any(>(0), weights) || @warn "weights cannot all be zero"
+        new{N, T, W, Ps, Ws}(points, weights)
+    end
+end
 
-const PointCloudAsStructArray{N, T, W} =
-    StructVector{
-        WeightedPoint{N, T, W},
-        @NamedTuple{
-            coords::Cs,
-            weight::Ws,
-        },
-        I
-    } where {
-        Cs <: VecOfSVec{N, T},
-        Ws <: AbstractVector{W},
-        I,
-    }
+points(pc::PointCloud) = pc.points
+weights(pc::PointCloud) = pc.weights
 
-points(pc::PointCloudAsStructArray) = pc.coords
-weights(pc::PointCloudAsStructArray) = pc.weight
+Base.size(pc::PointCloud) = size(pc.points)
+
+Base.@propagate_inbounds function Base.getindex(pc::PointCloud, i::Int)
+    @boundscheck begin
+        checkbounds(pc.points, i)
+        checkbounds(pc.weights, i)
+    end
+    return WeightedPoint(pc.points[i], pc.weights[i])
+end
+
+Base.@propagate_inbounds function Base.getindex(pc::PointCloud, is::AbstractVector{<:Integer})
+    @boundscheck begin
+        checkbounds(pc.points, is)
+        checkbounds(pc.weights, is)
+    end
+    return PointCloud(pc.points[is], pc.weights[is])
+end
+
+Base.@propagate_inbounds function Base.setindex!(pc::PointCloud{N}, wp::WeightedPoint{N}, i::Int) where {N}
+    @boundscheck begin
+        checkbounds(pc.points, i)
+        checkbounds(pc.weights, i)
+    end
+    pc.points[i] = wp.coords
+    pc.weights[i] = wp.weight
+    return nothing
+end
+
+Base.view(pc::PointCloud, inds...) =
+    PointCloud(view(pc.points, inds...), view(pc.weights, inds...))
+
 
 # const PointCloud{N, T} = StructArray{
 #     WeightedPoint,
@@ -188,8 +226,8 @@ weights(pc::PointCloudAsStructArray) = pc.weight
 #     end
 # end
 
-PointCloud(points::VecOfSVec{N, T}, weights::AbstractVector{W}) where {N, T, W} =
-    StructArray{WeightedPoint{N, T, W}}((points, weights))
+# PointCloud(points::VecOfSVec{N, T}, weights::AbstractVector{W}) where {N, T, W} =
+#     StructArray{WeightedPoint{N, T, W}}((points, weights))
 
 # """
 #     PointCloud(::VecOfSVec, ::AbstractVector)
@@ -224,6 +262,12 @@ PointCloud{N}(points) where {N} = PointCloud(to_vec_of_svec(points, Val(N)))
 PointCloud{N}(points, weights::AbstractVector) where {N} =
     PointCloud(to_vec_of_svec(points, Val(N)), weights)
 PointCloud{N, T}() where {N, T} = PointCloud(SVector{N, T}[], Bool[])
+
+PointCloud(weighted_points::AbstractVector{<: WeightedPoint}) =
+    PointCloud(
+       [wp.coords for wp in weighted_points],
+       [wp.weight for wp in weighted_points],
+   )
 
 """
     PointCloud(pc::PointCloud) = pc
@@ -278,20 +322,22 @@ coordtype(::PointCloud{N, T}) where {N, T} = T
 
 dimension(::PointCloud{N}) where {N} = N
 
-function Base.show(
-    io::IO,
-    ::MIME"text/plain",
-    pc::PointCloud{N, T},
-) where {N, T}
+function Base.show(io::IO, pc::PointCloud{N}) where {N}
+    print(io, N, "-dim. point cloud (length ", length(pc), ")")
+end
+
+function Base.show(io::IO, ::MIME"text/plain", pc::PointCloud{N, T}) where {N, T}
+    if get(io, :compact, false)
+        return show(io, pc)
+    end
     mat_io = IOContext(io, :limit => true, :compact => true)
-    println(
-        io,
-        N,
-        "-dimensional point cloud with ",
-        length(pc),
-        " points of coordinate type ",
-        T,
-    )
+    print(io, N, "-dimensional point cloud with ", length(pc))
+    if length(pc) > 1
+        print(io, " points ")
+    else
+        print(io, " point ")
+    end
+    println(io, "of coordinate type ", T)
     Base.print_matrix(mat_io, to_matrix(points(pc)))
     println(io)
     ws = weights(pc)
@@ -307,17 +353,17 @@ function Base.show(
     end
 end
 
-sum_of_weights(pc::PointCloud) = sum(wp -> wp.weight, pc)
-sum_of_weights(pc::PointCloudAsStructArray) = sum(pc.weight)
+sum_of_weights(pc::PointCloud) = sum(pc.weights)
 
-max_of_weights(pc::PointCloud) = maximum(wp -> wp.weight, pc)
-max_of_weights(pc::PointCloudAsStructArray) = maximum(pc.weight)
+max_of_weights(pc::PointCloud) = maximum(pc.weights)
 
 SumOfWeightsType(::PointCloud{N, T, W}) where {N, T, W} = typeof(zero(W) + zero(W))
 
+PointType(::PointCloud{N, T}) where {N, T} = SVector{N, T}
+
 function mean_cov(pc::PointCloud{N, T, W}) where {N, T, W}
     sum_w = zero(SumOfWeightsType(pc))
-    mean = zero(SVector{N, T})
+    mean = zero(PointType(pc))
     cov = mean * mean'
 
     for (x, w) in pc
@@ -364,17 +410,10 @@ end
 #     )
 # end
 
-# function Base.isapprox(
-#     pc1::PointCloud{N},
-#     pc2::PointCloud{N};
-#     kwargs...,
-# ) where {N}
-#     return all(fieldnames(PointCloud)) do fn
-#         f1 = getfield(pc1, fn)
-#         f2 = getfield(pc2, fn)
-#         isapprox(f1, f2; kwargs...)
-#     end
-# end
+function Base.filter(predicate, pc::PointCloud)
+    mask = predicate.(pc)
+    return pc[mask]
+end
 
 """
     density2pointcloud(density::AbstractArray{T, N}) where {T, N}

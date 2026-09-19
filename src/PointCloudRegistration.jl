@@ -19,6 +19,7 @@ using PrecompileTools: @compile_workload
 using ArgCheck
 
 export PointCloud,
+    WeightedPoint,
     points,
     weights,
     # = = = rigid registration = = =
@@ -73,7 +74,12 @@ export PointCloud,
     scaffoldplot!
 
 public VecOfSVec,
-    Displacement, CpdDisplacement, DivFreeDisplacement, OrthogonalMatrix
+    PointType,
+    SumOfWeightsType,
+    Displacement,
+    CpdDisplacement,
+    DivFreeDisplacement,
+    OrthogonalMatrix
 
 include("pointcloud.jl")
 include("common.jl")
