@@ -127,7 +127,7 @@ function _rigid_icp(
                 target_mean += w * trg
                 covariance += w * trg * src'
                 sum_w += w
-                cost += dist^2
+                cost += w * dist^2
 
                 report_pair(; source_idx = j, target_idx = i, distance = dist)
             end
