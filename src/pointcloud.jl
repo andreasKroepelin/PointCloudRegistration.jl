@@ -63,6 +63,12 @@ WeightedPoint{N}(coords) where {N} = WeightedPoint{N}(coords, true)
 
 WeightedPoint(coords::AbstractVector) = WeightedPoint{length(coords)}(coords)
 
+WeightedPoint{N, T, W}(wp::WeightedPoint{N}) where {N, T, W} =
+    WeightedPoint(SVector{N, T}(wp.coords), W(wp.weight))
+
+Base.convert(::Type{WeightedPoint{N, T, W}}, wp::WeightedPoint) where {N, T, W} =
+    WeightedPoint(convert(SVector{N, T}, wp.coords), convert(W, wp.weight))
+
 # such that one can write `(x, w) = weighted_point`
 Base.iterate(wp::WeightedPoint) = (wp.coords, Val(:weight))
 Base.iterate(wp::WeightedPoint, ::Val{:weight}) = (wp.weight, Val(:done))
@@ -70,6 +76,12 @@ Base.iterate(wp::WeightedPoint, ::Val{:done}) = nothing
 
 Base.isapprox(wp1::WeightedPoint{N}, wp2::WeightedPoint{N}; kwargs...) where {N} =
     isapprox(wp1.coords, wp2.coords; kwargs...) && isapprox(wp1.weight, wp2.weight; kwargs...)
+
+Base.promote_rule(
+    ::Type{WeightedPoint{N, T1, W1}},
+    ::Type{WeightedPoint{N, T2, W2}},
+) where {N, T1, W1, T2, W2} =
+    WeightedPoint{N, promote_type(T1, T2), promote_type(W1, W2)}
 
 struct PointCloud{N, T, W, Ps <: VecOfSVec{N, T}, Ws <: AbstractVector{W}} <: AbstractVector{WeightedPoint{N, T, W}}
     points::Ps
