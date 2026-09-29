@@ -97,3 +97,17 @@ They must have matching dimensions (both 2D or both 3D and so forth).
 function rigid_registration(source, target, alg, flip)
     error("Unsopported algorithm of type ", typeof(alg))
 end
+
+"""
+    rigidly_registered(source, target, args...; kwargs...)
+
+Performs rigid registration via [`rigid_registration`](@ref) and directly
+applies the computed motion to the source.
+That is, this function returns the registered source.
+Additional (keyword) arguments are propagated to [`rigid_registration`](@ref).
+"""
+function rigidly_registered(source, target, args...; kwargs...)
+    source_pc = PointCloud(source)
+    motion = rigid_registration(source_pc, target, args...; kwargs...)
+    return motion(source_pc)
+end

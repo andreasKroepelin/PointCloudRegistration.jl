@@ -66,6 +66,20 @@ function Base.show(
 end
 
 """
+    nonrigidly_registered(source, target, args...; kwargs...)
+
+Performs non-rigid registration via [`nonrigid_registration`](@ref) and directly
+applies the computed displacement to the source.
+That is, this function returns the registered source.
+Additional (keyword) arguments are propagated to [`nonrigid_registration`](@ref).
+"""
+function nonrigidly_registered(source, target, args...; kwargs...)
+    source_pc = PointCloud(source)
+    displacement = nonrigid_registration(source_pc, target, args...; kwargs...)
+    return displacement(source_pc)
+end
+
+"""
     EarthMover(; optimizer)
 
 Non-rigid registration of point clouds by solving an _Optimal Transport_
