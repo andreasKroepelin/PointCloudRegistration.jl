@@ -9,7 +9,6 @@ using Rotations
 using Distances
 using NearestNeighbors
 using SpecialFunctions
-using SparseArrays
 using LinearAlgebra
 using LinearAlgebra: norm_sqr
 using Random

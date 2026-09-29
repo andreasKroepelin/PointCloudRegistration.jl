@@ -2,7 +2,7 @@
 
 julia_version = "1.13.0"
 manifest_format = "2.1"
-project_hash = "e06aa55933cd4ad66a1bfe597ac822d74e612d51"
+project_hash = "1993eaea45dc5a2c54ca14c17f9ac04d1bd2c093"
 
 [[deps.ADTypes]]
 deps = ["PrecompileTools"]
@@ -2330,7 +2330,7 @@ uuid = "42171d58-473b-503a-8d5f-782019eb09ec"
 version = "1.2.0"
 
 [[deps.PointCloudRegistration]]
-deps = ["Accessors", "ArgCheck", "CoordinateTransformations", "Distances", "FillArrays", "LinearAlgebra", "NearestNeighbors", "PrecompileTools", "Random", "Rotations", "SparseArrays", "SpecialFunctions", "StaticArrays", "Statistics", "StatsBase", "StructArrays"]
+deps = ["Accessors", "ArgCheck", "CoordinateTransformations", "Distances", "FillArrays", "LinearAlgebra", "NearestNeighbors", "PrecompileTools", "Random", "Rotations", "SpecialFunctions", "StaticArrays", "Statistics", "StatsBase", "StructArrays"]
 path = "."
 uuid = "afb9b67c-ae14-49fb-afbe-36d52467eca1"
 version = "0.1.0"
