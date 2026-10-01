@@ -1,6 +1,6 @@
 name = "PointCloudRegistration"
 uuid = "afb9b67c-ae14-49fb-afbe-36d52467eca1"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Andreas Kröpelin <andreas-kroepelin@gmx.de>"]
 
 [workspace]
