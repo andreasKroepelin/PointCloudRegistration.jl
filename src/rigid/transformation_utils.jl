@@ -65,9 +65,9 @@ function rand_transformation(
 ) where {N}
     orthogonal = rand_orthogonal(rng, source, target, flip)
 
-    i = rand(rng, eachindex(source.points))
-    j = rand(rng, eachindex(target.points))
-    translation = target.points[j] - orthogonal * source.points[i]
+    src = rand(rng, points(source))
+    trg = rand(rng, points(target))
+    translation = trg - orthogonal * src
 
     AffineMap(
         orthogonal,
@@ -106,13 +106,13 @@ function identity_transformation(::Type{<:AffineMap{R, L}}) where {R, L}
 end
 identity_transformation(::A) where {A <: AffineMap} = identity_transformation(A)
 function identity_transformation(
-    source::PointCloud{N},
-    target::PointCloud{N},
+    source::PointCloud{N, TS},
+    target::PointCloud{N, TT},
     flip::FlipMarker = NoFlip(),
-) where {N}
+) where {N, TS, TT}
     AffineMap(
         one(orthogonal_type(source, target, flip)),
-        zero(eltype(target.points)) - zero(eltype(source.points)),
+        zero(SVector{N, TS}) - zero(SVector{N, TT}),
     )
 end
 

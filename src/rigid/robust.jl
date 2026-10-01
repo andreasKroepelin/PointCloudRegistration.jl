@@ -8,15 +8,15 @@ mm_weight(gm::GemanMcClureCost, sqdist::Number) =
     gm.sqscale / (gm.sqscale + sqdist)^2
 
 function mm_weight_type(gm::GemanMcClureCost, Y::PointCloud, X::PointCloud)
-    typeof(mm_weight(gm, first(Y.points), first(X.points)))
+    typeof(mm_weight(gm, first(points(Y)), first(points(X))))
 end
 
 cost(gm::GemanMcClureCost, x::AbstractVector, y::AbstractVector) =
     cost(gm, sqeuclidean(x, y))
 cost(gm::GemanMcClureCost, sqdist::Number) = sqdist / (gm.sqscale + sqdist)
 
-cost_type(gm::GemanMcClureCost, Y::PointCloud, X::PointCloud) =
-    typeof(cost(gm, first(Y.points), first(X.points)))
+cost_type(gm::GemanMcClureCost, Y::PointCloud{N, TY}, X::PointCloud{N, TX}) where {N, TY, TX} =
+    typeof(cost(gm, zero(SVector{N, TY}), zero(SVector{N, TX})))
 
 """
     GemanMcClureMM([; scale, restarts, iterations, batching, report_iteration, report_restart])
@@ -131,13 +131,13 @@ function rigid_registration(
     source,
     target,
     alg::GemanMcClureMM,
-    flip::FlipMarker = NoFlip(),
+    flip::FlipMarker = NoFlip();
+    correspondences = Ordered(),
 )
     @argcheck alg.iterations >= 1
 
     source_pc = PointCloud(source)
     target_pc = PointCloud(target)
-    @argcheck size(source_pc) == size(target_pc)
 
     sqscales = annealing_plan(target_pc, alg.scale)
     _rigid_gmc(
@@ -145,6 +145,7 @@ function rigid_registration(
         target_pc,
         flip,
         sqscales,
+        correspondences,
         alg.restarts,
         alg.iterations,
         alg.batching,
@@ -154,25 +155,29 @@ function rigid_registration(
 end
 
 function _rigid_gmc(
-    source::PointCloud{N},
-    target::PointCloud{N},
+    source::PointCloud{N, TS},
+    target::PointCloud{N, TT},
     flip,
     sqscales,
+    correspondences,
     restarts,
     iterations,
     batching,
     report_iteration,
     report_restart,
-) where {N}
+) where {N, TS, TT}
     gm = GemanMcClureCost(oneunit(eltype(sqscales)))
-    SrcT = eltype(source.points)
-    TrgT = eltype(target.points)
+    SrcT = SVector{N, TS}
+    TrgT = SVector{N, TT}
     CostT = cost_type(gm, source, target)
     WeightT = mm_weight_type(gm, source, target)
     best = worst(CostT, transformation_type(source, target, flip))
     gm_cost = zero(CostT)
     restarts_iter = restarts_iterator(source, target, restarts, flip)
-    source_iter = point_cloud_iterator(batching, source)
+    correspondence_idcs = batched(
+        batching,
+        corresponding_indices(correspondences, source, target),
+    )
     for (restart, transformation) in enumerate(restarts_iter)
         for sqscale in sqscales
             # double `sqscale` such that the loss function has the same
@@ -180,9 +185,10 @@ function _rigid_gmc(
             # loss with `sqscale`
             gm = GemanMcClureCost(2sqscale)
             prev_transformation = identity_transformation(transformation)
+            correspondence_idcs = maybe_stochastic(correspondence_idcs)
             for iter in 1:iterations
                 if 10iter > 9iterations
-                    source_iter = non_stochastic(source_iter)
+                    correspondence_idcs = non_stochastic(correspondence_idcs)
                 end
                 sum_w = zero(WeightT)
                 source_mean = sum_w * zero(SrcT)
@@ -190,11 +196,9 @@ function _rigid_gmc(
                 covariance = sum_w * zero(TrgT) * zero(SrcT)'
                 gm_cost = zero(CostT)
 
-                for source_element in source_iter
-                    src = source_element.point
-                    trg = target.points[source_element.idx]
-                    w_src = source_element.weight
-                    w_trg = target.weights[source_element.idx]
+                for (src_idx, trg_idx) in batch(correspondence_idcs, iter)
+                    (src, w_src) = source[src_idx]
+                    (trg, w_trg) = target[trg_idx]
                     sqdist = sqeuclidean(transformation(src), trg)
                     w_src_w_trg = w_src * w_trg
                     w = w_src_w_trg * mm_weight(gm, sqdist)
@@ -205,6 +209,7 @@ function _rigid_gmc(
                     sum_w += w
                 end
 
+                gm_cost /= sum_w
                 source_mean /= sum_w
                 target_mean /= sum_w
                 covariance /= sum_w
@@ -282,7 +287,8 @@ function rigid_registration(
     source,
     target,
     alg::MeanAbsoluteDeviationMM,
-    flip::FlipMarker = NoFlip(),
+    flip::FlipMarker = NoFlip();
+    correspondences = Ordered(),
 )
     @argcheck alg.iterations >= 1
 
@@ -290,35 +296,33 @@ function rigid_registration(
     pc_target = PointCloud(target)
     @argcheck size(pc_source) == size(pc_target)
 
-    _rigid_mad(pc_source, pc_target, flip, alg.iterations, alg.report_iteration)
+    _rigid_mad(pc_source, pc_target, flip, correspondences, alg.iterations, alg.report_iteration)
 end
 
 function _rigid_mad(
-    source::PointCloud{N},
-    target::PointCloud{N},
+    source::PointCloud{N, TS},
+    target::PointCloud{N, TT},
     flip,
+    correspondences,
     iterations,
     report_iteration,
-) where {N}
-    SrcT = eltype(source.points)
-    TrgT = eltype(target.points)
+) where {N, TS, TT}
+    SrcT = SVector{N, TS}
+    TrgT = SVector{N, TT}
     transformation = simple_transformation(source, target, flip)
     prev_transformation = identity_transformation(transformation)
     for iter in 1:iterations
-        sum_w =
-            float(zero(eltype(source.weights)) * zero(eltype(target.weights)))
+        sum_w = zero(SumOfWeightsType(source)) * zero(SumOfWeightsType(target))
         source_mean = sum_w * zero(SrcT)
         target_mean = sum_w * zero(TrgT)
         covariance = sum_w * zero(TrgT) * zero(SrcT)'
 
-        for j in eachindex(source.points, target.points)
-            src = source.points[j]
-            trg = target.points[j]
-            w_src = source.weights[j]
-            w_trg = target.weights[j]
+        for (j, i) in corresponding_indices(correspondences, source, target)
+            (src, w_src) = source[j]
+            (trg, w_trg) = target[i]
             sqdist = sqeuclidean(transformation(src), trg)
             w_src_w_trg = w_src * w_trg
-            w = w_src_w_trg / (sqdist + one(sqdist) / 100)
+            w = w_src_w_trg / (sqdist + oneunit(sqdist) / 100)
             source_mean += w * src
             target_mean += w * trg
             covariance += w * trg * src'

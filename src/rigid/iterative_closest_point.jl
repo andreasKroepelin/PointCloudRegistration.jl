@@ -102,33 +102,32 @@ function _rigid_icp(
 ) where {N, TS, TT}
     T = promote_type(TS, TT)
 
-    target_tree = KDTree(target.points)
+    target_tree = KDTree(points(target))
     best = worst(T, transformation_type(Val(N), T, flip))
     restarts_iter = restarts_iterator(source, target, restarts, flip)
     for (restart, transformation) in enumerate(restarts_iter)
         prev_transformation = identity_transformation(transformation)
-        cost = zero(T)
+        cost = sqeuclidean(source_mean, target_mean)
         for iter in 1:iterations
-            source_mean = zero(eltype(source.points))
-            target_mean = zero(eltype(target.points))
+            source_mean = zero(SVector{N, TS})
+            target_mean = zero(SVector{N, TT})
             covariance = target_mean * source_mean'
-            sum_w = zero(T)
-            cost = zero(T)
+            sum_w = zero(SumOfWeightsType(source)) * zero(SumOfWeightsType(target))
+            cost = zero(cost)
 
-            for j in eachindex(source.points)
-                src = source.points[j]
+            for (j, (src, src_w)) in enumerate(source)
                 i, dist = nn(target_tree, transformation(src))
                 if dist > dist_cutoff
                     continue
                 end
-                trg = target.points[i]
-                w = source.weights[j] * target.weights[i]
+                trg, trg_w = target[i]
+                w = src_w * trg_w
 
                 source_mean += w * src
                 target_mean += w * trg
                 covariance += w * trg * src'
                 sum_w += w
-                cost += dist^2
+                cost += w * dist^2
 
                 report_pair(; source_idx = j, target_idx = i, distance = dist)
             end

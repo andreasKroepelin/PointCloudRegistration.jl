@@ -48,116 +48,204 @@ to_vec_of_svec(arg::Any) = throw(
 
 to_matrix(vecs::VecOfSVec{N, T}) where {N, T} = reinterpret(reshape, T, vecs)
 
-"""
-Representation of a weighted point cloud.
-An instance `pc` of `PointCloud{N, T}` stores `N`-dimensional points with
-coordinate type `T`.
-Also, it acts as an `AbstractMatrix{T}` with `N` rows and `length(pc.points)`
-columns.
-
-The purpose of this type is to bring the input data into a form that enables
-efficient execution of the registration algorithms.
-As for the public interface, you can consider `PointCloud` to be defined as
-```julia
-struct PointCloud{N, T} <: AbstractMatrix{T}
-    points::AbstractVector{SVector{N, T}}
-    weights::AbstractVector{<: Real}
-    # ... private fields ...
-end
-```
-with the `SVector` type from StaticArrays.jl.
-
-# Simple usage
-
-You can construct a `PointCloud` from a matrix or a vector of vectors:
-```julia
-julia> PointCloud([1. 2. 3.; 4. 5. 6.])
-2-dimensional point cloud with 3 points of eltype Float64
- 1.0  2.0  3.0
- 4.0  5.0  6.0
-and unit weights
-
-julia> PointCloud([[1., 4.], [2., 5.], [3., 6.]])
-2-dimensional point cloud with 3 points of eltype Float64
- 1.0  2.0  3.0
- 4.0  5.0  6.0
-and unit weights
-```
-
-# Type stability
-
-Since the dimensionality of the point cloud is part of the type, the two calls
-above are not type stable (unless the dimensionality can be inferred, e. g. when
-the number of rows of the matrix is statically known).
-This is not a big deal because every function operating on `PointCloud`s is then
-type stable
-([*function barrier*](https://docs.julialang.org/en/v1/manual/performance-tips/#kernel-functions)).
-If you really want the construction of a `PointCloud` to be type stable, you can
-use the `PointCloud{N}` variant:
-```julia
-julia> PointCloud{2}([1. 2. 3.; 4. 5. 6.])
-2-dimensional point cloud with 3 points of eltype Float64
- 1.0  2.0  3.0
- 4.0  5.0  6.0
-and unit weights
-
-julia> PointCloud{3}([1. 2. 3.; 4. 5. 6.])
-ERROR: ArgumentError: matrix must have given number of rows 3
-[...]
-
-julia> isconcretetype(Core.Compiler.return_type(PointCloud, Tuple{Matrix{Float64}}))
-false
-
-julia> isconcretetype(Core.Compiler.return_type(PointCloud{2}, Tuple{Matrix{Float64}}))
-true
-```
-
-# Weights
-
-Optionally, each point can have an individual non-negative weight.
-```julia
-julia> PointCloud([1. 2. 3.; 4. 5. 6.], [.5, 1., .5])
-2-dimensional point cloud with 3 points of eltype Float64
- 1.0  2.0  3.0
- 4.0  5.0  6.0
-and weights
- 3-element Vector{Float64}
- 0.5  1.0  0.5
-```
-If no weights are specified, implicit unit weights are used.
-(They are not explicitly stored and have minimal runtime cost for computations.)
-"""
-struct PointCloud{
-    N,
-    T,
-    P <: VecOfSVec{N, T},
-    WT,
-    W <: AbstractVector,
-    WC <: AbstractVector,
-}
-    points::P
-    weights::W
-    weights_cumsum::WC
-    sum_of_weights::WT
+struct WeightedPoint{N, T, W}
+    coords::SVector{N, T}
+    weight::W
 end
 
-"""
-    PointCloud(::VecOfSVec, ::AbstractVector)
+WeightedPoint{N}(coords::AbstractVector{T}, weight) where {N, T} =
+    WeightedPoint(SVector{N, T}(coords), weight)
 
-Wrap a list of points and explicit weights as a `PointCloud`.
-"""
-function PointCloud(points::VecOfSVec, weights::AbstractVector)
-    @argcheck length(points) == length(weights) "number of points must match number of weights"
-    any(<(0), weights) && @warn "weights must be non-negative" minimum(weights)
-    weights_cumsum = cumsum(weights)
-    sum_of_weights = if isempty(weights)
-        zero(eltype(weights))
-    else
-        last(weights_cumsum)
+WeightedPoint(coords::AbstractVector, weight) =
+    WeightedPoint{length(coords)}(coords, weight)
+
+WeightedPoint{N}(coords) where {N} = WeightedPoint{N}(coords, true)
+
+WeightedPoint(coords::AbstractVector) = WeightedPoint{length(coords)}(coords)
+
+WeightedPoint{N, T, W}(wp::WeightedPoint{N}) where {N, T, W} =
+    WeightedPoint(SVector{N, T}(wp.coords), W(wp.weight))
+
+Base.convert(::Type{WeightedPoint{N, T, W}}, wp::WeightedPoint) where {N, T, W} =
+    WeightedPoint(convert(SVector{N, T}, wp.coords), convert(W, wp.weight))
+
+# such that one can write `(x, w) = weighted_point`
+Base.iterate(wp::WeightedPoint) = (wp.coords, Val(:weight))
+Base.iterate(wp::WeightedPoint, ::Val{:weight}) = (wp.weight, Val(:done))
+Base.iterate(wp::WeightedPoint, ::Val{:done}) = nothing
+
+Base.isapprox(wp1::WeightedPoint{N}, wp2::WeightedPoint{N}; kwargs...) where {N} =
+    isapprox(wp1.coords, wp2.coords; kwargs...) && isapprox(wp1.weight, wp2.weight; kwargs...)
+
+Base.promote_rule(
+    ::Type{WeightedPoint{N, T1, W1}},
+    ::Type{WeightedPoint{N, T2, W2}},
+) where {N, T1, W1, T2, W2} =
+    WeightedPoint{N, promote_type(T1, T2), promote_type(W1, W2)}
+
+struct PointCloud{N, T, W, Ps <: VecOfSVec{N, T}, Ws <: AbstractVector{W}} <: AbstractVector{WeightedPoint{N, T, W}}
+    points::Ps
+    weights::Ws
+
+    function PointCloud(
+        points::Ps,
+        weights::Ws,
+    ) where {N, T, W, Ps <: VecOfSVec{N, T}, Ws <: AbstractVector{W}}
+        @argcheck length(points) == length(weights) "number of points must match number of weights"
+        any(<(0), weights) && @warn "weights must be non-negative" minimum(weights)
+        any(>(0), weights) || @warn "weights cannot all be zero"
+        new{N, T, W, Ps, Ws}(points, weights)
     end
-    sum_of_weights > 0 || @warn "weights cannot all be zero" sum_of_weights
-    PointCloud(points, weights, weights_cumsum, sum_of_weights)
 end
+
+points(pc::PointCloud) = pc.points
+weights(pc::PointCloud) = pc.weights
+
+Base.size(pc::PointCloud) = size(pc.points)
+
+Base.@propagate_inbounds function Base.getindex(pc::PointCloud, i::Int)
+    @boundscheck begin
+        checkbounds(pc.points, i)
+        checkbounds(pc.weights, i)
+    end
+    return WeightedPoint(pc.points[i], pc.weights[i])
+end
+
+Base.@propagate_inbounds function Base.getindex(pc::PointCloud, is::AbstractVector{<:Integer})
+    @boundscheck begin
+        checkbounds(pc.points, is)
+        checkbounds(pc.weights, is)
+    end
+    return PointCloud(pc.points[is], pc.weights[is])
+end
+
+Base.@propagate_inbounds function Base.setindex!(pc::PointCloud{N}, wp::WeightedPoint{N}, i::Int) where {N}
+    @boundscheck begin
+        checkbounds(pc.points, i)
+        checkbounds(pc.weights, i)
+    end
+    pc.points[i] = wp.coords
+    pc.weights[i] = wp.weight
+    return nothing
+end
+
+Base.view(pc::PointCloud, inds...) =
+    PointCloud(view(pc.points, inds...), view(pc.weights, inds...))
+
+
+# const PointCloud{N, T} = StructArray{
+#     WeightedPoint,
+#     @NamedTuple{coords::Cs, weight::Ws},
+#     I,
+# } where {
+#     W,
+#     Cs <: VecOfSVec{N, T},
+#     Ws <: AbstractVector{W},
+#     I,
+# }
+
+# """
+# Representation of a weighted point cloud.
+# An instance `pc` of `PointCloud{N, T}` stores `N`-dimensional points with
+# coordinate type `T`.
+# Also, it acts as an `AbstractMatrix{T}` with `N` rows and `length(points(pc))`
+# columns.
+
+# The purpose of this type is to bring the input data into a form that enables
+# efficient execution of the registration algorithms.
+# As for the public interface, you can consider `PointCloud` to be defined as
+# ```julia
+# struct PointCloud{N, T} <: AbstractMatrix{T}
+#     points::AbstractVector{SVector{N, T}}
+#     weights::AbstractVector{<: Real}
+# end
+# ```
+# with the `SVector` type from StaticArrays.jl.
+
+# # Simple usage
+
+# You can construct a `PointCloud` from a matrix or a vector of vectors:
+# ```julia
+# julia> PointCloud([1. 2. 3.; 4. 5. 6.])
+# 2-dimensional point cloud with 3 points of eltype Float64
+#  1.0  2.0  3.0
+#  4.0  5.0  6.0
+# and unit weights
+
+# julia> PointCloud([[1., 4.], [2., 5.], [3., 6.]])
+# 2-dimensional point cloud with 3 points of eltype Float64
+#  1.0  2.0  3.0
+#  4.0  5.0  6.0
+# and unit weights
+# ```
+
+# # Type stability
+
+# Since the dimensionality of the point cloud is part of the type, the two calls
+# above are not type stable (unless the dimensionality can be inferred, e. g. when
+# the number of rows of the matrix is statically known).
+# This is not a big deal because every function operating on `PointCloud`s is then
+# type stable
+# ([*function barrier*](https://docs.julialang.org/en/v1/manual/performance-tips/#kernel-functions)).
+# If you really want the construction of a `PointCloud` to be type stable, you can
+# use the `PointCloud{N}` variant:
+# ```julia
+# julia> PointCloud{2}([1. 2. 3.; 4. 5. 6.])
+# 2-dimensional point cloud with 3 points of eltype Float64
+#  1.0  2.0  3.0
+#  4.0  5.0  6.0
+# and unit weights
+
+# julia> PointCloud{3}([1. 2. 3.; 4. 5. 6.])
+# ERROR: ArgumentError: matrix must have given number of rows 3
+# [...]
+
+# julia> isconcretetype(Core.Compiler.return_type(PointCloud, Tuple{Matrix{Float64}}))
+# false
+
+# julia> isconcretetype(Core.Compiler.return_type(PointCloud{2}, Tuple{Matrix{Float64}}))
+# true
+# ```
+
+# # Weights
+
+# Optionally, each point can have an individual non-negative weight.
+# ```julia
+# julia> PointCloud([1. 2. 3.; 4. 5. 6.], [.5, 1., .5])
+# 2-dimensional point cloud with 3 points of eltype Float64
+#  1.0  2.0  3.0
+#  4.0  5.0  6.0
+# and weights
+#  3-element Vector{Float64}
+#  0.5  1.0  0.5
+# ```
+# If no weights are specified, implicit unit weights are used.
+# (They are not explicitly stored and have minimal runtime cost for computations.)
+# """
+# struct PointCloud{N, T, P <: VecOfSVec{N, T}, W <: AbstractVector}
+#     points::P
+#     weights::W
+
+#     function PointCloud(
+#         points::P,
+#         weights::W
+#     ) where {N, T, P <: VecOfSVec{N, T}, W <: AbstractVector}
+
+#         @argcheck length(points) == length(weights) "number of points must match number of weights"
+#         any(<(0), weights) && @warn "weights must be non-negative" minimum(weights)
+#         any(>(0), weights) || @warn "weights cannot all be zero"
+#         new{N, T, P, W}(points, weights)
+#     end
+# end
+
+# PointCloud(points::VecOfSVec{N, T}, weights::AbstractVector{W}) where {N, T, W} =
+#     StructArray{WeightedPoint{N, T, W}}((points, weights))
+
+# """
+#     PointCloud(::VecOfSVec, ::AbstractVector)
+
+# Wrap a list of points and explicit weights as a `PointCloud`.
+# """
 
 PointCloud(points::VecOfSVec) = PointCloud(points, Trues(length(points)))
 
@@ -187,6 +275,12 @@ PointCloud{N}(points, weights::AbstractVector) where {N} =
     PointCloud(to_vec_of_svec(points, Val(N)), weights)
 PointCloud{N, T}() where {N, T} = PointCloud(SVector{N, T}[], Bool[])
 
+PointCloud(weighted_points::AbstractVector{<: WeightedPoint}) =
+    PointCloud(
+       [wp.coords for wp in weighted_points],
+       [wp.weight for wp in weighted_points],
+   )
+
 """
     PointCloud(pc::PointCloud) = pc
 
@@ -195,98 +289,106 @@ argument, i.e. `PointCloud(...)` is *idempotent*.
 """
 PointCloud(pc::PointCloud) = pc
 
-Base.size(pc::PointCloud{N}) where {N} = (N, length(pc.points))
-StaticArrays.Size(pc::PointCloud{N}) where {N} = Size(N, StaticArrays.Dynamic())
-Base.@propagate_inbounds Base.getindex(pc::PointCloud, i, j) =
-    getindex(getindex(pc.points, j), i)
+# """
+#     getindex(pointcloud, idcs::AbstractVector{<:Integer})
 
-"""
-    getindex(pointcloud, idcs::AbstractVector{<:Integer})
+# Returns a new point cloud with points and weights chosen from `pointcloud`
+# according to `idcs`.
 
-Returns a new point cloud with points and weights chosen from `pointcloud`
-according to `idcs`.
+# # Example
+# ```julia
+# julia> pointcloud = PointCloud([1.0 2.0 3.0; 4.0 5.0 6.0], [7.0, 8.0, 9.0])
+# 2-dimensional point cloud with 3 points of eltype Float64
+#  1.0  2.0  3.0
+#  4.0  5.0  6.0
+# and weights
+#  3-element Vector{Float64}
+#  7.0  8.0  9.0
 
-# Example
-```julia
-julia> pointcloud = PointCloud([1.0 2.0 3.0; 4.0 5.0 6.0], [7.0, 8.0, 9.0])
-2-dimensional point cloud with 3 points of eltype Float64
- 1.0  2.0  3.0
- 4.0  5.0  6.0
-and weights
- 3-element Vector{Float64}
- 7.0  8.0  9.0
+# julia> pointcloud[[1, 3]] # select indices
+# 2-dimensional point cloud with 2 points of eltype Float64
+#  1.0  3.0
+#  4.0  6.0
+# and weights
+#  2-element Vector{Float64}
+#  7.0  9.0
 
-julia> pointcloud[[1, 3]] # select indices
-2-dimensional point cloud with 2 points of eltype Float64
- 1.0  3.0
- 4.0  6.0
-and weights
- 2-element Vector{Float64}
- 7.0  9.0
+# julia> pointcloud[[false, true, true]] # boolean mask
+# 2-dimensional point cloud with 2 points of eltype Float64
+#  2.0  3.0
+#  5.0  6.0
+# and weights
+#  2-element Vector{Float64}
+#  8.0  9.0
+# ```
+# """
+# Base.@propagate_inbounds function Base.getindex(
+#     pc::PointCloud,
+#     idcs::AbstractVector{<: Integer},
+# )
+#     PointCloud(points(pc)[idcs], weights(pc)[idcs])
+# end
+# Base.axes(pc::PointCloud{N}) where {N} = (SOneTo(N), eachindex(points(pc)))
 
-julia> pointcloud[[false, true, true]] # boolean mask
-2-dimensional point cloud with 2 points of eltype Float64
- 2.0  3.0
- 5.0  6.0
-and weights
- 2-element Vector{Float64}
- 8.0  9.0
-```
-"""
-Base.@propagate_inbounds function Base.getindex(
-    pc::PointCloud,
-    idcs::AbstractVector{<: Integer},
-)
-    PointCloud(pc.points[idcs], pc.weights[idcs])
-end
-Base.axes(pc::PointCloud{N}) where {N} = (SOneTo(N), eachindex(pc.points))
+coordtype(::PointCloud{N, T}) where {N, T} = T
+
 dimension(::PointCloud{N}) where {N} = N
-Base.eltype(::PointCloud{N, T}) where {N, T} = T
 
-function Base.show(
-    io::IO,
-    ::MIME"text/plain",
-    pc::PointCloud{N, T},
-) where {N, T}
+function Base.show(io::IO, pc::PointCloud{N}) where {N}
+    print(io, N, "-dim. point cloud (length ", length(pc), ")")
+end
+
+function Base.show(io::IO, ::MIME"text/plain", pc::PointCloud{N, T}) where {N, T}
+    if get(io, :compact, false)
+        return show(io, pc)
+    end
     mat_io = IOContext(io, :limit => true, :compact => true)
-    println(
-        io,
-        N,
-        "-dimensional point cloud with ",
-        length(pc.points),
-        " points of eltype ",
-        T,
-    )
-    Base.print_matrix(mat_io, to_matrix(pc.points))
+    print(io, N, "-dimensional point cloud with ", length(pc))
+    if length(pc) > 1
+        print(io, " points ")
+    else
+        print(io, " point ")
+    end
+    println(io, "of coordinate type ", T)
+    Base.print_matrix(mat_io, to_matrix(points(pc)))
     println(io)
-    if pc.weights isa Trues || pc.weights isa Ones
+    ws = weights(pc)
+    if ws isa Ones
         println(io, "and unit weights")
     else
         println(io, "and weights")
         print(io, " ")
-        summary(io, pc.weights)
+        summary(io, ws)
         println(io)
-        Base.print_matrix(mat_io, pc.weights', " ")
+        Base.print_matrix(mat_io, transpose(ws), " ")
         println(io)
     end
 end
 
-function mean_cov(pc::PointCloud)
-    sum_w = zero(one(eltype(eltype(pc.points))))
-    mean = zero(eltype(pc.points))
+sum_of_weights(pc::PointCloud) = sum(pc.weights)
+
+max_of_weights(pc::PointCloud) = maximum(pc.weights)
+
+SumOfWeightsType(::PointCloud{N, T, W}) where {N, T, W} = typeof(zero(W) + zero(W))
+
+PointType(::PointCloud{N, T}) where {N, T} = SVector{N, T}
+
+function mean_cov(pc::PointCloud{N, T, W}) where {N, T, W}
+    sum_w = zero(SumOfWeightsType(pc))
+    mean = zero(PointType(pc))
     cov = mean * mean'
 
-    for (x, w) in zip(pc.points, pc.weights)
+    for (x, w) in pc
         iszero(w) && continue
         sum_w += w
         diff = x - mean
-        mean += w / sum_w * diff
+        mean += w * diff / sum_w
         cov += w * diff * (x - mean)'
     end
 
     cov /= sum_w
 
-    mean, cov
+    mean::SVector{N, T}, cov::SMatrix{N, N}
 end
 
 function maxcoveigval(pc::PointCloud)
@@ -303,45 +405,26 @@ function bbox(xs::VecOfSVec)
     lo, hi
 end
 
-bbox(pc::PointCloud) = bbox(pc.points)
+bbox(pc::PointCloud) = bbox(points(pc))
 
 function bbox_hypervolume(pc::PointCloud)
     lo, hi = bbox(pc)
     prod(hi - lo)
 end
 
-function sample_point(rng, pc::PointCloud)
-    r = rand(rng, float(eltype(pc.weights_cumsum)))
-    idx = searchsortedfirst(pc.weights_cumsum, r * pc.sum_of_weights)
-    idx = clamp(idx, eachindex(pc.points))
-    (; idx, point = pc.points[idx])
-end
+(m::AffineMap)(pc::PointCloud) = PointCloud(m.(points(pc)), weights(pc))
+(m::LinearMap)(pc::PointCloud) = PointCloud(m.(points(pc)), weights(pc))
 
-(m::AffineMap)(pc::PointCloud) =
-    PointCloud(m.(pc.points), pc.weights, pc.weights_cumsum, pc.sum_of_weights)
+# function Base.vcat(pc1::PointCloud{N}, pc2::PointCloud{N}) where {N}
+#     PointCloud(
+#         vcat(pc1.points, pc2.points),
+#         vcat(pc1.weights, pc2.weights),
+#     )
+# end
 
-(m::LinearMap)(pc::PointCloud) =
-    PointCloud(m.(pc.points), pc.weights, pc.weights_cumsum, pc.sum_of_weights)
-
-function Base.vcat(pc1::PointCloud{N}, pc2::PointCloud{N}) where {N}
-    PointCloud(
-        vcat(pc1.points, pc2.points),
-        vcat(pc1.weights, pc2.weights),
-        vcat(pc1.weights_cumsum, pc2.weights_cumsum .+ pc1.sum_of_weights),
-        pc1.sum_of_weights + pc2.sum_of_weights,
-    )
-end
-
-function Base.isapprox(
-    pc1::PointCloud{N},
-    pc2::PointCloud{N};
-    kwargs...,
-) where {N}
-    return all(fieldnames(PointCloud)) do fn
-        f1 = getfield(pc1, fn)
-        f2 = getfield(pc2, fn)
-        isapprox(f1, f2; kwargs...)
-    end
+function Base.filter(predicate, pc::PointCloud)
+    mask = predicate.(pc)
+    return pc[mask]
 end
 
 """

@@ -12,8 +12,8 @@ function DpMeansState(pc::PointCloud)
     mean, _ = mean_cov(pc)
     DpMeansState(;
         centers = [mean],
-        weightsums = [pc.sum_of_weights],
-        indicators = ones(Int, length(pc.points)),
+        weightsums = [sum_of_weights(pc)],
+        indicators = ones(Int, length(pc)),
         permutation = [1],
         tree = Ref(KDTree([mean])),
         nn_idcs = [1],
@@ -73,27 +73,14 @@ end
 function recenter!(dp::DpMeansState, pc::PointCloud)
     fillzeros!(dp.weightsums)
     fillzeros!(dp.centers)
-    for i in eachindex(dp.indicators, pc.points, pc.weights)
-        w = pc.weights[i]
+    for i in eachindex(dp.indicators, points(pc), weights(pc))
+        w = weights(pc)[i]
         # iszero(w) && continue
         l = dp.indicators[i]
         dp.weightsums[l] += w
-        dp.centers[l] += w * pc.points[i]
+        dp.centers[l] += w * points(pc)[i]
     end
     dp.centers ./= dp.weightsums
-end
-
-function gridinit!(dp::DpMeansState, pc::PointCloud, cutoffdist)
-    lo, hi = bbox(pc)
-    grid = Grid(lo, hi, cutoffdist)
-    linidcs = LinearIndices(size(grid))
-    for (i, p) in enumerate(pc.points)
-        ci = idx_on_grid(p, grid)
-        dp.indicators[i] = linidcs[ci]
-    end
-
-    resize!(dp.weightsums, last(linidcs))
-    resize!(dp.centers, last(linidcs))
 end
 
 numclusters(dp::DpMeansState) = length(dp.centers)
@@ -131,15 +118,14 @@ function thin_to_distance(
     report_iteration::RI = no_report,
 ) where {N, RI}
     state = DpMeansState(pc)
+    sow = sum_of_weights(pc)
 
     for iteration in 1:iterations
         change = 0.0
         additions = 0
         update_tree!(state)
-        for i in eachindex(pc.points, pc.weights)
-            w = pc.weights[i]
+        for (i, (point, w)) in enumerate(pc)
             # iszero(w) && continue
-            point = pc.points[i]
             j, dist = closest_cluster(state, point)
 
             if dist <= distance
@@ -151,7 +137,7 @@ function thin_to_distance(
             end
         end
         recenter!(state, pc)
-        relchange = change/pc.sum_of_weights
+        relchange = change / sow
         report_iteration(;
             iteration,
             relchange,
@@ -199,19 +185,17 @@ function thin_to_number(
     convergence = 1e-2,
     report_iteration::RI = no_report,
 ) where {RI}
-    # state = DpMeansState(pc)
+    sow = sum_of_weights(pc)
     centers =
-        sample(pc.points, Weights(pc.weights), numclusters; replace = false)
-    weightsums = zeros(typeof(pc.sum_of_weights), numclusters)
+        sample(points(pc), Weights(weights(pc)), numclusters; replace = false)
+    weightsums = zeros(typeof(sow), numclusters)
     clustersizes = zeros(Int, numclusters)
-    indicators = ones(Int, length(pc.points))
+    indicators = ones(Int, length(pc))
     for iteration in 1:iterations
         change = 0.0
         tree = KDTree(centers)
-        for i in eachindex(pc.points, pc.weights, indicators)
-            w = pc.weights[i]
+        for (i, (point, w)) in enumerate(pc)
             iszero(w) && continue
-            point = pc.points[i]
             j, dist = nn(tree, point)
 
             if indicators[i] != j
@@ -219,27 +203,26 @@ function thin_to_number(
                 change += w
             end
         end
-        relchange = change/pc.sum_of_weights
+        relchange = change / sow
         report_iteration(; iteration, relchange)
         relchange < convergence && break
 
         fillzeros!(centers)
         fillzeros!(weightsums)
         fillzeros!(clustersizes)
-        for i in eachindex(pc.points, pc.weights, indicators)
-            w = pc.weights[i]
+        for (i, (point, w)) in enumerate(pc)
             iszero(w) && continue
             l = indicators[i]
-            centers[l] += w * pc.points[i]
+            centers[l] += w * point
             weightsums[l] += w
             clustersizes[l] += 1
         end
         centers ./= weightsums
         for l in eachindex(centers, weightsums, clustersizes)
             clustersizes[l] > 0 && continue
-            i = rand(eachindex(pc.points, pc.weights))
-            centers[l] = pc.points[i]
-            weightsums[l] = pc.weights[i]
+            point, weight = rand(pc)
+            centers[l] = point
+            weightsums[l] = weight
         end
     end
 
@@ -271,24 +254,24 @@ and weights
  1  2  2  1  1  1  2  4  …  2  1  1  1  2  2  1
 ```
 """
-function thin_to_grid(pc::PointCloud, gridsize)
+function thin_to_grid(pc::PointCloud{N, T}, gridsize) where {N, T}
     lo, hi = bbox(pc)
     grid = Grid(lo, hi, gridsize)
-    centers = zeros(eltype(pc.points), size(grid)...)
-    weightsums = zeros(typeof(pc.sum_of_weights), size(grid)...)
-    for (point, weight) in zip(pc.points, pc.weights)
+    centers = zeros(SVector{N, T}, size(grid)...)
+    weightsums = zeros(SumOfWeightsType(pc), size(grid)...)
+    for (point, weight) in pc
         idx = idx_on_grid(point, grid)
         centers[idx] += weight * point
         weightsums[idx] += weight
     end
-    points = eltype(centers)[]
-    weights = eltype(weightsums)[]
+    new_points = eltype(centers)[]
+    new_weights = eltype(weightsums)[]
     for (center, weightsum) in zip(centers, weightsums)
         iszero(weightsum) && continue
-        push!(points, center / weightsum)
-        push!(weights, weightsum)
+        push!(new_points, center / weightsum)
+        push!(new_weights, weightsum)
     end
-    return PointCloud(points, weights)
+    return PointCloud(new_points, new_weights)
 end
 
 """
@@ -297,7 +280,8 @@ end
 Returns a new point cloud with only the points that have a weight of at least
 `threshold`.
 """
-drop_threshold(pc::PointCloud, threshold::Number) = pc[pc.weights .>= threshold]
+drop_threshold(pc::PointCloud, threshold::Number) = 
+    filter(wp -> wp.weight >= threshold, pc)
 
 """
     drop_proportion(pointcloud, proportion)
@@ -307,7 +291,7 @@ Returns a new point cloud with only the points that have a weight of at least
 """
 function drop_proportion(pc::PointCloud, proportion::Number)
     @argcheck zero(proportion) <= proportion <= oneunit(proportion)
-    threshold = proportion * maximum(pc.weights)
+    threshold = proportion * maximum(weights(pc))
     drop_threshold(pc, threshold)
 end
 
@@ -319,6 +303,6 @@ the `quantile`-quantile of weights in `pointcloud`.
 """
 function drop_quantile(pc::PointCloud, q::Number)
     @argcheck zero(q) <= q <= oneunit(q)
-    threshold = quantile(pc.weights, q)
+    threshold = quantile(weights(pc), q)
     drop_threshold(pc, threshold)
 end

@@ -40,7 +40,7 @@ function _prepare_source_cpd(
     corr_factor = -2 / corr_length^2
     gram = [
         exp(corr_factor * sqeuclidean(src1, src2)) for
-        src1 in source.points, src2 in source.points
+        src1 in points(source), src2 in points(source)
     ]
     gram_cholesky = cholesky!(Symmetric(gram))
     invgram = LinearAlgebra.inv!(gram_cholesky)
@@ -68,11 +68,12 @@ function CpdDisplacement(
 end
 
 function (cpd::CpdDisplacement{N})(pc::PointCloud{N}) where {N}
+    pc_points = points(pc)
     connecting_gram = [
         exp(cpd.corr_factor * sqeuclidean(p1, p2)) for
-        p1 in cpd.source_points, p2 in pc.points
+        p1 in cpd.source_points, p2 in pc_points
     ]
-    new_points = copy(pc.points)
+    new_points = copy(pc_points)
     # The following call to `mul!` is equivalent to
     # `to_matrix(new_points) += cpd.displacements_invgram * connecting_gram`
     mul!(
@@ -83,7 +84,7 @@ function (cpd::CpdDisplacement{N})(pc::PointCloud{N}) where {N}
         true,
     )
 
-    return PointCloud(new_points, pc.weights)
+    return PointCloud(new_points, weights(pc))
 end
 
 dimension(::CpdDisplacement{N}) where {N} = N
@@ -196,15 +197,15 @@ function _nonrigid_cpd(
     iterations,
 ) where {N, TS, TT}
     (; invgram, sqsigma_displacements) = source_preparation
-    displacements = similar(source.points)
+    displacements = similar(points(source))
     fillzeros!(displacements)
-    I = length(target.points)
-    J = length(source.points)
-    R = [sqeuclidean(src, trg) for trg in target.points, src in source.points]
+    I = length(target)
+    J = length(source)
+    R = [sqeuclidean(src, trg) for trg in points(target), src in points(source)]
     sqsigma = sum(R) / (I * J * N)
     smoothing = similar(invgram)
     outlier_preterm = outlier_p / (1 - outlier_p) / bbox_hypervolume(target)
-    C = float.(target.weights .* source.weights')
+    C = float.(weights(target) .* weights(source)')
     c_per_src = sum(C; dims = 1)
     c_per_trg = sum(C; dims = 2)
     Z = sum(c_per_trg)
@@ -216,9 +217,9 @@ function _nonrigid_cpd(
     )
     for iter in 1:iterations
         for j in 1:J
-            dsrc = source.points[j] + displacements[j]
+            dsrc = source[j].coords + displacements[j]
             for i in 1:I
-                trg = target.points[i]
+                trg = target[i].coords
                 R[i, j] = sqeuclidean(dsrc, trg)
             end
         end
@@ -228,7 +229,7 @@ function _nonrigid_cpd(
         converged && break
 
         expfactor = inv(-2 * sqsigma)
-        @. C = target.weights * source.weights' * exp(expfactor * R)
+        C .= weights(target) .* weights(source)' .* exp.(expfactor .* R)
         sum!(c_per_trg, C)
         outlier_term = outlier_preterm * (2pi * sqsigma)^(N // 2)
         C ./= outlier_term .+ c_per_trg
@@ -236,8 +237,8 @@ function _nonrigid_cpd(
         sum!(c_per_src, C)
         Z = sum(c_per_src)
 
-        mul!(to_matrix(displacements), to_matrix(target.points), C)
-        displacements .-= vec(c_per_src) .* source.points
+        mul!(to_matrix(displacements), to_matrix(points(target)), C)
+        displacements .-= vec(c_per_src) .* points(source)
         ratio_vars = sqsigma_displacements / sqsigma
         copyto!(smoothing, invgram)
         diagview(smoothing) .+= ratio_vars .* vec(c_per_src)

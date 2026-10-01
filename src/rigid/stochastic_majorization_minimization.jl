@@ -8,8 +8,8 @@ registration algorithm.
 """
 struct FullBatch <: AbstractBatch end
 
-point_cloud_iterator(::FullBatch, pc::PointCloud) =
-    PointCloudIterator(0, nothing, pc, false)
+weighted_iterator(::FullBatch, items, weights) =
+    WeightedIterator(items, weights, nothing, 0, nothing, false)
 
 """
     StochasticBatch(count, [rng = Random.default_rng()])
@@ -37,34 +37,98 @@ end
 
 StochasticBatch(count::Int) = StochasticBatch(count, Random.default_rng())
 
-function point_cloud_iterator(sb::StochasticBatch, pc::PointCloud)
-    count = min(sb.count, length(pc.points))
-    PointCloudIterator(count, sb.rng, pc, true)
+function weighted_iterator(sb::StochasticBatch, items, weights)
+    count = min(sb.count, length(weights))
+    WeightedIterator(items, weights, cumsum(weights), sb.count, sb.rng, true)
 end
 
-struct PointCloudIterator{PC <: PointCloud, Rng}
+struct WeightedIterator{I, W, WC, Rng}
+    items::I
+    weights::W
+    weights_cumsum::WC
     count::Int
     rng::Rng
-    pc::PC
     stochastic::Bool
 end
 
-function Base.iterate(pci::PointCloudIterator, i = 1)
-    if pci.stochastic
-        if i > pci.count
-            return nothing
-        end
-        weight = one(eltype(pci.pc.weights))
-        ((; sample_point(pci.rng, pci.pc)..., weight), i + 1)
+function _sample_categorical(rng, weights, weights_cumsum)
+    r = rand(rng, float(eltype(weights_cumsum)))
+    idx = searchsortedfirst(weights_cumsum, r * last(weights_cumsum))
+    idx = clamp(idx, eachindex(weights))
+    return idx
+end
+
+function _sample_categorical(rng, weights::FillArrays.AbstractFill, _weights_cumsum)
+    idx = rand(rng, eachindex(weights))
+    return idx
+end
+
+
+function Base.iterate(wi::WeightedIterator, i = 1)
+    if wi.stochastic
+        i > wi.count && return nothing
+        idx = _sample_categorical(wi.rng, wi.weights, wi.weights_cumsum)
+        weight = one(eltype(wi.weights))
+        item = wi.items[idx]
+        return ((; item, weight), i + 1)
     else
-        if i > lastindex(pci.pc.points)
-            return nothing
-        end
-        ((idx = i, point = pci.pc.points[i], weight = pci.pc.weights[i]), i + 1)
+        i > length(wi.items) && return nothing
+        item = wi.items[eachindex(wi.items)[i]]
+        weight = wi.weights[eachindex(wi.weights)[i]]
+        return ((; item, weight), i + 1)
     end
 end
 
 # For type stability during iterations in the registration algorithms, it is
 # crucial that this function returns something of the same type as its input.
-non_stochastic(pci::PCI) where {PCI <: PointCloudIterator} =
-    PointCloudIterator(pci.count, pci.rng, pci.pc, false)::PCI
+non_stochastic(wi::WI) where {WI <: WeightedIterator} =
+    WeightedIterator(wi.items, wi.weights, wi.weights_cumsum, wi.count, wi.rng, false)::WI
+
+struct Batched{Rng, I <: AbstractVector}
+    items::I
+    rng::Rng
+    batchsize::Int
+    stochastic::Bool
+end
+
+is_stochastic(b::Batched) =
+    b.rng !== nothing && b.stochastic && 2 * b.batchsize <= length(b.items)
+
+non_stochastic(b::Batched) = @set b.stochastic = false
+
+maybe_stochastic(b::Batched{Nothing}) = b
+maybe_stochastic(b::Batched) = @set b.stochastic = true
+
+function batched(sb::StochasticBatch, items)
+    batchsize = min(sb.count, length(items))
+    # we collect such that we later have a `Vector` for shuffling
+    return Batched(collect(items), sb.rng, batchsize, true)
+end
+
+batched(::FullBatch, items) = Batched(items, nothing, length(items), false)
+
+function batch(b::Batched, iteration::Int)
+    if is_stochastic(b)
+        number_of_batches = length(b.items) ÷ b.batchsize
+        pos = mod1(iteration, number_of_batches)
+        start = (pos - 1) * b.batchsize + 1
+        stop = if pos == number_of_batches
+            lastindex(b.items)
+        else
+            start + b.batchsize - 1
+        end
+        if pos == 1
+            shuffle!(b.rng, b.items)
+        end
+    else
+        start = firstindex(b.items)
+        stop = lastindex(b.items)
+    end
+    return @view b.items[start:stop]
+end
+
+function batch_length_ratio(b::Batched)
+    length(b.items) / b.batchsize
+end
+
+

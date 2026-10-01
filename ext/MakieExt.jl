@@ -1,6 +1,6 @@
 module MakieExt
 using PointCloudRegistration
-using PointCloudRegistration: avg_nn_dist
+using PointCloudRegistration: avg_nn_dist, max_of_weights
 # this makes the Makie recipe add methods to the functions defined in the main
 # package, so we can access them
 import PointCloudRegistration:
@@ -22,9 +22,9 @@ end
 
 function _plotsizes(
     pc::PointCloud,
-    sizefactor = avg_nn_dist(pc) / maximum(pc.weights),
+    sizefactor = avg_nn_dist(pc) / max_of_weights(pc),
 )
-    sizefactor .* pc.weights
+    sizefactor .* weights(pc)
 end
 
 maybe_collect(xs::AbstractVector) = collect(xs)
@@ -59,7 +59,7 @@ function Makie.plot!(plot::PointCloudPlotFlat)
         elseif sf isa Number
             _plotsizes(pc, sf)
         end
-        (pc.points, maybe_collect(ps))
+        (points(pc), maybe_collect(ps))
     end
     scatter!(
         plot,
@@ -97,7 +97,7 @@ function Makie.plot!(plot::PointCloudPlotMesh)
         elseif sf isa Number
             _plotsizes(pc, sf)
         end
-        (pc.points, maybe_collect(ps))
+        (points(pc), maybe_collect(ps))
     end
     meshscatter!(plot, plot.attributes, plot.positions; markersize = plot.sizes)
 end
@@ -140,7 +140,7 @@ end
 
 function Makie.plot!(plot::ScaffoldPlot)
     map!(plot.attributes, [:prep, :pointcloud], :segments) do prep, pc
-        [(pc.points[i], pc.points[j]) for (i, j) in prep.neighbor_graph.edges]
+        [(pc[i].coords, pc[j].coords) for (i, j) in prep.neighbor_edges.from_to]
     end
     linesegments!(plot, plot.attributes, plot.segments;)
 end

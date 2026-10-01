@@ -43,8 +43,8 @@ end
 dimension(::Displacement{N}) where {N} = N
 
 function (displacement::Displacement{N})(pc::PointCloud{N}) where {N}
-    @argcheck displacement.origin == pc.points "Displacement can only be applied to the source it was computed for."
-    return PointCloud(displacement.result, pc.weights)
+    @argcheck displacement.origin == points(pc) "Displacement can only be applied to the source it was computed for."
+    return PointCloud(displacement.result, weights(pc))
 end
 
 function Base.show(
@@ -63,6 +63,20 @@ function Base.show(
         eltype(eltype(vectors)),
     )
     Base.print_matrix(mat_io, to_matrix(vectors))
+end
+
+"""
+    nonrigidly_registered(source, target, args...; kwargs...)
+
+Performs non-rigid registration via [`nonrigid_registration`](@ref) and directly
+applies the computed displacement to the source.
+That is, this function returns the registered source.
+Additional (keyword) arguments are propagated to [`nonrigid_registration`](@ref).
+"""
+function nonrigidly_registered(source, target, args...; kwargs...)
+    source_pc = PointCloud(source)
+    displacement = nonrigid_registration(source_pc, target, args...; kwargs...)
+    return displacement(source_pc)
 end
 
 """

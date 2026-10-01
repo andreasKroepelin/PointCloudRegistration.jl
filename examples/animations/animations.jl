@@ -19,9 +19,9 @@ logo_mod = FileIO.load("../../assets/julia-logo/julia-logo-color-modified.png");
 heatmap(alpha.(logo_mod) .> 0)
 
 function img2pc(img, dist)
-    full_pc = density2pointcloud(alpha.(img'))
-    drop_threshold(full_pc, 0.01)
-    thin_to_distance(full_pc, dist)
+    full_pc = density2pointcloud(float.(alpha.(img')))
+    dropped = drop_threshold(full_pc, 0.01)
+    thin_to_distance(dropped, dist)
 end
 
 X = img2pc(logo, 10.0)
@@ -40,18 +40,18 @@ function report_restart(; cost, kwargs...)
     empty!(hist_transformation)
 end
 
-prepd_X = prepare_target_kc(X);
+prepd_X = prepare_target_kernelcorrelation(X);
 hist_transformation = []
 best_hist_transformation = []
 min_cost = Inf
-T = rigid_kc(Y, prepd_X; report_restart, report_iteration = report_iteration_r)
+T = rigid_registration(Y, X, KernelCorrelationMM(; report_restart, report_iteration = report_iteration_r); target_preparation = prepd_X)
 pushfirst!(
     best_hist_transformation,
     PointCloudRegistration.identity_transformation(
         first(best_hist_transformation),
     ),
-)
-rigid_trajectory = [T(Y) for T in best_hist_transformation]
+);
+rigid_trajectory = [T(Y) for T in best_hist_transformation];
 
 let
     fig = Figure()
@@ -63,38 +63,46 @@ let
     fig
 end
 
-function report_iteration_nr(; iter, new_source_points, sqsigma)
-    iter % 1000 == 0 && @info "iteration" iter sqrt(sqsigma)
-    push!(hist_new_source_points, copy(new_source_points))
+function report_iteration_nr(; iteration, new_source_points, sqsigma)
+    if iteration % 10_000 == 0
+        @info "iteration" iteration sqrt(sqsigma)
+        push!(hist_new_source_points, copy(new_source_points))
+    end
 end
 
 TY = T(Y)
-prepd_source = prepare_source_distancepreserving(TY; max_edge_length = 13)
+prepd_source = prepare_source_distancepreserving(TY; max_edge_length = 13);
 
 hist_new_source_points = []
-dTY = nonrigid_distancepreserving(
-    prepd_source,
-    X;
-    init_noise = 0,
-    regularizer = GeneralizedLogNormalRegularizer(2, 1.001),
-    report_iteration = report_iteration_nr,
-    iterations = 20_000,
+nr_transformation = nonrigid_registration(
+    TY,
+    X,
+    DistancePreserving(;
+        init_noise = 0,
+        sensitivity = 2,
+        rel_deviation = 0.01,
+        report_iteration = report_iteration_nr,
+        iterations = 100_000_000,
+        batching = StochasticBatch(20),
+        # batching = FullBatch(),
+    );
+    source_preparation = prepd_source,
 )
-dTY = PointCloud(collect(dTY.points), collect(dTY.weights))
+dTY = nr_transformation(TY)
 nonrigid_trajectory = let
     L = length(hist_new_source_points)
     l = length(best_hist_transformation)
-    [PointCloud(hist_new_source_points[i], Y.weights) for i in 1:cld(L, l):L]
-end
+    [PointCloud(hist_new_source_points[i], PointCloudRegistration.weights(Y)) for i in 1:cld(L, l):L]
+end;
 
 let
     fig = Figure()
     ax = Axis(fig[1, 1]; autolimitaspect = 1, yreversed = true)
     plot!(ax, TY; sizefactor = 0.15)
-    pts = eltype(TY.points)[]
-    for (j1, j2) in prepd_source.neighbor_graph.edges
-        push!(pts, TY.points[j1])
-        push!(pts, TY.points[j2])
+    pts = typeof(TY[1].coords)[]
+    for (j1, j2) in prepd_source.neighbor_edges.from_to
+        push!(pts, TY[j1].coords)
+        push!(pts, TY[j2].coords)
     end
     linesegments!(ax, stack(collect.(pts)); color = :gray)
     fig
@@ -140,7 +148,7 @@ let
         _ -> (),
         fig,
         "register-julia-logo.mp4",
-        1:170;
+        1:120;
         framerate = 30,
         compression = 20,
     )
