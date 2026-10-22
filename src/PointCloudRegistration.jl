@@ -69,10 +69,12 @@ export PointCloud,
     # = = = plotting = = =
     pointcloudplotflat,
     pointcloudplotmesh,
-    scaffoldplot,
+    scaffoldplotflat,
+    scaffoldplotmesh,
     pointcloudplotflat!,
     pointcloudplotmesh!,
-    scaffoldplot!
+    scaffoldplotflat!,
+    scaffoldplotmesh!
 
 public VecOfSVec,
     PointType,

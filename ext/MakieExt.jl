@@ -6,12 +6,16 @@ using PointCloudRegistration: avg_nn_dist, max_of_weights
 import PointCloudRegistration:
     pointcloudplotflat,
     pointcloudplotmesh,
-    scaffoldplot,
+    scaffoldplotflat,
+    scaffoldplotmesh,
     pointcloudplotflat!,
     pointcloudplotmesh!,
-    scaffoldplot!
+    scaffoldplotflat!,
+    scaffoldplotmesh!
 using Makie
 using Makie.Markdown
+using Makie.GeometryBasics
+using Distances
 
 function _ext_makie_docref(olddoc::Markdown.MD)
     olddoc_code = Markdown.plain(olddoc)
@@ -20,12 +24,7 @@ function _ext_makie_docref(olddoc::Markdown.MD)
     return Markdown.parse(newdoc_code)
 end
 
-function _plotsizes(
-    pc::PointCloud,
-    sizefactor = avg_nn_dist(pc) / max_of_weights(pc),
-)
-    sizefactor .* weights(pc)
-end
+autosizefactor(pc) = avg_nn_dist(pc) / max_of_weights(pc)
 
 maybe_collect(xs::AbstractVector) = collect(xs)
 maybe_collect(xs::Vector) = xs
@@ -48,17 +47,13 @@ You can control this relationship via the `sizefactor` attribute.
     Defaults to the average nearest neighbor distance in the point cloud
     divided by the maximum weight.
     """
-    sizefactor = :auto
+    sizefactor = Makie.automatic
 end
 
 function Makie.plot!(plot::PointCloudPlotFlat)
-    map!(plot.attributes, [:pointcloud], [:positions, :sizes]) do pc
-        sf = plot.sizefactor[]
-        ps = if sf == :auto
-            _plotsizes(pc)
-        elseif sf isa Number
-            _plotsizes(pc, sf)
-        end
+    map!(plot.attributes, [:pointcloud, :sizefactor], [:positions, :sizes]) do pc, sizefactor
+        sf = sizefactor isa Makie.Automatic ? autosizefactor(pc) : sizefactor
+        ps = sf .* weights(pc)
         (points(pc), maybe_collect(ps))
     end
     scatter!(
@@ -86,17 +81,13 @@ You can control this relationship via the `sizefactor` attribute.
     Defaults to the average nearest neighbor distance in the point cloud
     divided by the maximum weight.
     """
-    sizefactor = :auto
+    sizefactor = Makie.automatic
 end
 
 function Makie.plot!(plot::PointCloudPlotMesh)
-    map!(plot.attributes, [:pointcloud], [:positions, :sizes]) do pc
-        sf = plot.sizefactor[]
-        ps = if sf == :auto
-            _plotsizes(pc)
-        elseif sf isa Number
-            _plotsizes(pc, sf)
-        end
+    map!(plot.attributes, [:pointcloud, :sizefactor], [:positions, :sizes]) do pc, sizefactor
+        sf = sizefactor isa Makie.Automatic ? autosizefactor(pc) : sizefactor
+        ps = sf .* weights(pc)
         (points(pc), maybe_collect(ps))
     end
     meshscatter!(plot, plot.attributes, plot.positions; markersize = plot.sizes)
@@ -115,8 +106,33 @@ Makie.convert_arguments(
     displacement.result .- displacement.origin,
 )
 
+function _extract_segments(
+    prep::PointCloudRegistration.PreparedSourceDistPres,
+    pointcloud::PointCloud2Or3,
+)
+    pts = points(pointcloud)
+    n = length(prep.neighbor_edges)
+    endpoints = fill((zero(eltype(pts)), zero(eltype(pts))), n)
+    zero_dist = euclidean(pts[1], pts[1])
+    one_dist = oneunit(zero_dist)
+    stretches = fill(log(one_dist / one_dist), n)
+    maxd = typemin(zero_dist)
+    for idx in Base.OneTo(n)
+        ne = prep.neighbor_edges[idx]
+        (i, j) = ne.from_to
+        x = pts[i]
+        y = pts[j]
+        d = euclidean(x, y)
+        maxd = max(d, maxd)
+        s = abs(log(d / ne.distance))
+        endpoints[idx] = (x, y)
+        stretches[idx] = s
+    end
+    return (; endpoints, stretches, autoradius = maxd / 10)
+end
+
 """
-    scaffoldplot(prepared_source, pointcloud)
+    scaffoldplotflat(prepared_source, pointcloud)
 
 Plots the scaffold that is aimed to be preserved during `DistancePreserving`
 non-rigid registration using line segments.
@@ -129,25 +145,100 @@ It is only relevant that it has the same "meaning" of the points.
 This especially means that you can use the non-rigidly registered version of
 that point cloud here as well.
 """
-@recipe ScaffoldPlot (
+@recipe ScaffoldPlotFlat (
     prep::PointCloudRegistration.PreparedSourceDistPres,
     pointcloud::PointCloud2Or3,
 ) begin
-    Makie.documented_attributes(LineSegments)...
+    Makie.filtered_attributes(LineSegments; exclude = [])...
+    """
+    If set to `true` (default), lines are colored according to the
+    logarithmic relative stretch (that is,
+    `abs(log(distance / original_distance))`).
+    Otherwise, they all have the given `color`.
+    """
+    color_by_stretch = true
 end
 
-@doc (_ext_makie_docref(@doc scaffoldplot)) scaffoldplot
+@doc (_ext_makie_docref(@doc scaffoldplotflat)) scaffoldplotflat
 
-function Makie.plot!(plot::ScaffoldPlot)
-    map!(plot.attributes, [:prep, :pointcloud], :segments) do prep, pc
-        [(pc[i].coords, pc[j].coords) for (i, j) in prep.neighbor_edges.from_to]
+function Makie.plot!(plot::ScaffoldPlotFlat)
+    map!(
+        plot.attributes,
+        [:prep, :pointcloud, :color, :color_by_stretch],
+        [:endpoints, :stretch_color]
+    ) do prep, pc, color, color_by_stretch
+        (; endpoints, stretches) = _extract_segments(prep, pc)
+        stretch_color = color_by_stretch ? stretches : color
+        return (endpoints, stretch_color)
     end
-    linesegments!(plot, plot.attributes, plot.segments;)
+    linesegments!(plot, plot.attributes, plot.endpoints; color = plot.stretch_color)
 end
 
 Makie.plottype(
     ::PointCloudRegistration.PreparedSourceDistPres,
-    ::PointCloud2Or3,
-) = ScaffoldPlot
+    ::PointCloud{2},
+) = ScaffoldPlotFlat
+
+"""
+    scaffoldplotmesh(prepared_source, pointcloud)
+
+Plots the scaffold that is aimed to be preserved during `DistancePreserving`
+non-rigid registration using cylinder meshes.
+The `prepared_source` for the first argument can be obtained via
+[`prepare_source_distancepreserving`](@ref).
+
+Note that it is not required that `pointcloud` was used for
+`prepare_source_distancepreserving`.
+It is only relevant that it has the same "meaning" of the points.
+This especially means that you can use the non-rigidly registered version of
+that point cloud here as well.
+"""
+@recipe ScaffoldPlotMesh (
+    prep::PointCloudRegistration.PreparedSourceDistPres,
+    pointcloud::PointCloud{3},
+) begin
+    Makie.filtered_attributes(Makie.Mesh; exclude = [])...
+    """
+    If set to `true` (default), cylinders are colored according to the
+    logarithmic relative stretch (that is,
+    `abs(log(distance / original_distance))`).
+    Otherwise, they all have the given `color`.
+    """
+    color_by_stretch = true
+    """
+    The radius of each cylinder.
+    """
+    radius = Makie.automatic
+end
+
+@doc (_ext_makie_docref(@doc scaffoldplotmesh)) scaffoldplotmesh
+
+function Makie.plot!(plot::ScaffoldPlotMesh)
+    map!(plot.attributes, [:prep, :pointcloud, :radius, :color, :color_by_stretch], [:combined_mesh, :stretch_color]) do prep, pc, radius, color, color_by_stretch
+        (; endpoints, stretches, autoradius) = _extract_segments(prep, pc)
+        r = Makie.default_automatic(radius, autoradius)
+        meshes = [
+            triangle_mesh(Cylinder(Point3(x), Point3(y), r))
+            for (x, y) in endpoints
+        ]
+        combined_mesh = merge(meshes)
+        stretch_color = if color_by_stretch
+            nvertices = length(meshes[1].position) # should be 32 but let's be sure
+            @assert all(m -> length(m.position) == nvertices, meshes)
+            # Makie.mesh() wants one color per mesh vertex
+            repeat(stretches; inner = nvertices)
+        else
+            color
+        end
+        return (combined_mesh, stretch_color)
+    end
+    mesh!(plot, plot.attributes, plot.combined_mesh; color = plot.stretch_color)
+end
+
+Makie.plottype(
+    ::PointCloudRegistration.PreparedSourceDistPres,
+    ::PointCloud{3},
+) = ScaffoldPlotMesh
+Makie.preferred_axis_type(::ScaffoldPlotMesh) = Makie.LScene
 
 end
