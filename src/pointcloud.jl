@@ -396,16 +396,21 @@ function maxcoveigval(pc::PointCloud)
     cov ./ oneunit(eltype(cov)) |> Symmetric |> eigvals |> maximum
 end
 
-function bbox(xs::VecOfSVec)
+function bbox(xs::VecOfSVec; margin = false)
     lo = hi = first(xs)
     for point in xs
         lo = min.(point, lo)
         hi = max.(point, hi)
     end
+    if !iszero(margin)
+        mid = (lo + hi) / 2
+        lo -= margin * (mid - lo)
+        hi += margin * (hi - mid)
+    end
     lo, hi
 end
 
-bbox(pc::PointCloud) = bbox(points(pc))
+bbox(pc::PointCloud; kwargs...) = bbox(points(pc); kwargs...)
 
 function bbox_hypervolume(pc::PointCloud)
     lo, hi = bbox(pc)
