@@ -6,6 +6,7 @@ constraints to match the target.
 
 ```@docs
 nonrigid_registration(source, target, algorithm)
+nonrigidly_registered(source, target, args...; kwargs...)
 ```
 
 ## Displacement

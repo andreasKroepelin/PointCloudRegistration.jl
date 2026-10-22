@@ -30,11 +30,15 @@ links = InterLinks(
 # https://discourse.julialang.org/t/multiple-environments-in-documenter/63436/4
 EXAMPLES_DIR = joinpath(@__DIR__, "..", "examples")
 OUTPUT_DIR = joinpath(@__DIR__, "src", "generated")
-examples = [
-    "ribosome-puzzle/ribosome-puzzle.jl",
-    "biotisr/biotisr.jl",
-    # "wglmakie-test/wglmakie-test.jl",
-]
+examples = if "examples" in ARGS
+    [
+        "ribosome-puzzle/ribosome-puzzle.jl",
+        "biotisr/biotisr.jl",
+        # "wglmakie-test/wglmakie-test.jl",
+    ]
+else
+    []
+end
 jlcmd = Base.julia_cmd()
 for example in examples
     example_path = joinpath(EXAMPLES_DIR, example)

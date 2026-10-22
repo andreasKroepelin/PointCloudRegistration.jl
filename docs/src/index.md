@@ -82,10 +82,10 @@ However, we might be interested in explaining more of the differences between
 the point clouds, for which we turn to _non-rigid registration_:
 
 ```@repl 1
-nonrigid_displacement =  nonrigid_registration(
+nonrigid_displacement = nonrigid_registration(
   source2,
   target,
-  DistancePreserving(; max_edge_length = 45, sensitivity = 1.4, rel_deviation = 1e-4),
+  DistancePreserving(; max_edge_length = 45, sensitivity = 1.4, rel_deviation = 1e-1),
 )
 ```
 

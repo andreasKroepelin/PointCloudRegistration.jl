@@ -8,7 +8,7 @@ For two weighted point clouds
 ``y_1, \\dots, y_I \\in \\mathbb{R}^D`` with weights ``q_1, \\dots, q_I``
 their *Squared Displacement* is defined as
 ```math
-\\sum_{i, j \text{corresponding}} p_i q_j \\Vert y_j - x_i \\Vert^2
+\\sum_{i, j \\; \\text{corresponding}} p_i q_j \\Vert y_j - x_i \\Vert^2
  .
 ```
 To find the rotation and translation minimising the squard displacement between
@@ -16,7 +16,7 @@ two point clouds, there exists a closed form solution in form of the Kabsch
 algorithm.
 Therefore, this method is very fast and performs only a single pass over the
 point clouds.
-However, it requires [correspondences](@ref) between source and target.
+However, it requires correspondences between source and target.
 It is also very susceptible to outliers.
 
 **Unless you are very sure what you are doing, prefer [`GemanMcClureMM`](@ref)

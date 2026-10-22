@@ -33,9 +33,11 @@ drop_proportion
 drop_quantile
 ```
 
-You can also create a subset of a point cloud completely at your own control
-using `Base.getindex`
-
-```@docs
-Base.getindex(::PointCloud, ::AbstractVector{<:Integer})
+You can also do subsetting more manually via `filter` and indexing:
+```@repl
+using PointCloudRegistration # hide
+pc = PointCloud([1.0 2.0 3.0; 4.0 5.0 6.0], [0.1, 0.2, 0.3])
+pc[[1, 2]]
+pc[[false, true, true]]
+filter(weighted_point -> weighted_point.weight > 0.15, pc)
 ```

@@ -55,7 +55,7 @@ equal index are supposed to correspond to each other.
 - `iterations`: How many iterations to perform at most, might stop earlier if
   convergence is detected.
   Default: `50`
-- `batching`: How to select points from the source in each iteration, see
+- `batching`: How to select correspondence pairs in each iteration, see
   Section [Batching](@ref).
   Default: `FullBatch()`
 - `report_iteration`: Callback to run on every iteration.
@@ -88,11 +88,14 @@ equal index are supposed to correspond to each other.
 end
 
 """
-    rigid_registration(source, target, algorithm::GemanMcClureMM, [flip = NoFlip()])
+    rigid_registration(source, target, algorithm::GemanMcClureMM, [flip = NoFlip()]; [correspondences = Ordered()])
 
 Perform rigid registration via [`GemanMcClureMM`](@ref).
 See [here](@ref rigid_registration(::Any, ::Any, ::Any, ::Any)) for general info
 about this function.
+
+See Section [Specifying correspondences](@ref) on possible values for the
+`correspondences` keyword argument.
 
 # Example
 This demonstrates the robustness against outliers of the Geman-McClure cost by

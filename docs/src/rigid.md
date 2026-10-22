@@ -7,9 +7,10 @@ cloud, the _source_, to optimally match the other point cloud, the _target_.
 ```@docs
 rigid_registration(source, target; correspondences)
 rigid_registration(source, target, algorithm, flip)
+rigidly_registered(source, target, args...; kwargs...)
 ```
 
-## Correspondences
+## Specifying correspondences
 
 Rigid registration can work better if _correspondences_ between source and
 target are known.
@@ -22,7 +23,13 @@ Some of the algorithms can make use of that information, provided via the
 Ordered
 Unknown
 Correspondences
+```
+
+There exist some helper methods to construct/modify correspondences.
+
+```@docs
 matching_labels
+compatible_triangles
 ```
 
 ## Rigid registration algorithms

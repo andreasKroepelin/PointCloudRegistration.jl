@@ -24,6 +24,13 @@ registered source.
 The third argument, `algorithm`, determines how the registration is performed.
 See the following pages for available choices.
 
+### Shortcut
+If you are not interested in the `transformation`, you can obtain the same
+effect via [`rigidly_registered`](@ref) and [`nonrigidly_registered`](@ref):
+```julia
+registered_source = [non]rigidly_registered(source, target, algorithm)
+```
+
 ## Utilities
 
 PointCloudRegistration.jl also offers some convenient utility functions:

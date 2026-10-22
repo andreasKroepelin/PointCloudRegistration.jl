@@ -14,25 +14,22 @@ struct Ordered end
 Defines correspondences between certain points in the source and the target.
 Every element `(j, i)` of `idcs` means that the `j`-th point in the source
 corresponds to the `i`-th point to the target.
-Optionally, you can provide weights for every correspondence.
 """
 struct Correspondences
     idcs::Vector{NTuple{2, Int}}
-    # weights::W
-
-    # function Correspondences(idcs, weights)
-    #     @argcheck length(idcs) == length(weights)
-    #     new{typeof(weights)}(idcs, weights)
-    # end
 end
-
-# Correspondences(idcs::AbstractVector{NTuple{2, Int}}) =
-#     Correspondences(idcs, FillArrays.Trues(length(idcs)))
 
 """
     matching_labels(source_labels, target_labels)
 
-Creates [`Correspondences`](@ref) between those 
+Creates [`Correspondences`](@ref) between equal labels.
+This is useful if `source_labels` and `target_labels` are lists of labels for
+the points in source and target point clouds you plan to rigidly register.
+
+```julia
+julia> matching_labels(['A', 'B', 'A', 'C'], ['C', 'B', 'A', 'B'])
+Correspondences([(1, 3), (2, 2), (2, 4), (3, 3), (4, 1)])
+```
 """
 function matching_labels(source_labels, target_labels; by = identity)
     idcs = NTuple{2, Int}[]
@@ -46,6 +43,16 @@ function matching_labels(source_labels, target_labels; by = identity)
     return Correspondences(idcs)
 end
 
+"""
+    Unknown()
+
+Expresses no preference at all what points in the source correspond to what
+points in the target.
+A correspondence based registration method will thus have to consider the full
+cartesian product.
+Instead, it is advised to use a registration algorithm that does not rely on
+correspondences.
+"""
 struct Unknown end
 
 function corresponding_indices(::Ordered, source, target)
@@ -55,9 +62,6 @@ function corresponding_indices(::Ordered, source, target)
     return StructVector{NTuple{2, Int}}((src_idcs, trg_idcs))
 end
 
-# nzidcsvals(mat::AbstractMatrix, _source, _target) =
-#     (Base.Broadcast.Broadcasted(Tuple, (CartesianIndices(mat),)), mat)
-
 corresponding_indices(c::Correspondences, _source, _target) = c.idcs
 
 function corresponding_indices(::Unknown, source, target)
@@ -66,6 +70,20 @@ function corresponding_indices(::Unknown, source, target)
     return Tuple.(CartesianIndices((src_idcs, trg_idcs)))
 end
 
+"""
+    compatible_triangles(correspondences, source, target; [deviation = 0.1, coverage = 100])
+
+Finds [`Correspondences`](@ref) that are a subset of the given `correspondences`
+where for each correspondence pair `(j, i)` the points `points(source)[j]` and
+`points(target)[i]` have been identified to be part of _compatible triangles_.
+Such compatible triangles consists of three source points ``A``, ``B``, ``C``
+and three target points ``A'``, ``B'``, ``C'`` with matching side lengths, that
+is the length of ``A B`` and the length of ``A' B'`` differ by not more than
+10 % for `deviation = 0.1`, and so on for ``A C`` and ``B C``.
+
+Each element of `correspondences` gets `coverage` chances to be part of a
+triangle.
+"""
 function compatible_triangles(
     correspondences,
     source::PointCloud{N},
@@ -100,7 +118,7 @@ function compatible_triangles(
         end
     end
 
-    sort!(compatible_correspondences)
     unique!(compatible_correspondences)
+    sort!(compatible_correspondences)
     return Correspondences(compatible_correspondences)
 end
