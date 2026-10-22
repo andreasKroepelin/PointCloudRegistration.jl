@@ -2333,7 +2333,7 @@ version = "1.2.0"
 deps = ["Accessors", "ArgCheck", "CoordinateTransformations", "Distances", "FillArrays", "LinearAlgebra", "NearestNeighbors", "PrecompileTools", "Random", "Rotations", "SpecialFunctions", "StaticArrays", "Statistics", "StatsBase", "StructArrays"]
 path = "."
 uuid = "afb9b67c-ae14-49fb-afbe-36d52467eca1"
-version = "0.1.0"
+version = "0.2.0"
 weakdeps = ["DimensionalData", "ExactOptimalTransport", "MRCFile", "Makie", "Mooncake"]
 
     [deps.PointCloudRegistration.extensions]
