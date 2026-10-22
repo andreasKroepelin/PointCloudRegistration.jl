@@ -124,7 +124,6 @@ we quantify the deviation of ``\\hat{d}_{j k}`` from ``d_{j k}`` as
     S <: Real,
     D <: Real,
     B <: AbstractBatch,
-    N <: Number,
     RI,
 }
     max_edge_length::E = nothing
@@ -132,7 +131,6 @@ we quantify the deviation of ``\\hat{d}_{j k}`` from ``d_{j k}`` as
     rel_deviation::D
     iterations::Int = 100_000
     batching::B = StochasticBatch(50)
-    init_noise::N = false
     report_iteration::RI = no_report
 end
 
@@ -180,7 +178,6 @@ function nonrigid_registration(
         GeneralizedLogNormalRegularizer(alg.sensitivity, alg.rel_deviation),
         alg.iterations,
         alg.batching,
-        alg.init_noise,
         alg.report_iteration,
     )
 end
@@ -192,7 +189,6 @@ function _nonrigid_distancepreserving(
     regularizer,
     iterations,
     batching,
-    init_noise,
     report_iteration::RI,
 ) where {N, RI}
     (; neighbor_edges, init_sqsigma) = prepd_source
@@ -220,12 +216,6 @@ function _nonrigid_distancepreserving(
     adam = Adam.State(state)
 
     new_source_points .= points(source)
-    if !iszero(init_noise)
-        V = eltype(new_source_points)
-        for j in eachindex(new_source_points)
-            new_source_points[j] += init_noise * randn(V)
-        end
-    end
 
     target_wsum = sum_of_weights(target)
 
@@ -268,6 +258,7 @@ function _nonrigid_distancepreserving(
             logsigma_gradient += trg_w * (N - invsqsigma * logsigma_gradient_per_trg / sum_of_coeffs)
         end
         # @info "batch" target_batch_wsum
+        target_batch_wsum += sqrt(eps(target_batch_wsum))
         gradient .*= 2 / target_batch_wsum
 
         regularize_neighbor_distances!(
