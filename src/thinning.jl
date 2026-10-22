@@ -116,7 +116,8 @@ function thin_to_distance(
     iterations = 100,
     convergence = 1e-2,
     report_iteration::RI = no_report,
-) where {N, RI}
+    report_update::RU = no_report,
+) where {N, RI, RU}
     state = DpMeansState(pc)
     sow = sum_of_weights(pc)
 
@@ -134,19 +135,22 @@ function thin_to_distance(
                 newcluster!(state, i, point)
                 additions += 1
                 change += w
+                report_update(; iteration, state.centers, state.weightsums, state.indicators)
             end
         end
         recenter!(state, pc)
         relchange = change / sow
+        relchange < convergence && break
+        remove_empty!(state; relabel = true)
+
         report_iteration(;
             iteration,
             relchange,
             numclusters = numclusters(state),
+            state.centers,
+            state.weightsums,
             additions,
         )
-        relchange < convergence && break
-
-        remove_empty!(state; relabel = true)
     end
 
     remove_empty!(state; relabel = false)
